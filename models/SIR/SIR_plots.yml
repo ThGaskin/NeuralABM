@@ -1,0 +1,212 @@
+_:
+  colors:
+    yellow:           &yellow           '#F5DDA9'
+    darkblue:         &darkblue         '#2F7194'
+    red:              &red              '#ec7070'
+    skyblue:          &skyblue          '#97c3d0'
+    green:            &green            '#48675A'
+    lightbrown:       &lightbrown       '#C6BFA2'
+    orange:           &orange           '#EC9F7E'
+    lightgreen:       &lightgreen       '#AFD8BC'
+    grey:             &grey             '#3D4244'
+
+    color_p_i:        &color_p_i        '#ec7070'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:       &full_width       7.516
+    half_width:       &half_width       !expr 7.516 / 2
+    third_width:      &third_width      !expr 7.516 / 3
+    quarter_width:    &quarter_width    !expr 7.516 / 4
+
+  # True parameters
+  true_parameters:
+    p_infect:         &p_infect         0.3
+    t_infect:         &t_infect         14
+
+
+# ======================================================================================================================
+#  ╔═╗╦  ╔═╗╔╦╗╔═╗
+#  ╠═╝║  ║ ║ ║ ╚═╗
+#  ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+
+# Animated state plot
+state:
+  based_on: state
+  # Animation control
+
+  # Plot helpers
+#  helpers:
+#    setup_figure:
+#      figsize: [8, 8]
+#    set_title:
+#      title: 'Diffusive SIR model'
+#    set_limits:
+#      x: [0, 10]
+#      y: [0, 10]
+#    set_ticks:
+#      x: &labels
+#        major:
+#          locs: [0, 10]
+#          labels: ['-L', '+L']
+#      y:
+#        <<: *labels
+
+# Densities of agent types
+densities:
+  based_on: densities_comparison
+  x: time
+  col: type
+
+# Plot the evolution of the training loss
+loss:
+  based_on: loss
+  style:
+    figure.figsize: [ *full_width, *third_width ]
+
+# Plot the predicted infection probability
+predictions/p_infectious:
+  based_on: predictions
+  helpers:
+    set_hv_lines:
+      hlines:
+        - pos: *p_infect
+          color: *yellow
+          zorder: -1
+          linestyle: dotted
+    set_labels:
+      y: ' '
+    set_legend:
+      custom_labels: ['$p_\mathrm{infect}$']
+      title: ~
+      loc: 'best'
+    set_texts:
+      texts:
+        - x: 0.33
+          y: *p_infect
+          s: '$p_i$'
+          color: *color_p_i
+          bbox: &textbox
+            facecolor: white
+            linewidth: 0
+            alpha: 1.0
+            boxstyle: circle
+            pad: 0.4
+    set_limits:
+      y: [0, 1]
+
+predictions/t_infectious:
+  based_on: predictions
+  select:
+      data:
+        path: predicted_infection_time
+        transform:
+          - .data: [ !dag_prev ]
+  helpers:
+    set_hv_lines:
+      hlines:
+        - pos: *t_infect
+          color: *yellow
+          zorder: -1
+          linestyle: dotted
+    set_labels:
+      y: ' '
+    set_legend:
+      custom_labels: ['$t_\mathrm{infect}$']
+      title: ~
+      loc: 'best'
+    set_texts:
+      texts:
+        - x: 0.33
+          y: *t_infect
+          s: '$t_i$'
+          color: *color_p_i
+          bbox:
+            <<: *textbox
+
+predictions/noise:
+  based_on: predictions
+  select:
+      data:
+        path: predicted_noise
+        transform:
+          - .data: [ !dag_prev ]
+  helpers:
+    set_labels:
+      y: ' '
+    set_legend:
+      custom_labels: ['$\sigma$']
+      title: ~
+      loc: 'best'
+
+loss_density/p_infectious:
+  based_on: loss_density
+  select:
+    param1:
+      path: predicted_infection_rate
+  helpers:
+    set_labels:
+      x: '$p_i$'
+    set_hv_lines:
+      vlines:
+        - pos: *p_infect
+          color: *red
+          zorder: 1
+          linestyle: dotted
+
+loss_density/t_infectious:
+  based_on: loss_density
+  select:
+    param1:
+      path: predicted_infection_time
+  helpers:
+    set_labels:
+      x: '$t_i$'
+    set_hv_lines:
+      vlines:
+        - pos: *t_infect
+          color: *red
+          zorder: 1
+          linestyle: dotted
+
+marginals/p_infectious:
+  based_on: marginals
+  helpers:
+    set_labels:
+      x: '$p$'
+      y: '$\rho(p)$'
+    set_hv_lines:
+      vlines:
+        - pos: *p_infect
+          color: *red
+          zorder: 1
+          linestyle: dotted
+  style:
+    figure.figsize: [*half_width, *quarter_width]
+
+marginals/t_infectious:
+  based_on: marginals/p_infectious
+  select:
+    param1:
+      path: predicted_infection_time
+  helpers:
+    set_labels:
+      x: '$\tau$'
+      y: '$\rho(\tau)$'
+    set_hv_lines:
+      vlines:
+        - pos: *t_infect
+          color: *red
+          zorder: 1
+          linestyle: dotted
+
+marginals/noise:
+  based_on: marginals/p_infectious
+  select:
+    param1:
+      path: predicted_noise
+  helpers:
+    set_labels:
+      x: '$\sigma$'
+      y: '$\rho(\sigma)$'

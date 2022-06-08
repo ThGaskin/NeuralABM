@@ -1,0 +1,43 @@
+# The model default configuration for the neural Harris-Wilson model
+---
+# Settings for the dataset, which is loaded externally or can be synthetically generated using the ABM
+Data:
+  synthetic_data:
+    num_steps: 3000
+    N_origin: !is-positive-int 100
+    N_destination: !is-positive-int 10
+    alpha: !is-positive-or-zero 1.2
+    beta: !is-positive-or-zero 4
+    kappa: !is-positive-or-zero 2
+    sigma: !is-positive-or-zero 0
+    epsilon: !is-positive 10
+    dt: !is-positive 0.01
+    training_data_size: !is-positive-int 1
+    init_weights:
+      mean: !param
+        default: 1.2
+        limits: [0, ~]
+        dtype: float
+      std: !param
+        default: 1.2
+        limits: [0, ~]
+        dtype: float
+
+# Settings for the neural net architecture
+NeuralNet:
+  num_layers: !is-positive-int 2
+  nodes_per_layer: !is-positive-int 20
+  activation_funcs:
+    -1: abs
+  bias: !is-bool True
+  init_bias: [0, 4]
+  learning_rate: !is-positive 0.002
+
+# Settings for the neural net training
+Training:
+  to_learn: [alpha, beta, kappa, sigma]
+  batch_size: !is-positive-int 1
+
+# Whether to write out the computation time for each epoch
+write_time: False
+

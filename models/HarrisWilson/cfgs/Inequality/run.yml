@@ -1,0 +1,24 @@
+---
+perform_sweep: True
+paths:
+  model_note: Inequality
+parameter_space:
+  num_epochs: 0
+  HarrisWilson:
+    Data:
+      synthetic_data:
+        N_origin: 1000
+        N_destination: 100
+        training_data_size: 1
+        dt: 0.001
+        alpha: !sweep
+          default: 1.2
+          linspace: [0.1, 3, 30] # Increase the number of points to increase resolution. This will take a while to run!
+        beta: !sweep
+          default: 4
+          linspace: [0.1, 6, 30]
+        sigma: 0.0
+        epsilon: 5
+        write_start: 4999
+        write_every: 1
+        num_steps: 5000

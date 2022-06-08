@@ -1,0 +1,40 @@
+---
+perform_sweep: True
+paths:
+  model_note: Marginals
+parameter_space:
+  seed: !sweep
+    default: 4
+    range: [100]
+  write_every: 1
+  write_start: 1
+  num_epochs: !coupled-sweep
+    default: 1000
+    target_name: sigma
+    # The batch size for the noisy datasets is 4, so we need to reduce the
+    # number of epochs accordingly to ensure comparability
+    values: [ 8000, 2000, 2000, 2000, 2000 ]
+  HarrisWilson:
+    Data:
+      load_from_dir: !sweep
+        default: data/HarrisWilson/synthetic_data/noisy/sigma_0
+        values: [data/HarrisWilson/synthetic_data/noisy/sigma_0,
+                 data/HarrisWilson/synthetic_data/noisy/sigma_2.5e-1,
+                 data/HarrisWilson/synthetic_data/noisy/sigma_5e-1,
+                 data/HarrisWilson/synthetic_data/noisy/sigma_1,
+                 data/HarrisWilson/synthetic_data/noisy/sigma_1.5
+                ]
+        name: sigma
+    NeuralNet:
+      num_layers: 1
+      nodes_per_layer: 20
+      activation_funcs:
+        -1: abs
+      bias: true
+      init_bias: [0, 4]
+      learning_rate: 0.002
+      optimizer: Adam
+    Training:
+      batch_size: 1
+      to_learn: [alpha, beta, kappa, sigma]
+

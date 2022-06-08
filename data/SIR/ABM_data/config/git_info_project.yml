@@ -1,0 +1,23 @@
+---
+dirty: true
+git_diff: /Users/thomasgaskin/utopya_output/SIR/220927-081223_ABM_data/config/git_diff_project.patch
+git_status:
+- [M, models/HarrisWilson/ABM.py]
+- ['', M models/HarrisWilson/HarrisWilson_cfg.yml]
+- ['', M models/HarrisWilson/cfgs/London_dataset/run.yml]
+- ['', M models/HarrisWilson/cfgs/Loss_landscape/run.yml]
+- ['', M models/HarrisWilson/cfgs/Marginals/eval.yml]
+- ['', M models/HarrisWilson/cfgs/Marginals/run.yml]
+- ['', M models/HarrisWilson/cfgs/Performance_analysis/run.yml]
+- ['', M models/HarrisWilson/cfgs/Sample_run/run.yml]
+- ['', M models/SIR/SIR_cfg.yml]
+- ['', M models/SIR/cfgs/Predictions/eval.yml]
+- ['', M models/SIR/cfgs/Predictions/run.yml]
+have_git_repo: true
+latest_commit: {author: Thomas Gaskin <tgaskin@live.co.uk>, author_date: '2022-09-22
+    16:49:28', commit: ce032b22c2b88a890d7cbb4b892e7f2125f762a7, gitdir: /Users/thomasgaskin/Neural_ABM/.git,
+  message: 'Update doc strings, clean-up code and config sets for HW', parent: 113ff72cf612a062a4233d7d214f16c77816cf33,
+  refs: main, tree: e7cf2a87c250ec96d41e480b9d33048039a740cb}
+project_base_dir: /Users/thomasgaskin/Neural_ABM
+project_name: NeuralABM
+

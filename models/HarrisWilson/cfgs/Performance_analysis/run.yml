@@ -1,0 +1,51 @@
+---
+paths:
+  model_note: Performance_analysis
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 2
+    range: [10]
+  num_epochs: 6000
+  write_start: 1
+  write_every: 10
+  HarrisWilson:
+    Data:
+      load_from_dir: !sweep
+        default: data/HarrisWilson/synthetic_data/noiseless/N_100_M_10
+        values: [
+            data/HarrisWilson/synthetic_data/noiseless/N_100_M_10,
+            data/HarrisWilson/synthetic_data/noiseless/N_200_M_20,
+            data/HarrisWilson/synthetic_data/noiseless/N_500_M_50,
+            data/HarrisWilson/synthetic_data/noiseless/N_1000_M_100,
+            data/HarrisWilson/synthetic_data/noiseless/N_2000_M_200,
+            data/HarrisWilson/synthetic_data/noiseless/N_3000_M_300,
+            data/HarrisWilson/synthetic_data/noiseless/N_4000_M_400,
+            data/HarrisWilson/synthetic_data/noiseless/N_5000_M_500,
+            data/HarrisWilson/synthetic_data/noiseless/N_6000_M_600,
+            data/HarrisWilson/synthetic_data/noiseless/N_7000_M_700,
+            data/HarrisWilson/synthetic_data/noiseless/N_8000_M_800,
+            data/HarrisWilson/synthetic_data/noiseless/N_10000_M_1000
+        ]
+        name: nw_size
+
+    # Settings for the neural net architecture
+    NeuralNet:
+      num_layers: 1
+      nodes_per_layer: 20
+      activation_funcs:
+        -1: abs
+      bias: True
+      init_bias: [ 0, 4 ]
+      learning_rate: 0.002
+      optimizer: Adam
+
+    # Settings for the neural net training
+    Training:
+      to_learn: [ alpha, beta, kappa ]
+      batch_size: 1
+      true_parameters:
+        sigma: 0
+
+    # Write out the training time for each epoch
+    write_time: True
