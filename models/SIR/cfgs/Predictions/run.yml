@@ -1,0 +1,25 @@
+perform_sweep: true
+paths:
+  model_note: Predictions
+parameter_space:
+  seed: !sweep
+    default: 1
+    range: [20]
+  num_epochs: 60
+  write_start: 1
+  write_every: 1
+  SIR:
+    Data:
+      load_from_dir: data/SIR/ABM_data/data/uni0/data.h5
+    NeuralNet:
+      num_layers: 1
+      nodes_per_layer: 20
+      bias: True
+      init_bias: [0, 1]
+      activation_funcs:
+        -1: abs
+      learning_rate: 0.002
+      optimizer: Adam
+    Training:
+      batch_size: 90
+      to_learn: [p_infect, t_infectious, sigma]

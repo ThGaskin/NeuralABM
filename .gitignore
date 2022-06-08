@@ -1,5 +1,5 @@
+.idea/
 .DS_Store
-.idea
 .vscode/*
 venv/
 __pycache__/

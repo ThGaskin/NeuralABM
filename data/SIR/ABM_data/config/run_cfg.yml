@@ -1,0 +1,21 @@
+paths:
+  model_note: ABM_data
+parameter_space:
+  seed: 0
+  num_epochs: 1
+  write_start: 1
+  write_every: 1
+  SIR:
+    Data:
+      synthetic_data:
+        type: from_ABM
+        N: 3000
+        r_infectious: 0.3
+        p_infect: 0.2
+        t_infectious: 14
+        num_steps: 100
+        sigma: 0.1
+        sigma_s: 0.02
+        sigma_i: 0.01
+        sigma_r: 0.02
+        is_periodic: true

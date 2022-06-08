@@ -1,0 +1,51 @@
+.variables:
+  base_path:        &base_path    data/SIR
+  loss_limit:       &loss_limit   1e-15
+
+  colors: &colors
+    yellow:         &yellow           '#F5DDA9'
+    darkblue:       &darkblue         '#2F7194'
+    red:            &red              '#ec7070'
+    skyblue:        &skyblue          '#97c3d0'
+    darkgreen:      &darkgreen        '#48675A'
+    lightbrown:     &lightbrown       '#C6BFA2'
+    orange:         &orange           '#EC9F7E'
+    lightgreen:     &lightgreen       '#AFD8BC'
+    grey:           &grey             '#3D4244'
+
+  page_widths:
+    full_width:     &full_width       7.00787402
+    half_width:     &half_width       !expr 7.00787402 / 2
+    third_width:    &third_width      !expr 7.00787402 / 3
+    quarter_width:  &quarter_width    !expr 7.00787402 / 4
+    fifth_width:    &fifth_width      !expr 7.00787402 / 5
+
+# Densities of agent types
+# Snapshots of the ABM state at four different times
+state:
+  based_on:
+    - state
+    - .animation.frames
+  frames_isel: [3, 13, 30, 45]
+  add_colorbar: False
+  style:
+    axes.grid: False
+    axes.spines.top: False
+    axes.spines.bottom: False
+    axes.spines.left: False
+    axes.spines.right: False
+    savefig.bbox: tight
+  suptitle_fstr: ''
+  helpers:
+    setup_figure:
+      figsize: [*quarter_width, *quarter_width]
+    set_limits:
+      x: [0, 10]
+      y: [0, 10]
+    set_ticks:
+      x: &labels
+        major:
+          locs: []
+          labels: []
+      y:
+        <<: *labels

@@ -1,0 +1,239 @@
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+
+.variables:
+  base_path:        &base_path    data/SIR
+  loss_limit:       &loss_limit   1e-15
+
+  colors: &colors
+    yellow:         &yellow           '#F5DDA9'
+    darkblue:       &darkblue         '#2F7194'
+    red:            &red              '#ec7070'
+    skyblue:        &skyblue          '#97c3d0'
+    darkgreen:      &darkgreen        '#48675A'
+    lightbrown:     &lightbrown       '#C6BFA2'
+    orange:         &orange           '#EC9F7E'
+    lightgreen:     &lightgreen       '#AFD8BC'
+    grey:           &grey             '#3D4244'
+
+  page_widths:
+    full_width:     &full_width       7.00787402
+    half_width:     &half_width       !expr 7.00787402 / 2
+    third_width:    &third_width      !expr 7.00787402 / 3
+    quarter_width:  &quarter_width    !expr 7.00787402 / 4
+    fifth_width:    &fifth_width      !expr 7.00787402 / 5
+
+  true_values:
+    p_infectious:   &p_infectious     0.2
+    t_infectious:   &t_infectious     14
+
+# ======================================================================================================================
+#  ╔═╗╦╦═╗  ╔╦╗╔═╗╔╗╔╔═╗╦╔╦╗╦╔═╗╔═╗
+#  ╚═╗║╠╦╝   ║║║╣ ║║║╚═╗║ ║ ║║╣ ╚═╗
+#  ╚═╝╩╩╚═  ═╩╝╚═╝╝╚╝╚═╝╩ ╩ ╩╚═╝╚═╝
+# ======================================================================================================================
+
+# Comparison of densities of agent types for the simulation (top) and prediction (bottom)
+densities:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+  select_and_combine:
+    fields:
+      pred_counts:
+        path: predicted_counts
+        transform:
+          - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
+      true_counts:
+        path: true_counts
+        transform:
+          - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
+  transform:
+    - .mean: [ !dag_tag pred_counts, seed ]
+      tag: mean_pred
+    - .std: [ !dag_tag pred_counts, seed ]
+      tag: std_pred
+    - .mean: [ !dag_tag true_counts, seed ]
+      tag: mean_true
+    - .std: [ !dag_tag true_counts, seed ]
+      tag: std_true
+    - xr.Dataset:
+        data_vars:
+          density: !dag_tag mean_pred
+          err: !dag_tag std_pred
+      tag: pred_dset
+    - xr.Dataset:
+        data_vars:
+          density: !dag_tag mean_true
+          err: !dag_tag std_true
+      tag: true_dset
+    - operation: pd.Index
+      args: [ [ 'true', 'predicted' ] ]
+      kwargs:
+        name: 'type'
+    - xr.concat: [ [ !dag_tag true_dset, !dag_tag pred_dset ], !dag_prev ]
+      tag: data
+
+    - .sel: [!dag_tag true_dset, { kind: infected }]
+    - .argmax: [ !dag_prev , time ]
+    - getitem: [!dag_prev , 'density']
+    - .item: [!dag_prev ]
+      tag: true_peak
+
+    - .sel: [ !dag_tag pred_dset, { kind: infected } ]
+    - .argmax: [ !dag_prev , time ]
+    - getitem: [ !dag_prev , 'density' ]
+    - .item: [ !dag_prev ]
+      tag: pred_peak
+
+  x: time
+  row: type
+  y: density
+  yerr: err
+  hue: kind
+  add_legend: false
+  linewidth: 1.5
+  figsize: [ *half_width, *half_width ]
+  helpers:
+    set_title:
+      title: ~
+    set_labels:
+      y: ' '
+    # Plot the times of infection peaks
+    axis_specific:
+      true:
+        axis: [ 0, 0 ]
+        set_hv_lines:
+          vlines:
+            - pos: !dag_result true_peak
+              color: *red
+              linestyle: dotted
+      predicted:
+        axis: [ -1, -1 ]
+        set_hv_lines:
+          vlines:
+            - pos: !dag_result pred_peak
+              color: *red
+              linestyle: dotted
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[red]:}', '{colors[darkgreen]:}', '{colors[lightgreen]:}'])"
+      colors: *colors
+  file_ext: pdf
+
+# ======================================================================================================================
+#  ╦╔╗╔╔═╗╔═╗╔═╗╔╦╗╦╔═╗╔╗╔  ╔═╗╦═╗╔═╗╔╗
+#  ║║║║╠╣ ║╣ ║   ║ ║║ ║║║║  ╠═╝╠╦╝║ ║╠╩╗
+#  ╩╝╚╝╚  ╚═╝╚═╝ ╩ ╩╚═╝╝╚╝  ╩  ╩╚═╚═╝╚═╝
+# ======================================================================================================================
+
+p_infectious:
+  based_on: .creator.multiverse
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
+  compute_only: [data, info_str, mode]
+  file_ext: pdf
+  select_and_combine:
+    fields:
+      param1:
+        path: predicted_infection_rate
+        transform:
+          - .squeeze_with_drop: [ !dag_prev ]
+      loss:
+        path: loss
+        transform:
+          - np.maximum: [ !dag_prev , *loss_limit ]
+          - log10: [ !dag_prev ]
+          - mul: [ !dag_prev , -1 ]
+          - np.exp: [!dag_prev ]
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+    - NeuralABM.compute_marginals: [ !dag_prev ]
+      kwargs:
+        bins: 200
+      tag: data
+    - NeuralABM.compute_mode: [ !dag_tag data]
+    - getitem: [!dag_prev , 'mode']
+    - .format: [ '{:.2f}', !dag_prev ]
+      tag: mode
+    - NeuralABM.compute_mean: [ !dag_tag data ]
+    - getitem: [!dag_prev , 'mean']
+      tag: mean
+    - NeuralABM.compute_std: [ !dag_tag data ]
+    - getitem: [!dag_prev , 'std']
+      tag: var
+    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_tag var ]
+      tag: info_str
+  color: *darkblue
+  smooth_kwargs:
+    enabled: true
+    sigma: 3.0
+  info_box_labels:
+    info_str: 'E[$\hat{\beta}$]'
+    mode: '$\mathrm{mode}$'
+  helpers:
+    set_labels:
+      x: '$\beta$'
+    set_hv_lines:
+      vlines:
+        - pos: *p_infectious
+          color: *red
+          linestyle: dotted
+    set_limits:
+      x: [min, 0.6]
+  style:
+    figure.figsize: [ *third_width, *quarter_width ]
+
+# ======================================================================================================================
+#  ╦╔╗╔╔═╗╔═╗╔═╗╔╦╗╦╔═╗╔╗╔  ╔╦╗╦╔╦╗╔═╗
+#  ║║║║╠╣ ║╣ ║   ║ ║║ ║║║║   ║ ║║║║║╣
+#  ╩╝╚╝╚  ╚═╝╚═╝ ╩ ╩╚═╝╝╚╝   ╩ ╩╩ ╩╚═╝
+# ======================================================================================================================
+
+t_infectious:
+  based_on: p_infectious
+  select_and_combine:
+    fields:
+      param1:
+        path: predicted_infection_time
+  info_box_labels:
+    info_str: 'E[$\hat{\tau}$]'
+  helpers:
+    set_labels:
+      x: '$\tau$'
+    set_hv_lines:
+      vlines:
+        - pos: *t_infectious
+          color: *red
+          linestyle: dotted
+    set_limits:
+      x: [ 5, max ]
+
+# ======================================================================================================================
+#  ╔╗╔╔═╗╦╔═╗╔═╗
+#  ║║║║ ║║╚═╗║╣
+#  ╝╚╝╚═╝╩╚═╝╚═╝
+# ======================================================================================================================
+
+noise:
+  based_on: p_infectious
+  select_and_combine:
+    fields:
+      param1:
+        path: predicted_noise
+  info_box_labels:
+    info_str: 'E[$\hat{\sigma}$]'
+  helpers:
+    set_labels:
+      x: '$\sigma$'
+    set_hv_lines:
+      vlines: ~
+    set_limits:
+      x: [ 0, 0.6 ]

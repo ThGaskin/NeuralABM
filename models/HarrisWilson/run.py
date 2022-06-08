@@ -5,23 +5,23 @@ import sys
 import h5py as h5
 import numpy as np
 import ruamel.yaml as yaml
+import time
 import torch
-from utopya._import_tools import import_module_from_path
+
+from dantro._import_tools import import_module_from_path
 
 sys.path.append(up(up(__file__)))
 sys.path.append(up(up(up(__file__))))
 
 HW = import_module_from_path(mod_path=up(up(__file__)), mod_str='HarrisWilson')
-core = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='core')
+base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include')
 
-# -----------------------------------------------------------------------------
-# -- Model implementation -----------------------------------------------------
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# -- Model implementation ----------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 class HarrisWilson_NN:
-    """ Should only receive: dataset, neural net, abm. does nothing but run and write.
-    """
 
     def __init__(
         self,
@@ -29,11 +29,12 @@ class HarrisWilson_NN:
         *,
         rng: np.random.Generator,
         h5group: h5.Group,
-        neural_net: core.NeuralNet,
+        neural_net: base.NeuralNet,
         ABM: HW.HarrisWilsonABM,
-        params_to_learn,
-        true_parameters: dict=None,
+        to_learn: list,
         write_every: int = 1,
+        write_start: int = 1,
+        write_time: bool = False,
         **__,
     ):
         """Initialize the model instance with a previously constructed RNG and
@@ -43,10 +44,13 @@ class HarrisWilson_NN:
             name (str): The name of this model instance
             rng (np.random.Generator): The shared RNG
             h5group (h5.Group): The output file group to write data to
-            state_size (int): Size of the state vector
-            distribution_params (dict): Passed to the random number
-                distribution
-            **__: Additional model parameters (ignored)
+            neural_net: The neural network
+            ABM: The numerical solver
+            to_learn: the list of parameter names to learn
+            write_every: write every iteration
+            write_start: iteration at which to start writing
+            num_steps: number of iterations of the ABM
+            write_time: whether to write out the training time into a dataset
         """
         self._name = name
         self._time = 0
@@ -58,7 +62,7 @@ class HarrisWilson_NN:
         self._neural_net.optimizer.zero_grad()
 
         self._current_loss = torch.tensor(0.0, requires_grad=False)
-        self._current_predictions = torch.stack([torch.tensor(0.0, requires_grad=False)]*len(params_to_learn))
+        self._current_predictions = torch.stack([torch.tensor(0.0, requires_grad=False)]*len(to_learn))
 
         # Setup chunked dataset to store the state data in
         self._dset_loss = self._h5group.create_dataset(
@@ -68,26 +72,67 @@ class HarrisWilson_NN:
             chunks=True,
             compression=3,
         )
-        self._dset_predictions = self._h5group.create_dataset(
-            "predictions",
-            (0, len(params_to_learn)),
-            maxshape=(None, len(params_to_learn)),
-            chunks=True,
-            compression=3,
-        )
+        self._dset_loss.attrs['dim_names'] = ['time', 'training_loss']
+        self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
+        self._dset_loss.attrs["coords__time"] = [write_start, write_every]
+
+        if write_time:
+            self.dset_time = self._h5group.create_dataset(
+                "computation_time",
+                (0, 1),
+                maxshape=(None, 1),
+                chunks=True,
+                compression=3,
+            )
+            self.dset_time.attrs['dim_names'] = ['epoch', 'training_time']
+            self.dset_time.attrs["coords_mode__epoch"] = "trivial"
+            self.dset_time.attrs["coords_mode__training_time"] = "trivial"
+
+        dset_predictions = []
+        for p_name in to_learn:
+            dset = self._h5group.create_dataset(
+                p_name,
+                (0, 1),
+                maxshape=(None, 1),
+                chunks=True,
+                compression=3
+            )
+            dset.attrs['dim_names'] = ['time', 'parameter']
+            dset.attrs["coords_mode__time"] = "start_and_step"
+            dset.attrs["coords__time"] = [write_start, write_every]
+
+            dset_predictions.append(dset)
+
+        self._dset_predictions = dset_predictions
         self._write_every = write_every
+        self._write_start = write_start
+        self._write_time = write_time
 
-    def epoch(self, *, training_data, batch_size):
+    def epoch(self, *, training_data, batch_size: int = 1, epsilon: float = 1, dt: float = 0.001):
 
-        """ Trains the model for a single epoch """
+        """Trains the model for a single epoch.
+
+        :param training_data: the training data
+        :param batch_size: (optional) the number of passes (batches) over the training data before conducting a gradient descent
+                step
+        :param epsilon: (optional) the epsilon value to use during training
+        :param dt: (optional) the time differential to use during training
+        """
+
+        start_time = time.time()
 
         loss = torch.tensor(0.0, requires_grad=True)
+
+        start_time = time.time()
 
         for t, sample in enumerate(training_data):
 
             predicted_parameters = self._neural_net(torch.flatten(sample))
-            predicted_data = ABM.run_single(input_data=predicted_parameters, curr_vals=sample,
-                                       sigma=0.0, epsilon=1.0, dt=0.0001, requires_grad=True)
+            predicted_data = ABM.run_single(input_data=predicted_parameters,
+                                            curr_vals=sample,
+                                            epsilon=epsilon,
+                                            dt=dt,
+                                            requires_grad=True)
 
             loss = loss + torch.nn.functional.mse_loss(predicted_data, sample) / batch_size
 
@@ -105,6 +150,11 @@ class HarrisWilson_NN:
 
             self._time += 1
 
+        # Write the training time (wall clock time)
+        if self._write_time:
+            self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
+            self.dset_time[-1, :] = time.time() - start_time
+
     def write_data(self):
         """Write the current state into the state dataset.
 
@@ -112,23 +162,30 @@ class HarrisWilson_NN:
         extend the dataset size prior to writing; this way, the newly written
         data is always in the last row of the dataset.
         """
-        if self._time == 0 or (self._time % self._write_every == 0):
+        if self._time >= self._write_start and (self._time % self._write_every == 0):
 
             self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
             self._dset_loss[-1, :] = self._current_loss
 
-            self._dset_predictions.resize(self._dset_predictions.shape[0] + 1, axis=0)
-            self._dset_predictions[-1] = self._current_predictions
+            for idx, dset in enumerate(self._dset_predictions):
+                dset.resize(dset.shape[0] + 1, axis=0)
+                dset[-1] = self._current_predictions[idx]
 
 
-# -----------------------------------------------------------------------------
-# -- Performing the simulation run --------------------------------------------
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# -- Performing the simulation run -------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
 
-    # This will only work on Apple Silicon
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    # Select the training device to use
+    try:
+        # This will only work on Apple Silicon
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
+    except:
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    print(f"Using '{device}' as training device")
 
     cfg_file_path = sys.argv[1]
 
@@ -150,34 +207,37 @@ if __name__ == "__main__":
     h5group = h5file.create_group(model_name)
 
     # Get the datasets
-    or_sizes, dest_sizes, network = HW.get_HW_data(model_cfg['Data'], out_dir = cfg['output_dir'].replace('data/uni0', ''))
-    print(or_sizes.shape, dest_sizes.shape, network.shape)
+    or_sizes, dest_sizes, network = HW.get_HW_data(model_cfg['Data'], h5file, h5group)
+
+    # Set up the neural net
     print("\nInitializing the neural net ...")
-    net = core.NeuralNet(input_size=dest_sizes.shape[1], output_size=len(model_cfg['Training']['to_learn']),
+    net = base.NeuralNet(input_size=dest_sizes.shape[1], output_size=len(model_cfg['Training']['to_learn']),
                          **model_cfg['NeuralNet'])
 
-    print("\nInitializing the ABM ...")
-    true_parameters = model_cfg['true_parameters'] if 'true_parameters' in model_cfg['Training'].keys() else None
+    # Set up the numerical solver
+    print("\nInitializing the numerical solver ...")
+    true_parameters = model_cfg['Training'].pop('true_parameters', None)
     ABM = HW.HarrisWilsonABM(origin_sizes=or_sizes, network=network, true_parameters=true_parameters,
                              M=dest_sizes.shape[1])
+    write_time = model_cfg.pop('write_time', False)
 
-    print("\nInitializing model ...")
+    # Initialise the neural net
+    print("\nInitializing the neural net ...")
     model = HarrisWilson_NN(
-        model_name, rng=rng, h5group=h5group, neural_net=net, ABM=ABM, params_to_learn=model_cfg['Training']['to_learn'],
-        write_every=cfg['write_every'] if 'write_every' in cfg.keys() else 1,
+        model_name, rng=rng, h5group=h5group, neural_net=net, ABM=ABM, to_learn=model_cfg['Training']['to_learn'],
+        write_every=cfg['write_every'], write_start=cfg['write_start'], write_time=write_time
     )
-    model.write_data()
     print(f"Initialized model '{model_name}'.")
 
+    # Train the neural net
     num_epochs = cfg["num_epochs"]
     print(f"\nNow commencing training for {num_epochs} epochs ...")
-    for i in range(num_epochs):
+
+    for _ in range(num_epochs):
 
         model.epoch(training_data=dest_sizes, batch_size=model_cfg['Training']['batch_size'])
 
-        # TODO Interrupt handling
-
-        print(f"  Completed epoch {i+1} / {num_epochs}.")
+        print(f"  Completed epoch {_+1} / {num_epochs}.")
 
     print("\nSimulation run finished.")
     print("  Wrapping up ...")

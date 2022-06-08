@@ -1,0 +1,123 @@
+---
+_:
+  darkblue:         &darkblue         '#2F7194'
+  full_width:       &full_width       7.00787402 # full page width
+  third_width:      &third_width      !expr 7.00787402 / 3
+
+# Comparison of the time needed to perform a fixed number of epochs as a function of the system size,
+# averaged over the seed and the epoch; also value of the loss at the final iteration.
+time_and_loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.multiplot
+  select_and_combine:
+    fields:
+      to_plot: computation_time
+      loss:
+        path: loss
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+  compute_only: []
+  transform:
+    - .coords: [ !dag_tag to_plot, nw_size ]
+      tag: nw_size
+    - .mean: [ !dag_tag to_plot, [ epoch, seed ] ]
+      tag: time_mean
+    - .std: [ !dag_tag to_plot, [ epoch, seed ] ]
+      tag: time_std
+    - add: [!dag_tag time_mean, !dag_tag time_std]
+    - .squeeze: [!dag_prev ]
+      tag: time_upper
+    - sub: [!dag_tag time_mean, !dag_tag time_std]
+    - .squeeze: [!dag_prev ]
+      tag: time_lower
+    - .mean: [ !dag_tag loss, [ seed ] ]
+      tag: loss_mean
+    - .std: [ !dag_tag loss, [ seed ] ]
+      tag: loss_std
+    - add: [ !dag_tag loss_mean, !dag_tag loss_std ]
+    - .squeeze: [ !dag_prev ]
+      tag: loss_upper
+    - sub: [ !dag_tag loss_mean, !dag_tag loss_std ]
+    - .squeeze: [ !dag_prev ]
+      tag: loss_lower
+  to_plot:
+    [0, 0]:
+      - function: [matplotlib.pyplot, fill_between]
+        args:
+          - !dag_result nw_size
+          - !dag_result time_upper
+          - !dag_result time_lower
+        color: *darkblue
+        alpha: 0.2
+        linewidth: 0
+      - function: plt.plot
+        args:
+          - !dag_result nw_size
+          - !dag_result time_mean
+        color: *darkblue
+    [1, 0]:
+      - function: [ matplotlib.pyplot, fill_between]
+        args:
+          - !dag_result nw_size
+          - !dag_result loss_upper
+          - !dag_result loss_lower
+        color: black
+        alpha: 0.2
+        linewidth: 0
+      - function: plt.plot
+        args:
+          - !dag_result nw_size
+          - !dag_result loss_mean
+        color: black
+  file_ext: pdf
+  helpers:
+    setup_figure:
+      ncols: 2
+      nrows: 1
+      gridspec_kw:
+        wspace: 0.3
+      figsize: [ *full_width, *third_width ]
+    axis_specific:
+      time_axis:
+        axis: [0, 0]
+        set_labels:
+          x: $N + M$
+          y:
+            label: $t \ [s]$
+            #labelpad: 14
+        set_ticks:
+          x:
+            major:
+              locs: &major_locs [
+                data/HarrisWilson/synthetic_data/noiseless/N_100_M_10,
+                data/HarrisWilson/synthetic_data/noiseless/N_2000_M_200,
+                data/HarrisWilson/synthetic_data/noiseless/N_5000_M_500,
+                data/HarrisWilson/synthetic_data/noiseless/N_7000_M_700,
+                data/HarrisWilson/synthetic_data/noiseless/N_10000_M_1000
+              ]
+              labels: &labels [110, 2200, 5500, 7700, 11000]
+            minor:
+              locs: &minor_locs [
+                data/HarrisWilson/synthetic_data/noiseless/N_200_M_20,
+                data/HarrisWilson/synthetic_data/noiseless/N_500_M_50,
+                data/HarrisWilson/synthetic_data/noiseless/N_1000_M_100,
+                data/HarrisWilson/synthetic_data/noiseless/N_3000_M_300,
+                data/HarrisWilson/synthetic_data/noiseless/N_4000_M_400,
+                data/HarrisWilson/synthetic_data/noiseless/N_6000_M_600,
+                data/HarrisWilson/synthetic_data/noiseless/N_8000_M_800,
+              ]
+              labels: [' ', ' ', ' ', ' ', ' ', ' ', ' ']
+      loss:
+        axis: [1, 0]
+        set_labels:
+          x: $N + M$
+          y: $J_f$
+        set_scales:
+          y: log
+        set_ticks:
+          x:
+            major:
+              locs: *major_locs
+              labels: *labels
+              color: black

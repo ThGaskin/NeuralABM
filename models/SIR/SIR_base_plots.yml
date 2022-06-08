@@ -1,0 +1,267 @@
+---
+.variables:
+  base_path:        &base_path    data/SIR
+  loss_limit:       &loss_limit   1e-15
+
+  colors: &colors
+    yellow:         &yellow           '#F5DDA9'
+    darkblue:       &darkblue         '#2F7194'
+    red:            &red              '#ec7070'
+    skyblue:        &skyblue          '#97c3d0'
+    darkgreen:      &darkgreen        '#48675A'
+    lightbrown:     &lightbrown       '#C6BFA2'
+    orange:         &orange           '#EC9F7E'
+    lightgreen:     &lightgreen       '#AFD8BC'
+    grey:           &grey             '#3D4244'
+
+  page_widths:
+    full_width:     &full_width       7.516
+    half_width:     &half_width       !expr 7.516 / 2
+    third_width:    &third_width      !expr 7.516 / 3
+    quarter_width:  &quarter_width    !expr 7.516 / 4
+    fifth_width:    &fifth_width      !expr 7.516 / 5
+
+.default_style:
+  style:
+    text.usetex:        True
+    mathtext.fontset:   cm
+    font.family:        serif
+    font.size:          &fontsize 9
+    axes.titlesize:     *fontsize
+    axes.labelsize:     *fontsize
+    xtick.labelsize:    *fontsize
+    ytick.labelsize:    *fontsize
+    grid.linewidth:     0.5
+    savefig.bbox:       tight
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[lightgreen]:}', '{colors[red]:}', '{colors[darkgreen]:}'])"
+      colors: *colors
+    axes.grid:          True
+    axes.spines.top:    False
+    axes.spines.right:  False
+    legend.fontsize: 9
+  helpers:
+    save_figure:
+      dpi: 900
+  file_ext: png
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
+#   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
+#   ╩ ╚═╝╩ ╩╩  ╩═╝╩ ╩ ╩ ╚═╝╚═╝
+# ======================================================================================================================
+# -- Overloads ---------------------------------------------------------------------------------------------------------
+# Overload some configs to insert model-specific settings
+.creator.universe:
+  based_on:
+    - .creator.universe
+    - .default_style
+
+  dag_options:
+    select_path_prefix: *base_path
+
+.creator.multiverse:
+  based_on:
+    - .creator.multiverse
+    - .default_style
+
+  select_and_combine:
+    base_path: *base_path
+
+# ======================================================================================================================
+#  ╔═╗╦  ╔═╗╔╦╗╔═╗
+#  ╠═╝║  ║ ║ ║ ╚═╗
+#  ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+
+# -- Plot of the training loss -----------------------------------------------------------------------------------------
+loss:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: loss
+  color: black
+  helpers:
+    set_labels:
+      x: iteration
+      y: Training loss
+    set_scales:
+      y: log
+
+# -- Animated state of the agents --------------------------------------------------------------------------------------
+state:
+  based_on:
+    - .creator.universe
+    - .plot.abm
+    - .animation.ffmpeg
+  select:
+    x:
+      path: position
+      transform:
+        - .sel: [!dag_prev , {coords: x}]
+          kwargs:
+            drop: true
+    y:
+      path: position
+      transform:
+        - .sel: [ !dag_prev , {coords: y}]
+          kwargs:
+            drop: true
+    kinds:
+      path: kinds
+      transform:
+        - .data: [!dag_prev ]
+
+  # Combine coordinates and kinds into a single Dataset
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          x: !dag_tag x
+          y: !dag_tag y
+          kind: !dag_tag kinds
+      tag: data
+
+  to_plot:
+    data:
+      cmap:
+        susceptible: *lightgreen
+        infected: *red
+        recovered: *darkgreen
+      vmin: 0
+      vmax: 2
+      size_scale: 0.0005
+  hue: kind
+  x: x
+  y: y
+  frames: time
+  # Colorbar settings
+  cmap:
+    susceptible: *lightgreen
+    infected: *red
+    recovered: *darkgreen
+  cbar_kwargs:
+    shrink: 0.8
+  style:
+    savefig.bbox: ~
+    axes.grid: True
+    axes.spines.top: True
+    axes.spines.right: True
+  # Animation control
+
+
+# -- Comparison of predicted and true densities ------------------------------------------------------------------------
+densities_comparison:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    pred_counts:
+      path: true_counts
+      transform:
+        - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
+    true_counts:
+      path: true_counts
+      transform:
+        - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
+  transform:
+    - operation: pd.Index
+      args: [ [ 'true', 'predicted' ] ]
+      kwargs:
+        name: 'type'
+    - xr.concat: [ [ !dag_tag true_counts, !dag_tag pred_counts ], !dag_prev ]
+      tag: data
+  x: time
+  col: type
+
+# -- Plot of the parameter predictions  --------------------------------------------------------------------------------
+predictions:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data:
+      path: predicted_infection_rate
+      transform:
+        - .data: [ !dag_prev ]
+  x: time
+  style:
+    figure.figsize: [ *half_width, *half_width ]
+  helpers:
+    set_labels:
+      x: iteration
+#    set_scales:
+#      x: log
+
+# Two-dimensional density
+loss_density:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.scatter
+  style:
+    figure.figsize: [ *half_width, *fifth_width ]
+  select:
+    param1:
+      path: predicted_infection_rate
+      transform:
+        - .squeeze_with_drop: [!dag_prev ]
+    loss:
+      path: loss
+      transform:
+        - np.maximum: [!dag_prev , *loss_limit]
+        - log10: [!dag_prev ]
+        - mul: [!dag_prev , -1]
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+      tag: data
+  x: param1
+  hue: loss
+  y: loss
+  s: 1
+  add_guide: False
+  cmap:
+    continuous: true
+    from_values:
+      0: *yellow
+      1: *darkblue
+  helpers:
+    set_labels:
+      y: &loss_label '$-\log_{10}(J)$'
+
+marginals:
+  based_on: .creator.universe
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
+  style:
+    figure.figsize: [ *half_width, *half_width ]
+  select:
+    param1:
+      path: predicted_infection_rate
+      transform:
+        - .squeeze_with_drop: [ !dag_prev ]
+    loss:
+      path: loss
+      transform:
+        - np.maximum: [ !dag_prev , *loss_limit ]
+        - log10: [ !dag_prev ]
+        - mul: [ !dag_prev , -1 ]
+        - np.exp: [!dag_prev ]
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+    - HarrisWilson.get_marginals: [ !dag_prev ]
+      kwargs:
+        bins: 200
+      tag: data
+  color: *darkblue
+  smooth_kwargs:
+    enabled: true
+    sigma: 2.0

@@ -1,0 +1,196 @@
+diff --git a/models/HarrisWilson/ABM.py b/models/HarrisWilson/ABM.py
+index 3ee967d..c7a6073 100644
+--- a/models/HarrisWilson/ABM.py
++++ b/models/HarrisWilson/ABM.py
+@@ -42,7 +42,6 @@ class HarrisWilsonABM:
+                     params_to_learn[param] = idx
+                     idx += 1
+         self.parameters_to_learn = params_to_learn
+-
+         self.epsilon = epsilon
+         self.dt = dt
+ 
+diff --git a/models/HarrisWilson/HarrisWilson_cfg.yml b/models/HarrisWilson/HarrisWilson_cfg.yml
+index 6077787..99a36b8 100644
+--- a/models/HarrisWilson/HarrisWilson_cfg.yml
++++ b/models/HarrisWilson/HarrisWilson_cfg.yml
+@@ -25,7 +25,7 @@ Data:
+ 
+ # Settings for the neural net architecture
+ NeuralNet:
+-  num_layers: !is-positive-int 6
++  num_layers: !is-positive-int 2
+   nodes_per_layer: !is-positive-int 20
+   activation_funcs:
+     -1: abs
+@@ -35,10 +35,8 @@ NeuralNet:
+ 
+ # Settings for the neural net training
+ Training:
+-  to_learn: [alpha, beta, kappa]
++  to_learn: [alpha, beta, kappa, sigma]
+   batch_size: !is-positive-int 1
+-  true_parameters:
+-    sigma: !is-positive-or-zero 0
+ 
+ # Whether to write out the computation time for each epoch
+ write_time: False
+diff --git a/models/HarrisWilson/cfgs/London_dataset/run.yml b/models/HarrisWilson/cfgs/London_dataset/run.yml
+index 99cff0b..928951d 100644
+--- a/models/HarrisWilson/cfgs/London_dataset/run.yml
++++ b/models/HarrisWilson/cfgs/London_dataset/run.yml
+@@ -20,7 +20,7 @@ parameter_space:
+         destination_zones: data/HarrisWilson/London_data/dest_sizes.csv
+     NeuralNet:
+       init_bias: [ 0, 4 ]
+-      num_layers: 10
++      num_layers: 1
+       nodes_per_layer: 20
+       optimizer: Adam
+       learning_rate: 0.002
+diff --git a/models/HarrisWilson/cfgs/Loss_landscape/run.yml b/models/HarrisWilson/cfgs/Loss_landscape/run.yml
+index c827ba5..e05cccc 100644
+--- a/models/HarrisWilson/cfgs/Loss_landscape/run.yml
++++ b/models/HarrisWilson/cfgs/Loss_landscape/run.yml
+@@ -17,7 +17,7 @@ parameter_space:
+ 
+     # Settings for the neural net architecture
+     NeuralNet:
+-      num_layers: 10
++      num_layers: 1
+       nodes_per_layer: 20
+       activation_funcs:
+         -1: abs
+diff --git a/models/HarrisWilson/cfgs/Marginals/eval.yml b/models/HarrisWilson/cfgs/Marginals/eval.yml
+index 172c7ec..ca2cd62 100644
+--- a/models/HarrisWilson/cfgs/Marginals/eval.yml
++++ b/models/HarrisWilson/cfgs/Marginals/eval.yml
+@@ -75,8 +75,7 @@ marginal_alpha:
+   hue: sigma
+ 
+   smooth_kwargs:
+-    enabled: True
+-    sigma: 0.5
++    enabled: False
+ 
+   helpers:
+     set_legend:
+@@ -275,6 +274,7 @@ peak_widths:
+         along_dim: sigma
+         prominence: 1
+         distance: 8
++        height: 10
+         width: [~, ~]
+       tag: peaks_kappa
+ 
+@@ -290,6 +290,8 @@ peak_widths:
+   y: mean
+   yerr: std
+   hue: parameter
++  ms: 4
++  marker: 'o'
+   helpers:
+     set_labels:
+       x: Training data noise $\sigma$
+diff --git a/models/HarrisWilson/cfgs/Marginals/run.yml b/models/HarrisWilson/cfgs/Marginals/run.yml
+index 984f6c8..742c455 100644
+--- a/models/HarrisWilson/cfgs/Marginals/run.yml
++++ b/models/HarrisWilson/cfgs/Marginals/run.yml
+@@ -26,8 +26,8 @@ parameter_space:
+                 ]
+         name: sigma
+     NeuralNet:
++      num_layers: 1
+       nodes_per_layer: 20
+-      num_layers: 10
+       activation_funcs:
+         -1: abs
+       bias: true
+diff --git a/models/HarrisWilson/cfgs/Performance_analysis/run.yml b/models/HarrisWilson/cfgs/Performance_analysis/run.yml
+index 188aad2..f39340d 100644
+--- a/models/HarrisWilson/cfgs/Performance_analysis/run.yml
++++ b/models/HarrisWilson/cfgs/Performance_analysis/run.yml
+@@ -31,7 +31,7 @@ parameter_space:
+ 
+     # Settings for the neural net architecture
+     NeuralNet:
+-      num_layers: 10
++      num_layers: 2
+       nodes_per_layer: 20
+       activation_funcs:
+         -1: abs
+diff --git a/models/HarrisWilson/cfgs/Sample_run/run.yml b/models/HarrisWilson/cfgs/Sample_run/run.yml
+index fa7e5ff..fe5f3fe 100644
+--- a/models/HarrisWilson/cfgs/Sample_run/run.yml
++++ b/models/HarrisWilson/cfgs/Sample_run/run.yml
+@@ -12,7 +12,7 @@ parameter_space:
+ 
+     # Settings for the neural net architecture
+     NeuralNet:
+-      num_layers: 10
++      num_layers: 2
+       nodes_per_layer: 20
+       activation_funcs:
+         -1: abs
+diff --git a/models/SIR/SIR_cfg.yml b/models/SIR/SIR_cfg.yml
+index aea506c..f27fec9 100644
+--- a/models/SIR/SIR_cfg.yml
++++ b/models/SIR/SIR_cfg.yml
+@@ -13,8 +13,8 @@ Data:
+     num_steps: 200
+ 
+ NeuralNet:
+-  num_layers: !is-positive-int 6
+-  nodes_per_layer: !is-positive-int 10
++  num_layers: !is-positive-int 2
++  nodes_per_layer: !is-positive-int 20
+   activation_funcs:
+     -1: abs
+   bias: !is-bool False
+diff --git a/models/SIR/cfgs/Predictions/eval.yml b/models/SIR/cfgs/Predictions/eval.yml
+index afdf528..e0318ce 100644
+--- a/models/SIR/cfgs/Predictions/eval.yml
++++ b/models/SIR/cfgs/Predictions/eval.yml
+@@ -155,16 +155,19 @@ p_infectious:
+         data_vars:
+           param1: !dag_tag param1
+           loss: !dag_tag loss
+-    - NeuralABM.get_marginals: [ !dag_prev ]
++    - NeuralABM.compute_marginals: [ !dag_prev ]
+       kwargs:
+         bins: 200
+       tag: data
+-    - NeuralABM.compute_mode: [ !dag_tag data,]
++    - NeuralABM.compute_mode: [ !dag_tag data]
++    - getitem: [!dag_prev , 'mode']
+     - .format: [ '{:.2f}', !dag_prev ]
+       tag: mode
+     - NeuralABM.compute_mean: [ !dag_tag data ]
++    - getitem: [!dag_prev , 'mean']
+       tag: mean
+     - NeuralABM.compute_std: [ !dag_tag data ]
++    - getitem: [!dag_prev , 'std']
+       tag: var
+     - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_tag var ]
+       tag: info_str
+diff --git a/models/SIR/cfgs/Predictions/run.yml b/models/SIR/cfgs/Predictions/run.yml
+index 8af9878..aafc491 100644
+--- a/models/SIR/cfgs/Predictions/run.yml
++++ b/models/SIR/cfgs/Predictions/run.yml
+@@ -5,14 +5,14 @@ parameter_space:
+   seed: !sweep
+     default: 1
+     range: [20]
+-  num_epochs: 60
++  num_epochs: 100
+   write_start: 1
+   write_every: 1
+   SIR:
+     Data:
+       load_from_dir: data/SIR/ABM_data_2/data/uni0/data.h5
+     NeuralNet:
+-      num_layers: 10
++      num_layers: 1
+       nodes_per_layer: 20
+       bias: True
+       init_bias: [0, 1]

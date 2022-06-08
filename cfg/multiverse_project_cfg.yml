@@ -1,0 +1,36 @@
+# The project-specific Multiverse configuration
+---
+executable_control:
+  # For file-based imports of Python files, cannot have the "executable" be
+  # copied to a temporary directory
+  run_from_tmpdir: false
+
+parameter_space:
+  num_epochs: 1000
+  write_start: 1
+  write_every: 1
+
+# Data loading configuration
+data_manager:
+  load_cfg:
+    # Configure the DataManager to load the HDF5 simulation data as proxies
+    data:
+      loader: hdf5_proxy
+      glob_str: data/uni*/data.h5
+      required: true
+      path_regex: data/uni(\d+)/data.h5
+      target_path: multiverse/{match:}/data
+      enable_mapping: true   # see DataManager for content -> type mapping
+
+      # Options for loading data in parallel (speeds up CPU-limited loading)
+      parallel:
+        enabled: false
+
+        # Number of processes to use; negative is deduced from os.cpu_count()
+        processes: ~
+
+        # Threshold values for parallel loading; if any is below these
+        # numbers, loading will *not* be in parallel.
+        min_files: 5
+        min_total_size: 104857600  # 100 MiB
+
