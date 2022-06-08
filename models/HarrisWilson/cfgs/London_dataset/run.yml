@@ -1,0 +1,28 @@
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 2
+    range: [20]
+  num_epochs: 10000
+  write_start: 1
+  write_every: 1
+  HarrisWilson:
+    Data:
+      load_from_dir:
+        network: !sweep
+          default: data/HarrisWilson/London_data/exp_times.csv
+          values: [data/HarrisWilson/London_data/exp_times.csv,
+                   data/HarrisWilson/London_data/exp_distances.csv]
+          name: metric
+        origin_zones: data/HarrisWilson/London_data/origin_sizes.csv
+        destination_zones: data/HarrisWilson/London_data/dest_sizes.csv
+    NeuralNet:
+      init_bias: [ 0, 4 ]
+      num_layers: 10
+      nodes_per_layer: 20
+    Training:
+      to_learn: [alpha, beta, kappa]
+      true_parameters:
+        sigma: !sweep
+          default: 0
+          values: [0.02, 0.2]

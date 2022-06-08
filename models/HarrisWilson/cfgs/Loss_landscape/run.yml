@@ -1,0 +1,34 @@
+---
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 2
+    range: [100]
+
+  num_epochs: 10000
+  write_start: 1
+  write_every: 1
+
+  HarrisWilson:
+    Data:
+      load_from_dir: data/HarrisWilson/synthetic_data/noiseless/N_1000_M_100
+
+    # Settings for the neural net architecture
+    NeuralNet:
+      num_layers: 10
+      nodes_per_layer: 20
+      activation_funcs:
+        last: abs
+      bias: True
+      init_bias: [ 0, 4 ]
+      learning_rate: 0.002
+
+    # Settings for the neural net training
+    Training:
+      to_learn: [ alpha, beta, kappa ]
+      batch_size: 1
+      true_parameters:
+        sigma: 0
+
+    # Do not write out the training time
+    write_time: False

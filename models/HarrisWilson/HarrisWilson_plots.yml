@@ -1,6 +1,111 @@
 # Default plots for the Harris-Wilson model
 ---
+# ======================================================================================================================
+#  ╦ ╦╔╗╔╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
+#  ║ ║║║║║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
+#  ╚═╝╝╚╝╩ ╚╝ ╚═╝╩╚═╚═╝╚═╝  ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+
+# Plot the evolution of the training loss
+loss:
+  based_on: loss
+
+# Plot the parameter predictions
 predictions:
-  based_on: preds
+  based_on: predictions
   helpers:
-    set_title: 'something'
+    set_legend:
+      custom_labels: ['$\hat{\alpha}$', '$\hat{\beta}$', '$\hat{\kappa}$']
+      title: ~
+      loc: 'best'
+
+# !! These plots only work if synthetic data is generated and used
+# Plot the synthetic time series
+time_series:
+  based_on: time_series
+
+# Plot the synthetic network
+network:
+  based_on: network
+
+# ======================================================================================================================
+#  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
+#  ║║║║ ║║  ║ ║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
+#  ╩ ╩╚═╝╩═╝╩ ╩ ╚╝ ╚═╝╩╚═╚═╝╚═╝  ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+# Plot the density of the loss over alpha
+loss_potential/alpha:
+  based_on: loss_potential
+  select_and_combine:
+    fields:
+      param1: alpha
+  helpers:
+    set_labels:
+      x: '$\alpha$'
+      y: '$-\log_{10}(J)$'
+
+# Plot the density of the loss over beta
+loss_potential/beta:
+  based_on: loss_potential
+  select_and_combine:
+    fields:
+      param1: beta
+  helpers:
+    set_labels:
+      x: '$\beta$'
+
+# Plot the density of the loss over kappa
+loss_potential/kappa:
+  based_on: loss_potential
+  select_and_combine:
+    fields:
+      param1: kappa
+  helpers:
+    set_labels:
+      x: '$\kappa$'
+
+# Plot the density of the loss over two parameters
+loss_potential/alpha_beta:
+  based_on: loss_potential_3d
+  helpers:
+    setup_figure:
+      subplot_kw:
+        elev: 22
+        azim: -313
+    set_labels:
+      x: '$\beta$'
+      y: '$\alpha$'
+  file_ext: png
+
+# Plot the marginal density in alpha
+marginals/alpha:
+  based_on: marginals
+  select_and_combine:
+    fields:
+      param1: alpha
+  helpers:
+    set_labels:
+      x: '$\alpha$'
+      y: '$\rho(\alpha)$'
+
+# Plot the marginal density in beta
+marginals/beta:
+  based_on: marginals
+  select_and_combine:
+    fields:
+      param1: beta
+  helpers:
+    set_labels:
+      x: '$\beta$'
+      y: '$\rho(\beta)$'
+
+# Plot the marginal density in kappa
+marginals/kappa:
+  based_on: marginals
+  select_and_combine:
+    fields:
+      param1: kappa
+  helpers:
+    set_labels:
+      x: '$\kappa$'
+      y: '$\rho(\kappa)$'

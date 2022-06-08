@@ -1,0 +1,69 @@
+---
+_:
+  colors: &colors
+    yellow:             &yellow           '#F5DDA9'
+    darkblue:           &darkblue         '#2F7194'
+    red:                &red              '#ec7070'
+    skyblue:            &skyblue          '#97c3d0'
+    green:              &green            '#48675A'
+    lightbrown:         &lightbrown       '#C6BFA2'
+    orange:             &orange           '#EC9F7E'
+    lightgreen:         &lightgreen       '#AFD8BC'
+    grey:               &grey             '#3D4244'
+    lightgrey:          &lightgrey        '#D6D6D6'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:         &full_width       7.00787402
+    half_width:         &half_width       !expr 7.00787402 / 2
+    third_width:        &third_width      !expr 7.00787402 / 3
+    quarter_width:      &quarter_width    !expr 7.00787402 / 4
+    fifth_width:        &fifth_width      !expr 7.00787402 / 5
+
+
+# Plot the inequality order parameter of the HW model as a function of alpha and beta
+inequality:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.pcolormesh
+  select_and_combine:
+    fields:
+      dset_sizes:
+        path: time_series
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs:
+              drop: true
+  transform:
+    - .min: [!dag_tag dset_sizes, 'zone_id']
+      tag: min
+    - .max: [!dag_tag dset_sizes, 'zone_id']
+      tag: max
+    - .sum: [!dag_tag dset_sizes, 'zone_id']
+      tag: sum
+    - sub: [!dag_tag max, !dag_tag min]
+    - div: [!dag_prev , !dag_tag sum]
+      tag: data
+
+  x: beta
+  y: alpha
+
+  cmap:
+    continuous: true
+    from_values:
+      0: *darkblue
+      1: *yellow
+  norm:
+    name: BoundaryNorm
+    boundaries: [0, 0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99, 1]
+    ncolors: 8
+  cbar_kwargs:
+    label: $\nu$
+  style:
+    figure.figsize: [*half_width, *half_width]
+    axes.spines.top: True
+    axes.spines.right: True
+  helpers:
+    set_labels:
+      x: $\beta$
+      y: $\alpha$

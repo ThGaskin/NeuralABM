@@ -1,0 +1,305 @@
+---
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+
+_:
+  colors: &colors
+    yellow:         &yellow       '#F5DDA9'
+    darkblue:       &darkblue     '#2F7194'
+    red:            &red          '#ec7070'
+    skyblue:        &skyblue      '#97c3d0'
+    green:          &green        '#48675A'
+    lightbrown:     &lightbrown   '#C6BFA2'
+    orange:         &orange       '#EC9F7E'
+    lightgreen:     &lightgreen   '#AFD8BC'
+    grey:           &grey         '#3D4244'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    half_width:    &half_width     !expr 7.00787402 / 2
+    fifth_width:   &fifth_width    !expr 7.00787402 / 5
+
+  # True parameters
+  true_parameters:
+    alpha:        &alpha          1.2
+    beta:         &beta           4
+    kappa:        &kappa          2
+
+.defaults:
+  file_ext: pdf
+  style:
+    figure.figsize: [ *half_width, *fifth_width ]
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[darkblue]:}', 
+                              '{colors[green]:}', 
+                              '{colors[yellow]:}', 
+                              '{colors[skyblue]:}', 
+                              '{colors[lightbrown]:}',
+                              '{colors[red]:}'
+                              ])"
+      colors: *colors
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦    ╔═╗╦  ╔═╗╦ ╦╔═╗
+#  ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║    ╠═╣║  ╠═╝╠═╣╠═╣
+#  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝  ╩ ╩╩═╝╩  ╩ ╩╩ ╩
+# ======================================================================================================================
+
+marginal_alpha:
+  based_on:
+    - marginals
+    - .defaults
+  select_and_combine:
+    fields:
+      param1: alpha
+
+  # Calculate marginals along the noise dimension
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+    - operation: NeuralABM.compute_marginals
+      args: [ !dag_prev ]
+      kwargs:
+        along_dim: sigma
+        labels: [0, 0.25, 0.5, 1, 1.5]
+        bins: 1000
+      tag: data
+
+  # Hue indicates noise level
+  hue: sigma
+
+  smooth_kwargs:
+    enabled: True
+    sigma: 0.5
+
+  helpers:
+    set_legend:
+      use_legend: True
+      bbox_to_anchor: [ 0.0, 0.3, 1, 1 ]
+      ncol: 6
+      handlelength: 1
+      labels: [$\sigma=0$, 0.25, 0.5, 1, 1.5]
+      columnspacing: 1
+    set_labels:
+      x: '$\alpha$'
+      y: ' '
+    set_hv_lines:
+      vlines:
+        - pos: *alpha
+          color: *red
+          zorder: 5
+          linestyle: dotted
+          linewidth: 1
+    set_limits:
+      x: [0.8, 1.5]
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦    ╔╗ ╔═╗╔╦╗╔═╗
+#  ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║    ╠╩╗║╣  ║ ╠═╣
+#  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝  ╚═╝╚═╝ ╩ ╩ ╩
+# ======================================================================================================================
+
+marginal_beta:
+  based_on: marginal_alpha
+  select_and_combine:
+    fields:
+      param1: beta
+  helpers:
+    set_legend:
+      use_legend: True
+    set_labels:
+      x: '$\beta$'
+      y: ' '
+    set_hv_lines:
+      vlines:
+        - pos: *beta
+          color: *red
+          zorder: 5
+          linestyle: dotted
+          linewidth: 1
+    set_limits:
+      x: [ ~, 5]
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦    ╦╔═╔═╗╔═╗╔═╗╔═╗
+#  ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║    ╠╩╗╠═╣╠═╝╠═╝╠═╣
+#  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝  ╩ ╩╩ ╩╩  ╩  ╩ ╩
+# ======================================================================================================================
+
+marginal_kappa:
+  based_on: marginal_alpha
+  select_and_combine:
+    fields:
+      param1: kappa
+  helpers:
+    set_legend:
+      use_legend: True
+    set_labels:
+      x: '$\kappa$'
+      y: ' '
+    set_hv_lines:
+      vlines:
+        - pos: *kappa
+          color: *red
+          zorder: 5
+          linestyle: dotted
+          linewidth: 1
+    set_limits:
+      x: [1.5, 2.5]
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦    ╔═╗╦╔═╗╔╦╗╔═╗
+#  ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║    ╚═╗║║ ╦║║║╠═╣
+#  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝  ╚═╝╩╚═╝╩ ╩╩ ╩
+# ======================================================================================================================
+
+marginal_sigma:
+  based_on: marginal_kappa
+  select_and_combine:
+    fields:
+      param1: sigma
+  helpers:
+    set_limits:
+      x: [0, 0.1]
+    set_labels:
+      x: '$\sigma$'
+      y: ' '
+
+# ======================================================================================================================
+#  ╔═╗╔═╗╔═╗╦╔═  ╦ ╦╦╔╦╗╔╦╗╦ ╦╔═╗
+#  ╠═╝║╣ ╠═╣╠╩╗  ║║║║ ║║ ║ ╠═╣╚═╗
+#  ╩  ╚═╝╩ ╩╩ ╩  ╚╩╝╩═╩╝ ╩ ╩ ╩╚═╝
+# ======================================================================================================================
+
+peak_widths:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+    - .defaults
+
+  # Collect the data
+  select_and_combine:
+    fields:
+      alpha: alpha
+      beta: beta
+      kappa: kappa
+      loss:
+        path: loss
+        transform:
+          - np.maximum: [ !dag_prev , 1e-15 ]
+          - mul: [ !dag_prev , -1 ]
+          - np.exp: [ !dag_prev ]
+
+  # For each parameter, calculate the marginals, and from that the average peak width.
+  transform:
+    # alpha
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag alpha
+          loss: !dag_tag loss
+    - operation: NeuralABM.compute_marginals
+      args: [ !dag_prev ]
+      kwargs:
+        along_dim: sigma
+        labels: [ 0, 0.25, 0.5, 1, 1.5 ]
+        bins: 1000
+    - operation: NeuralABM.compute_avg_peak_widths
+      args: [!dag_prev ]
+      kwargs:
+        along_dim: sigma
+        prominence: 0.5
+        width: [~, ~]
+      tag: peaks_alpha
+
+    # Beta. Since scipy.find_peaks cannot find peaks at the beginning of the data,
+    # we need to add an additional point to the marginals to ensure the peak at b=0 is found
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag beta
+          loss: !dag_tag loss
+    - operation: NeuralABM.compute_marginals
+      args: [ !dag_prev ]
+      kwargs:
+        along_dim: sigma
+        labels: [ 0, 0.25, 0.5, 1, 1.5 ]
+        bins: 1000
+      tag: marginals_beta
+
+    # Add padding
+    - tuple: [ [['sigma', 'bin_idx'], [[-0.001], [-0.001], [-0.001], [-0.001], [-0.001]]]]
+      tag: dim1
+    - tuple: [[['sigma', 'bin_idx'], [[0], [0] , [0], [0], [0]]]]
+      tag: dim2
+    - operation: xr.Dataset
+      kwargs:
+        coords:
+          sigma: [0.0, 0.25, 0.5, 1.0, 1.5]
+          bin_idx: [-1]
+        data_vars:
+          param1: !dag_tag dim1
+          prob: !dag_tag dim2
+    - xr.merge: [[!dag_prev , !dag_tag marginals_beta ]]
+
+    # Get peak widths
+    - operation: NeuralABM.compute_avg_peak_widths
+      args: [!dag_prev ]
+      kwargs:
+        along_dim: sigma
+        prominence: 0.5
+        width: [~, ~]
+      tag: peaks_beta
+
+    # kappa
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag kappa
+          loss: !dag_tag loss
+    - operation: NeuralABM.compute_marginals
+      args: [ !dag_prev ]
+      kwargs:
+        along_dim: sigma
+        labels: [ 0, 0.25, 0.5, 1, 1.5 ]
+        bins: 1000
+    - operation: NeuralABM.compute_avg_peak_widths
+      args: [!dag_prev ]
+      kwargs:
+        along_dim: sigma
+        prominence: 1
+        distance: 8
+        width: [~, ~]
+      tag: peaks_kappa
+
+    # Combine
+    - operation: pd.Index
+      args: [ [ '$\hat{\beta}$', '$\hat{\alpha}$', '$\hat{\kappa}$' ] ]
+      kwargs:
+        name: 'parameter'
+    - xr.concat: [ [ !dag_tag peaks_beta, !dag_tag peaks_alpha, !dag_tag peaks_kappa ], !dag_prev ]
+      tag: data
+
+  x: sigma
+  y: mean
+  yerr: std
+  hue: parameter
+  helpers:
+    set_labels:
+      x: Training data noise $\sigma$
+      y: ' '
+    set_legend:
+      title: ''
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[green]:}', 
+                              '{colors[darkblue]:}', 
+                              '{colors[red]:}', 
+                              '{colors[skyblue]:}'])"
+      colors: *colors

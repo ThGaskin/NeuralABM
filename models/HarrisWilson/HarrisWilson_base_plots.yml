@@ -1,6 +1,293 @@
 ---
-preds:
-  creator: universe
-  universes: all
-  module: plots.HarrisWilson
-  plot_func: predictions
+.variables:
+  base_path:        &base_path    data/HarrisWilson
+  loss_limit:       &loss_limit   1e-15
+
+  colors: &colors
+    yellow:         &yellow       '#F5DDA9'
+    darkblue:       &darkblue     '#2F7194'
+    red:            &red          '#ec7070'
+    skyblue:        &skyblue      '#97c3d0'
+    green:          &green        '#48675A'
+    lightbrown:     &lightbrown   '#C6BFA2'
+    orange:         &orange       '#EC9F7E'
+    lightgreen:     &lightgreen   '#AFD8BC'
+    grey:           &grey         '#3D4244'
+
+.default_style:
+  style:
+    text.usetex:        True
+    mathtext.fontset:   cm
+    font.family:        serif
+    font.size:          &font_size 9
+    axes.titlesize:     *font_size
+    axes.labelsize:     *font_size
+    legend.fontsize:    *font_size
+    xtick.labelsize:    *font_size
+    ytick.labelsize:    *font_size
+    grid.linewidth:     0.5
+    savefig.bbox:       tight
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[yellow]:}', 
+                              '{colors[darkblue]:}', 
+                              '{colors[red]:}', 
+                              '{colors[skyblue]:}', 
+                              '{colors[green]:}', 
+                              '{colors[lightbrown]:}', 
+                              '{colors[orange]:}', 
+                              '{colors[lightgreen]:}',
+                              '{colors[grey]:}'
+                              ])"
+      colors: *colors
+    axes.grid:          True
+    axes.spines.top:    False
+    axes.spines.right:  False
+
+  helpers:
+    save_figure:
+      dpi: 900
+  file_ext: png
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
+#   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
+#   ╩ ╚═╝╩ ╩╩  ╩═╝╩ ╩ ╩ ╚═╝╚═╝
+# ======================================================================================================================
+# -- Overloads ---------------------------------------------------------------------------------------------------------
+# Overload some configs to insert model-specific settings
+.creator.universe:
+  based_on:
+    - .creator.universe
+    - .default_style
+
+  dag_options:
+    select_path_prefix: *base_path
+
+.creator.multiverse:
+  based_on:
+    - .creator.multiverse
+    - .default_style
+
+  select_and_combine:
+    base_path: *base_path
+
+# ======================================================================================================================
+#  ╔═╗╦  ╔═╗╔╦╗╔═╗
+#  ╠═╝║  ║ ║ ║ ╚═╗
+#  ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+# -- Plot of the training loss -----------------------------------------------------------------------------------------
+loss:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: loss
+  color: black
+  helpers:
+    set_labels:
+      x: iteration
+      y: Training loss
+    set_scales:
+      y: log
+
+# -- Plot of the parameter predictions  --------------------------------------------------------------------------------
+predictions:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    alpha:
+      path: alpha
+      transform:
+        - .data: [ !dag_prev ]
+    beta:
+      path: beta
+      transform:
+        - .data: [ !dag_prev ]
+    kappa:
+      path: kappa
+      transform:
+        - .data: [ !dag_prev ]
+  transform:
+    - xr.concat: [[ !dag_tag alpha, !dag_tag beta, !dag_tag kappa ] ]
+      kwargs:
+        dim: values
+        combine_attrs: drop
+      tag: data
+  x: time
+  helpers:
+    set_labels:
+      x: iteration
+      y: ' '
+
+# -- Plot of the training loss density over the parameter space  -------------------------------------------------------
+# One-dimensional loss potential
+loss_potential:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.scatter
+  expected_multiverse_ndim: [1,2,3,4,5]
+  select_and_combine:
+    fields:
+      param1: alpha
+      loss:
+        path: loss
+        transform:
+          - np.maximum: [!dag_prev , *loss_limit]
+          - log10: [!dag_prev ]
+          - mul: [!dag_prev , -1]
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+      tag: data
+
+  x: param1
+  hue: loss
+  y: loss
+  s: 1
+  add_guide: False
+  cmap:
+    continuous: true
+    from_values:
+      0: *yellow
+      1: *darkblue
+  helpers:
+    set_labels:
+      y: &loss_label '$-\log_{10}(J)$'
+
+
+# Two-dimensional loss potential
+loss_potential_3d:
+  based_on:
+    - .creator.multiverse
+    - loss_potential
+    - .plot.facet_grid.scatter3d
+  select_and_combine:
+    fields:
+      param2:
+        path: beta
+  transform:
+    - xr.Dataset:
+        data_vars:
+          param1: !dag_tag param1
+          param2: !dag_tag param2
+          loss: !dag_tag loss
+    - .stack: [!dag_prev , {' ': ['seed', 'time']}, False]
+      tag: data
+  x: param2
+  y: param1
+  z: loss
+  add_colorbar: False
+  alpha: 1
+  helpers:
+    set_labels:
+      z:
+        label: *loss_label
+        rotation: 90
+      rotate_z_label: False
+
+# Marginal probability densities
+marginals:
+  based_on: .creator.multiverse
+  expected_multiverse_ndim: [1,2,3,4,5]
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
+  select_and_combine:
+    fields:
+      loss:
+        path: loss
+        transform:
+          - np.maximum: [ !dag_prev , *loss_limit ]
+          - mul: [ !dag_prev , -1 ]
+          - np.exp: [!dag_prev ]
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+    - NeuralABM.compute_marginals: [ !dag_prev ]
+      kwargs:
+        bins: 1000
+      tag: data
+  smooth_kwargs:
+    enabled: true
+    sigma: 1
+
+# Timeseries plot
+time_series:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: time_series
+  hue: zone_id
+  x: time
+  add_legend: False
+  helpers:
+    set_labels:
+      y: $W_j$
+
+# Network plot
+network:
+  based_on:
+    - .creator.universe
+    - .plot.graph
+  dag_options:
+    select_path_prefix: ~
+
+  # Select node types and sizes to plot as node properties
+  select:
+    graph_group: data/network
+    node_type:
+      path: data/network/_vertices
+      transform:
+        - .attrs: [!dag_prev ]
+        - getitem: [!dag_prev , 'node_type']
+    origin_sizes:
+      path: data/HarrisWilson/origin_sizes
+      transform:
+        - .squeeze
+    destination_sizes:
+      path: data/HarrisWilson/training_data
+      transform:
+        - .isel: [!dag_prev , {'time': -1}] # Select the time to plot here
+          kwargs:
+            drop: true
+  transform:
+    - xr.concat: [[!dag_tag origin_sizes, !dag_tag destination_sizes], 'zone_id']
+      tag: sizes
+
+  register_property_maps:
+    - node_type
+    - sizes
+
+  graph_creation:
+    node_props: [node_type, sizes]
+    edge_props: [_edge_weights]
+
+  graph_drawing:
+    positions:
+      model: random
+    nodes:
+      node_size:
+        from_property: sizes
+        scale_to_interval: [1, 100]
+      node_color:
+        from_property: node_type
+      cmap:
+        from_values:
+          0: *darkblue # origin sizes are encoded as '0'
+          1: *red # destination sizes are encoded as '1'
+      colorbar:
+        enabled: false
+    edges:
+      width:
+        from_property: _edge_weights
+        scale_to_interval: [0, 1]
+      alpha: 0.1
+      arrows: False

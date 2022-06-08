@@ -1,0 +1,208 @@
+---
+_:
+  colors: &colors
+    yellow:             &yellow           '#F5DDA9'
+    darkblue:           &darkblue         '#2F7194'
+    red:                &red              '#ec7070'
+    skyblue:            &skyblue          '#97c3d0'
+    green:              &green            '#48675A'
+    lightbrown:         &lightbrown       '#C6BFA2'
+    orange:             &orange           '#EC9F7E'
+    lightgreen:         &lightgreen       '#AFD8BC'
+    grey:               &grey             '#3D4244'
+    lightgrey:          &lightgrey        '#D6D6D6'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:         &full_width       7.00787402
+    half_width:         &half_width       !expr 7.00787402 / 2
+    third_width:        &third_width      !expr 7.00787402 / 3
+    quarter_width:      &quarter_width    !expr 7.00787402 / 4
+    fifth_width:        &fifth_width          !expr 7.00787402 / 5
+  # file locations
+  temporal_metric:    &temp_metric      'data/HarrisWilson/London_data/exp_times.csv'
+  spatial_metric:     &sp_metric        'data/HarrisWilson/London_data/exp_distances.csv'
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
+#   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
+#   ╩ ╚═╝╩ ╩╩  ╩═╝╩ ╩ ╩ ╚═╝╚═╝
+# ======================================================================================================================
+# Defaults for marginals plots
+.defaults:
+  based_on: marginals
+  file_ext: pdf
+  style:
+    figure.figsize: [ *third_width, *fifth_width ]
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[yellow]:}', '{colors[green]:}'])"
+      colors: *colors
+
+  # Smoothing settings for marginals
+  smooth_kwargs:
+    enabled: true
+    sigma: 1.5
+
+# ======================================================================================================================
+#  ╦  ╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
+#  ║  ║ ║║║║  ║║║║ ║║╚═╗║╣   ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
+#  ╩═╝╚═╝╚╩╝  ╝╚╝╚═╝╩╚═╝╚═╝  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
+# ======================================================================================================================
+# -- Marginal density for alpha for the different metrics, including the MCMC density (low noise regime) ---------------
+low_noise/alpha:
+  based_on: .defaults
+  dag_options:
+    define:
+      mcmc_data_path: 'data/HarrisWilson/London_data/MCMC_data/low_noise_alpha.csv'
+      pname: 'alpha'
+  select_and_combine:
+    fields:
+      param1: alpha
+    subspace:
+      sigma:
+        idx: 1
+  transform:
+
+    # Get the MCMC data
+    - import_and_call: [ pandas, read_csv, !dag_tag mcmc_data_path]
+      kwargs:
+        index_col: 0
+    - getitem: [!dag_prev , !dag_tag pname]
+      tag: mcmc_data
+
+    # Compute the model marginals
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+    - operation: NeuralABM.compute_marginals
+      args: [!dag_prev ]
+      kwargs:
+        along_dim: metric
+        bins: 1000
+        labels: &labels ['temporal metric', 'spatial metric']
+        clip: [0, 2]
+      tag: data
+
+  hue: metric
+  helpers:
+    call:
+      functions:
+        - function: sns.kdeplot
+          data: !dag_result mcmc_data
+          color: *lightbrown
+          label: Euclidean metric (MCMC)
+    set_labels:
+      x: '$\alpha$'
+      y: ' '
+    set_legend:
+      use_legend: False
+    set_limits:
+      x: [0.5, 1.5]
+
+# -- Marginal density for beta for the different metrics, including the MCMC density (low noise regime) ---------------
+low_noise/beta:
+  based_on: low_noise/alpha
+  dag_options:
+    define:
+      mcmc_data_path: 'data/HarrisWilson/London_data/MCMC_data/low_noise_beta.csv'
+      pname: beta
+  select_and_combine:
+    fields:
+      param1: beta
+  helpers:
+    set_legend:
+      use_legend: False
+    set_labels:
+      x: '$\beta$'
+    set_limits:
+      x: [0, 0.5]
+
+# -- Marginal density for kappa for the different metrics (low noise regime) -------------------------------------------
+low_noise/kappa:
+  based_on: .defaults
+  select_and_combine:
+    fields:
+      param1: kappa
+    subspace:
+      sigma:
+        idx: 1
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+    - operation: NeuralABM.compute_marginals
+      args: [ !dag_prev ]
+      kwargs:
+        along_dim: metric
+        bins: 1000
+        labels: *labels
+      tag: data
+  hue: metric
+  helpers:
+    set_labels:
+      x: '$\kappa$'
+    set_limits:
+      x: [4, 9]
+    # Indicate the true value of kappa
+    set_hv_lines:
+      vlines:
+        - pos: 8.3
+          color: *red
+          zorder: 5
+          linestyle: dotted
+          linewidth: 1
+
+# ======================================================================================================================
+#  ╦ ╦╦╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
+#  ╠═╣║║ ╦╠═╣  ║║║║ ║║╚═╗║╣   ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
+#  ╩ ╩╩╚═╝╩ ╩  ╝╚╝╚═╝╩╚═╝╚═╝  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
+# ======================================================================================================================
+
+# -- Marginal density for alpha for the different metrics, including the MCMC density (high noise regime) --------------
+high_noise/alpha:
+  based_on: low_noise/alpha
+  dag_options:
+    define:
+      mcmc_data_path: 'data/HarrisWilson/London_data/MCMC_data/high_noise_alpha.csv'
+  select_and_combine:
+    subspace:
+      sigma:
+        idx: 2
+  helpers:
+    set_limits:
+      x: [0, 2]
+  smooth_kwargs:
+    sigma: 2
+
+# -- Marginal density for beta for the different metrics, including the MCMC density (high noise regime) ---------------
+high_noise/beta:
+  based_on: low_noise/beta
+  dag_options:
+    define:
+      mcmc_data_path: 'data/HarrisWilson/London_data/MCMC_data/high_noise_beta.csv'
+  select_and_combine:
+    subspace:
+      sigma:
+        idx: 2
+  helpers:
+    set_limits:
+      x: [ -0.2, 2.2 ]
+  smooth_kwargs:
+    sigma: 10
+
+# -- Marginal density for kappa for the different metrics (high noise regime) ------------------------------------------
+high_noise/kappa:
+  based_on: low_noise/kappa
+  select_and_combine:
+    subspace:
+      sigma:
+        idx: 2
+  helpers:
+    set_limits:
+      x: [ 1, 9 ]
+  smooth_kwargs:
+    sigma: 1.5

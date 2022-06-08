@@ -1,0 +1,27 @@
+Data:
+  synthetic_data:
+    type: from_ABM
+    N: !is-positive-int 150
+    space: [10, 10]
+    is_periodic: !is-bool false
+    r_infectious: !is-positive 1.0
+    p_infect: !is-probability 0.5
+    t_infectious: !is-positive 30
+    sigma_s: !is-positive-or-zero 0.15
+    sigma_i: !is-positive-or-zero 0.03
+    sigma_r: !is-positive-or-zero 0.15
+    num_steps: 200
+
+NeuralNet:
+  num_layers: !is-positive-int 6
+  nodes_per_layer: !is-positive-int 10
+  activation_funcs:
+    -1: abs
+  bias: !is-bool False
+  init_bias: [0, 1]
+  learning_rate: !is-positive 0.002
+
+Training:
+  batch_size: !is-positive-int 1
+  to_learn: [ p_infect, t_infectious, sigma ]
+

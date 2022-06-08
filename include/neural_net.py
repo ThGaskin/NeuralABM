@@ -1,13 +1,13 @@
 import torch
 from torch import nn
-from typing import Any, List
+from typing import Any, List, Union
 
 # -----------------------------------------------------------------------------
 # -- NN utility functions -----------------------------------------------------
 # -----------------------------------------------------------------------------
 
 
-def get_activation_funcs(n_layers: int, cfg: dict = None) -> List[Any]:
+def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[Any]:
 
     """Extracts the activation functions from the config"""
 
@@ -33,16 +33,52 @@ def get_activation_funcs(n_layers: int, cfg: dict = None) -> List[Any]:
 
     if cfg is None:
         return funcs
+    elif isinstance(cfg, str):
+        return [return_function(cfg)] * (n_layers + 1)
+    elif isinstance(cfg, dict):
+        for val in cfg.keys():
+            if val in [0]:
+                funcs[0] = return_function(cfg[0])
+            elif val in [-1]:
+                funcs[-1] = return_function(cfg[-1])
+            else:
+                funcs[val-1] = return_function(cfg[val])
 
-    for val in cfg.keys():
-        if val == 'first':
-            funcs[0] = return_function(cfg['first'])
-        if val == 'last':
-            funcs[-1] = return_function(cfg['last'])
-        else:
-            funcs[val-1] = return_function(cfg[val])
+        return funcs
+    else:
+        raise ValueError(f"Unrecognised argument {cfg} for 'activation_funcs'!")
 
-    return funcs
+
+def get_optimizer(name):
+
+    """Returns the optimizer from the config"""
+
+    if name == 'Adagrad':
+        return torch.optim.Adagrad
+    elif name == 'Adam':
+        return torch.optim.Adam
+    elif name == 'AdamW':
+        return torch.optim.AdamW
+    elif name == 'SparseAdam':
+        return torch.optim.SparseAdam
+    elif name == 'Adamax':
+        return torch.optim.Adamax
+    elif name == 'ASGD':
+        return torch.optim.ASGD
+    elif name == 'LBFGS':
+        return torch.optim.LBFGS
+    elif name == 'NAdam':
+        return torch.optim.NAdam
+    elif name == 'RAdam':
+        return torch.optim.RAdam
+    elif name == 'RMSprop':
+        return torch.optim.RMSprop
+    elif name == 'Rprop':
+        return torch.optim.Rprop
+    elif name == 'SGD':
+        return torch.optim.SGD
+    else:
+        raise ValueError(f'Unrecognized opimiser {name}!')
 
 # -----------------------------------------------------------------------------
 # -- Neural net class ---------------------------------------------------------
@@ -58,6 +94,7 @@ class NeuralNet(nn.Module):
                  num_layers: int,
                  nodes_per_layer: int,
                  activation_funcs: dict = None,
+                 optimizer: str = 'Adam',
                  learning_rate: float = 0.001,
                  bias: bool = False,
                  init_bias: tuple = None,
@@ -94,8 +131,8 @@ class NeuralNet(nn.Module):
                 torch.nn.init.uniform_(layer.bias, init_bias[0], init_bias[1])
             self.layers.append(layer)
 
-        # Get Adam optimizer
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+        # Get the optimizer
+        self.optimizer = get_optimizer(optimizer)(self.parameters(), lr=learning_rate)
 
         # Initialize the loss tracker dictionary, which can be used to evaluate the training progress
         self._loss_tracker: dict = {'iteration': [], 'training_loss': [], 'parameter_loss': []}

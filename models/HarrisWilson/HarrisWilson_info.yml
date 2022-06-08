@@ -10,7 +10,6 @@
 ---
 # -- General information and options
 model_name: HarrisWilson
-set_as_default: true
 project_name: NeuralABM
 
 # -- Path information, interpreted relative to this file
@@ -20,7 +19,7 @@ paths:
   default_cfg: HarrisWilson_cfg.yml
   default_plots: HarrisWilson_plots.yml
   base_plots: HarrisWilson_base_plots.yml
-  py_plots_dir: /Users/thomasgaskin/Documents/Projects/Agent based modelling and Neural Nets/Neural_ABM/model_plots
+  py_plots_dir: ../../model_plots/HarrisWilson
 
 # -- Metadata
 metadata:

@@ -1,0 +1,121 @@
+---
+_:
+  red:     &red    '#ec7070'
+  green:   &green  '#48675A'
+
+  # True parameters
+  true_parameters:
+    alpha:        &alpha          1.2
+    beta:         &beta           4
+    kappa:        &kappa          2
+
+# ======================================================================================================================    
+# Plot the density of the loss over alpha, beta, kappa
+loss_density/alpha:
+  based_on: loss_density
+  select_and_combine:
+    fields:
+      param1: alpha
+  helpers:
+    set_labels:
+      x: '$\alpha$'
+    set_hv_lines:
+      vlines:
+        - pos: *alpha
+          color: *red
+          zorder: 1
+          linestyle: dotted
+
+loss_density/beta:
+  based_on: loss_density
+  select_and_combine:
+    fields:
+      param1: beta
+  helpers:
+    set_labels:
+      x: '$\beta$'
+    set_hv_lines:
+      vlines:
+        - pos: *beta
+          color: *red
+          zorder: 1
+          linestyle: dotted
+
+loss_density/kappa:
+  based_on: loss_density
+  select_and_combine:
+    fields:
+      param1: kappa
+  helpers:
+    set_labels:
+      x: '$\kappa$'
+    set_hv_lines:
+      vlines:
+        - pos: *kappa
+          color: *red
+          zorder: 1
+          linestyle: dotted
+
+# Plot the density of the loss over alpha and beta
+loss_density/alpha_beta:
+  based_on: loss_density_3d
+  transform:
+    - xr.Dataset:
+        data_vars:
+          param1: !dag_tag param1
+          param2: !dag_tag param2
+          loss: !dag_tag loss
+    - .stack: [ !dag_prev , { ' ': [ 'seed', 'time' ] }, False ]
+      tag: data
+    - getitem: [!dag_tag data, param1]
+    - getitem: [!dag_prev , 0]
+    - getitem: [!dag_prev , !slice [ &path_start 0, &path_stop 5000 ]]
+      tag: path_y
+    - getitem: [ !dag_tag data, param2 ]
+    - getitem: [ !dag_prev , 0 ]
+    - getitem: [ !dag_prev , !slice [ *path_start, *path_stop ] ]
+      tag: path_x
+    - getitem: [ !dag_tag data, loss ]
+    - getitem: [ !dag_prev , 0 ]
+    - getitem: [ !dag_prev , !slice [ *path_start, *path_stop ] ]
+      tag: path_z
+  helpers:
+    setup_figure:
+      subplot_kw:
+        elev: 22
+        azim: -313
+    set_labels:
+      x: '$\beta$'
+      y: '$\alpha$'
+    set_limits:
+      x: [0, 8]
+      y: [0, 5]
+      z: [0, ~]
+    utcall:
+      functions:
+        # Mark the non-trivial maximum
+        - function: [matplotlib, pyplot.plot]
+          args:
+            - [4, 4]
+            - [1.2, 1.2]
+            - [0, 19]
+          color: *red
+          linestyle: dotted
+        # Mark the trivial maximum
+        - function: [ matplotlib, pyplot.plot ]
+          args:
+            - [ 0, 0 ]
+            - [ 1, 1 ]
+            - [ 0, 19 ]
+          color: *green
+          linestyle: dotted
+        # Plot a sample trajectory
+        - function: [matplotlib, pyplot.plot]
+          args:
+            - !dag_result path_x
+            - !dag_result path_y
+            - !dag_result path_z
+          zorder: 10000
+          color: black
+          linestyle: dotted
+          linewidth: 0.5
