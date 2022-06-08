@@ -1,6 +1,4 @@
-executable_control:
-  run_from_tmpdir: false
-
+---
 parameter_space:
   seed: !sweep
     default: 42

@@ -1,0 +1,10 @@
+# The project-specific Multiverse configuration
+---
+executable_control:
+  # For file-based imports of Python files, cannot have the "executable" be
+  # copied to a temporary directory
+  run_from_tmpdir: false
+
+
+parameter_space:
+  num_epochs: 3
