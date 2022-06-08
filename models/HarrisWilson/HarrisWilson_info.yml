@@ -1,0 +1,40 @@
+# An example manifest file that contains model information and can be used
+# to register a model in the utopya model registry
+#
+# NOTE Updating the information in this file does NOT automatically update the
+#      corresponding entries in the model registry! Call
+#
+#           utopya models register from-manifest [MANIFEST_FILE]...
+#
+#      for updating information in the model registry.
+---
+# -- General information and options
+model_name: HarrisWilson
+set_as_default: true
+project_name: NeuralABM
+
+# -- Path information, interpreted relative to this file
+paths:
+  executable: run.py
+  source_dir: ./
+  default_cfg: HarrisWilson_cfg.yml
+
+# -- Metadata
+metadata:
+  description: A (dummy) model illustrating the utopya interface
+  long_description: >
+    This model does not really do anything: It simply sums up a bunch of random
+    numbers in a state container, writing out all values and the corresponding
+    mean value.
+    It mainly serves to illustrate the interface that is needed in order to run
+    a model using utopya.
+
+  version: "0.1"
+  author: Yunus Sevinchan
+  license: LGPLv3+
+  language: python3
+  requirements:
+    - ruamel.yaml
+    - numpy
+    - h5py
+  utopya_compatibility: ">=1.0.0a1"

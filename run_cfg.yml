@@ -1,0 +1,9 @@
+executable_control:
+  run_from_tmpdir: false
+
+parameter_space:
+  seed: !sweep
+    default: 42
+    values: [1, 2]
+  write_every: 2
+  num_epochs: 1000
