@@ -1,0 +1,6 @@
+# Default plots for the Harris-Wilson model
+---
+predictions:
+  based_on: preds
+  helpers:
+    set_title: 'something'

@@ -18,23 +18,23 @@ paths:
   executable: run.py
   source_dir: ./
   default_cfg: HarrisWilson_cfg.yml
+  default_plots: HarrisWilson_plots.yml
+  base_plots: HarrisWilson_base_plots.yml
+  py_plots_dir: /Users/thomasgaskin/Documents/Projects/Agent based modelling and Neural Nets/Neural_ABM/model_plots
 
 # -- Metadata
 metadata:
-  description: A (dummy) model illustrating the utopya interface
+  description: Model description
   long_description: >
-    This model does not really do anything: It simply sums up a bunch of random
-    numbers in a state container, writing out all values and the corresponding
-    mean value.
-    It mainly serves to illustrate the interface that is needed in order to run
-    a model using utopya.
+    This model ... 
 
   version: "0.1"
-  author: Yunus Sevinchan
+  author: Thomas Gaskin
   license: LGPLv3+
   language: python3
   requirements:
     - ruamel.yaml
     - numpy
     - h5py
+    - torch
   utopya_compatibility: ">=1.0.0a1"

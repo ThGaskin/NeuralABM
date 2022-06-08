@@ -1,0 +1,6 @@
+---
+preds:
+  creator: universe
+  universes: all
+  module: plots.HarrisWilson
+  plot_func: predictions
