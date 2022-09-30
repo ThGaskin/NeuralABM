@@ -12,7 +12,7 @@ parameter_space:
 
     # Settings for the neural net architecture
     NeuralNet:
-      num_layers: 2
+      num_layers: 1
       nodes_per_layer: 20
       activation_funcs:
         -1: abs
