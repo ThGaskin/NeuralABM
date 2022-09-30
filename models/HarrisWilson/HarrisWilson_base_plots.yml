@@ -291,3 +291,71 @@ network:
         scale_to_interval: [0, 1]
       alpha: 0.1
       arrows: False
+
+inequality_1d:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+  expected_multiverse_ndim: [1, 2, 3]
+  select_and_combine:
+    fields:
+      time_series:
+        path: time_series
+        transform:
+          - .isel: [ !dag_prev , { time: -1 } ]
+            kwargs:
+              drop: true
+  transform:
+    - .min: [ !dag_tag time_series, 'zone_id' ]
+      tag: min
+    - .max: [ !dag_tag time_series, 'zone_id' ]
+      tag: max
+    - .sum: [ !dag_tag time_series, 'zone_id' ]
+      tag: sum
+    - sub: [ !dag_tag max, !dag_tag min ]
+    - div: [ !dag_prev , !dag_tag sum ]
+      tag: nu
+    - .mean: [!dag_prev , 'seed']
+      tag: mean
+    - .std: [!dag_tag nu , 'seed' ]
+      tag: std
+    - xr.Dataset:
+        data_vars:
+          mean: !dag_tag mean
+          std: !dag_tag std
+      tag: data
+
+  x: alpha
+  hue: weights_std
+  y: mean
+  yerr: std
+
+phase_diagram:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.scatter
+  select_and_combine:
+    fields:
+      time_series: time_series
+  transform:
+    - .isel: [ !dag_tag time_series, { zone_id: 0 } ]
+      kwargs: { drop: true }
+      tag: zone_0
+    - .isel: [ !dag_tag time_series, { zone_id: 1 } ]
+      kwargs: { drop: true }
+      tag: zone_1
+    - xr.Dataset:
+        data_vars:
+          zone_0: !dag_tag zone_0
+          zone_1: !dag_tag zone_1
+      tag: data
+  x: zone_0
+  y: zone_1
+  hue: std
+  s: 2
+  cmap:
+    continuous: true
+    from_values:
+      0: *yellow
+      0.5: *red
+      1: *green
