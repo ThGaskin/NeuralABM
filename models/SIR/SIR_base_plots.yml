@@ -93,24 +93,49 @@ loss:
 state:
   based_on:
     - .creator.universe
+    - .plot.abm
     - .animation.ffmpeg
-  module: model_plots.SIR
-  plot_func: scatter
   select:
-    positions:
+    x:
       path: position
       transform:
-        - .data: !dag_prev
+        - .sel: [!dag_prev , {coords: x}]
+          kwargs:
+            drop: true
+    y:
+      path: position
+      transform:
+        - .sel: [ !dag_prev , {coords: y}]
+          kwargs:
+            drop: true
     kinds:
       path: kinds
       transform:
-        - .data: !dag_prev
+        - .data: [!dag_prev ]
 
   # Combine coordinates and kinds into a single Dataset
   transform:
-    - xr.merge: [[!dag_tag positions, !dag_tag kinds]]
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          x: !dag_tag x
+          y: !dag_tag y
+          kind: !dag_tag kinds
       tag: data
 
+  to_plot:
+    data:
+      cmap:
+        susceptible: *lightgreen
+        infected: *red
+        recovered: *darkgreen
+      vmin: 0
+      vmax: 2
+      size_scale: 0.0005
+  hue: kind
+  x: x
+  y: y
+  frames: time
   # Colorbar settings
   cmap:
     susceptible: *lightgreen
@@ -124,11 +149,7 @@ state:
     axes.spines.top: True
     axes.spines.right: True
   # Animation control
-  animation:
-    writer_kwargs:
-      ffmpeg:
-        saving:
-          dpi: 300
+
 
 # -- Comparison of predicted and true densities ------------------------------------------------------------------------
 densities_comparison:

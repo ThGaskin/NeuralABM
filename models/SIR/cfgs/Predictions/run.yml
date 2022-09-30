@@ -1,4 +1,6 @@
 perform_sweep: true
+paths:
+  model_note: Predictions
 parameter_space:
   seed: !sweep
     default: 1
@@ -8,15 +10,15 @@ parameter_space:
   write_every: 1
   SIR:
     Data:
-      load_from_dir: data/SIR/ABM_data_2/data/uni0/data.h5
+      load_from_dir: data/SIR/ABM_data/data/uni0/data.h5
     NeuralNet:
-      num_layers: 10
+      num_layers: 1
       nodes_per_layer: 20
       bias: True
       init_bias: [0, 1]
       activation_funcs:
         -1: abs
-      learning_rate: 0.001
+      learning_rate: 0.002
       optimizer: Adam
     Training:
       batch_size: 90

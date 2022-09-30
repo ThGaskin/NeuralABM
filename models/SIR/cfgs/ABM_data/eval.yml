@@ -14,11 +14,11 @@
     grey:           &grey             '#3D4244'
 
   page_widths:
-    full_width:     &full_width       7.516
-    half_width:     &half_width       !expr 7.516 / 2
-    third_width:    &third_width      !expr 7.516 / 3
-    quarter_width:  &quarter_width    !expr 7.516 / 4
-    fifth_width:    &fifth_width      !expr 7.516 / 5
+    full_width:     &full_width       7.00787402
+    half_width:     &half_width       !expr 7.00787402 / 2
+    third_width:    &third_width      !expr 7.00787402 / 3
+    quarter_width:  &quarter_width    !expr 7.00787402 / 4
+    fifth_width:    &fifth_width      !expr 7.00787402 / 5
 
 # Densities of agent types
 # Snapshots of the ABM state at four different times
@@ -26,7 +26,6 @@ state:
   based_on:
     - state
     - .animation.frames
-
   frames_isel: [3, 13, 30, 45]
   add_colorbar: False
   style:
@@ -36,7 +35,7 @@ state:
     axes.spines.left: False
     axes.spines.right: False
     savefig.bbox: tight
-  s: 4
+  suptitle_fstr: ''
   helpers:
     setup_figure:
       figsize: [*quarter_width, *quarter_width]

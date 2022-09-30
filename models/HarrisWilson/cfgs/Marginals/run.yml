@@ -1,5 +1,7 @@
 ---
 perform_sweep: True
+paths:
+  model_note: Marginals
 parameter_space:
   seed: !sweep
     default: 4
@@ -24,8 +26,10 @@ parameter_space:
                 ]
         name: sigma
     NeuralNet:
+      num_layers: 1
+      nodes_per_layer: 20
       activation_funcs:
-        last: abs
+        -1: abs
       bias: true
       init_bias: [0, 4]
       learning_rate: 0.002

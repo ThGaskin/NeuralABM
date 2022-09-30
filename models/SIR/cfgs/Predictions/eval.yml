@@ -20,11 +20,15 @@
     grey:           &grey             '#3D4244'
 
   page_widths:
-    full_width:     &full_width       7.516
-    half_width:     &half_width       !expr 7.516 / 2
-    third_width:    &third_width      !expr 7.516 / 3
-    quarter_width:  &quarter_width    !expr 7.516 / 4
-    fifth_width:    &fifth_width      !expr 7.516 / 5
+    full_width:     &full_width       7.00787402
+    half_width:     &half_width       !expr 7.00787402 / 2
+    third_width:    &third_width      !expr 7.00787402 / 3
+    quarter_width:  &quarter_width    !expr 7.00787402 / 4
+    fifth_width:    &fifth_width      !expr 7.00787402 / 5
+
+  true_values:
+    p_infectious:   &p_infectious     0.2
+    t_infectious:   &t_infectious     14
 
 # ======================================================================================================================
 #  ╔═╗╦╦═╗  ╔╦╗╔═╗╔╗╔╔═╗╦╔╦╗╦╔═╗╔═╗
@@ -98,14 +102,22 @@ densities:
       title: ~
     set_labels:
       y: ' '
-    set_hv_lines:
-      vlines:
-        - pos: !dag_result true_peak
-          color: *yellow
-          linestyle: dotted
-        - pos: !dag_result pred_peak
-          color: *orange
-          linestyle: dotted
+    # Plot the times of infection peaks
+    axis_specific:
+      true:
+        axis: [ 0, 0 ]
+        set_hv_lines:
+          vlines:
+            - pos: !dag_result true_peak
+              color: *red
+              linestyle: dotted
+      predicted:
+        axis: [ -1, -1 ]
+        set_hv_lines:
+          vlines:
+            - pos: !dag_result pred_peak
+              color: *red
+              linestyle: dotted
   style:
     axes.prop_cycle: !format
       fstr: "cycler('color', ['{colors[red]:}', '{colors[darkgreen]:}', '{colors[lightgreen]:}'])"
@@ -124,31 +136,6 @@ p_infectious:
   plot_func: plot_prob_density
   compute_only: [data, info_str, mode]
   file_ext: pdf
-  dag_options:
-    meta_operations:
-      compute_mode:
-        - .idxmax: [ !arg 0 ]
-          allow_failure: true
-          fallback: ~
-        - getitem: [ !dag_prev , 'prob' ]
-        - .item: [!dag_prev ]
-      compute_mean:
-        - getitem: [ !arg 0, 'prob' ]
-          tag: p
-        - getitem: [ !arg 0 , 'param1' ]
-        - mul: [ !dag_tag p, !dag_prev ]
-        - sum: [ !dag_prev ]
-        - .item: [ !dag_prev ]
-      compute_variance:
-        - getitem: [ !arg 0, 'prob' ]
-          tag: p
-        - getitem: [ !arg 0 , 'param1' ]
-        - np.subtract: [ !dag_prev , !arg 1 ]
-        - pow: [ !dag_prev , 2 ]
-        - mul: [ !dag_tag p, !dag_prev ]
-        - sum: [ !dag_prev ]
-        - sqrt: [ !dag_prev ]
-        - .item: [ !dag_prev ]
   select_and_combine:
     fields:
       param1:
@@ -168,16 +155,19 @@ p_infectious:
         data_vars:
           param1: !dag_tag param1
           loss: !dag_tag loss
-    - HarrisWilson.get_marginals: [ !dag_prev ]
+    - NeuralABM.compute_marginals: [ !dag_prev ]
       kwargs:
         bins: 200
       tag: data
-    - compute_mode: [ !dag_tag data,]
+    - NeuralABM.compute_mode: [ !dag_tag data]
+    - getitem: [!dag_prev , 'mode']
     - .format: [ '{:.2f}', !dag_prev ]
       tag: mode
-    - compute_mean: [ !dag_tag data,]
+    - NeuralABM.compute_mean: [ !dag_tag data ]
+    - getitem: [!dag_prev , 'mean']
       tag: mean
-    - compute_variance: [ !dag_tag data, !dag_tag mean ]
+    - NeuralABM.compute_std: [ !dag_tag data ]
+    - getitem: [!dag_prev , 'std']
       tag: var
     - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_tag var ]
       tag: info_str
@@ -193,9 +183,11 @@ p_infectious:
       x: '$\beta$'
     set_hv_lines:
       vlines:
-        - pos: 0.2
+        - pos: *p_infectious
           color: *red
           linestyle: dotted
+    set_limits:
+      x: [min, 0.6]
   style:
     figure.figsize: [ *third_width, *quarter_width ]
 
@@ -211,15 +203,18 @@ t_infectious:
     fields:
       param1:
         path: predicted_infection_time
-  info_box_labels: [ 'E[$\hat{\tau}$]', '$\mathrm{mode}$' ]
+  info_box_labels:
+    info_str: 'E[$\hat{\tau}$]'
   helpers:
     set_labels:
       x: '$\tau$'
     set_hv_lines:
       vlines:
-        - pos: 14
+        - pos: *t_infectious
           color: *red
           linestyle: dotted
+    set_limits:
+      x: [ 5, max ]
 
 # ======================================================================================================================
 #  ╔╗╔╔═╗╦╔═╗╔═╗
@@ -233,9 +228,12 @@ noise:
     fields:
       param1:
         path: predicted_noise
-  info_box_labels: [ 'E[$\hat{\sigma}$]', '$\mathrm{mode}$' ]
+  info_box_labels:
+    info_str: 'E[$\hat{\sigma}$]'
   helpers:
     set_labels:
       x: '$\sigma$'
     set_hv_lines:
       vlines: ~
+    set_limits:
+      x: [ 0, 0.6 ]

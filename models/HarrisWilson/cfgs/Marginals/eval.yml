@@ -20,6 +20,7 @@ _:
   # Page widths in inches for latex documents: ensures easy integration into latex documents
   page_widths:
     half_width:    &half_width     !expr 7.00787402 / 2
+    third_width:   &third_width    !expr 7.00787402 / 3
     fifth_width:   &fifth_width    !expr 7.00787402 / 5
 
   # True parameters
@@ -110,9 +111,11 @@ marginal_beta:
   select_and_combine:
     fields:
       param1: beta
+  style:
+    figure.figsize: [ *third_width, *fifth_width ]
   helpers:
     set_legend:
-      use_legend: True
+      use_legend: False
     set_labels:
       x: '$\beta$'
       y: ' '
@@ -137,9 +140,11 @@ marginal_kappa:
   select_and_combine:
     fields:
       param1: kappa
+  style:
+    figure.figsize: [ *third_width, *fifth_width ]
   helpers:
     set_legend:
-      use_legend: True
+      use_legend: False
     set_labels:
       x: '$\kappa$'
       y: ' '
@@ -151,7 +156,7 @@ marginal_kappa:
           linestyle: dotted
           linewidth: 1
     set_limits:
-      x: [1.5, 2.5]
+      x: [1.75, 2.25]
 
 # ======================================================================================================================
 #  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦    ╔═╗╦╔═╗╔╦╗╔═╗
@@ -275,6 +280,7 @@ peak_widths:
         along_dim: sigma
         prominence: 1
         distance: 8
+        height: 10
         width: [~, ~]
       tag: peaks_kappa
 
@@ -290,6 +296,8 @@ peak_widths:
   y: mean
   yerr: std
   hue: parameter
+  ms: 4
+  marker: 'o'
   helpers:
     set_labels:
       x: Training data noise $\sigma$

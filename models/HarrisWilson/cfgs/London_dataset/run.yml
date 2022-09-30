@@ -1,4 +1,6 @@
 perform_sweep: True
+paths:
+  model_note: London_dataset
 parameter_space:
   seed: !sweep
     default: 2
@@ -18,8 +20,10 @@ parameter_space:
         destination_zones: data/HarrisWilson/London_data/dest_sizes.csv
     NeuralNet:
       init_bias: [ 0, 4 ]
-      num_layers: 10
+      num_layers: 1
       nodes_per_layer: 20
+      optimizer: Adam
+      learning_rate: 0.002
     Training:
       to_learn: [alpha, beta, kappa]
       true_parameters:

@@ -11,7 +11,7 @@ and plotting.
 > overview of the Utopia syntax. You can find a complete guide on running models with Utopia/utopya 
 > [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial).
 
-> **_Hint_**: See 'Configuration sets' below for guidance on how to reproduce the plots from the
+> **_Note_**: See 'Configuration sets' below for guidance on how to reproduce the plots from the
 > publication, once you have completed installation.
 > 
 ## How to install
@@ -36,8 +36,8 @@ You should now be able to invoke the utopya CLI:
 utopya --help
 ```
 
-> **_Hint:_**  On Apple Silicon devices running macOS 12.3+, follow [these](https://pytorch.org/blog/introducing-accelerated-pytorch-training-on-mac/)
-> instructions to enable GPU training. Your training device will then be set to 'mps'. 
+> **_Note_**  On Apple Silicon devices running macOS 12.3+, follow [these](https://pytorch.org/blog/introducing-accelerated-pytorch-training-on-mac/)
+> instructions to install pytorch and enable GPU training. Your training device will then be set to 'mps'. 
 > On all devices the GPU, where available, will always be the preferred training device.
 
 #### 3. Register the project and all models with utopya
@@ -50,7 +50,7 @@ You should get a positive response from the utopya CLI and your project should a
 ```console
 utopya projects ls
 ```
-> **_Note:_** Any changes to the project info file need to be communicated to utopya by calling the registration command anew.
+> **_Note_** Any changes to the project info file need to be communicated to utopya by calling the registration command anew.
 > You will then have to additionally pass the `````--exists-action overwrite````` flag, because a project of that name already exists.
 > See ```utopya projects register --help``` for more information.
 
@@ -122,12 +122,12 @@ You can run the model using this file by calling
 utopya run HarrisWilson path/to/cfg.yml
 ```
 
-> **Hint**: The models all come with plenty of example configuration files in the `cfgs` folders. These are
+> **_Note_**: The models all come with plenty of example configuration files in the `cfgs` folders. These are
 > *configuration sets*, complete sets of run configurations and evaluation routines designed to produce specific
 > plots. These also demonstrate how to load datasets to run the models.
 
 ## Parameter sweeps
-> **Hint**: Take a look at the [full tutorial entry](https://docs.utopia-project.org/html/getting_started/tutorial.html#parameter-sweeps)
+> **_Note_**: Take a look at the [full tutorial entry](https://docs.utopia-project.org/html/getting_started/tutorial.html#parameter-sweeps)
 > for a full guide on running parameter sweeps.
 
 Parameter sweeps (multiple runs using different configuration settings) are easy: all you need to do is add a 
@@ -166,7 +166,7 @@ You can run them by executing
 utopya run HarrisWilson --cfg-set <name_of_cfg_set>
 ```
 
-> **Note:** Some of the configuration sets perform *sweeps*, that is, runs over several parameter configurations.
+> **_Note_** Some of the configuration sets perform *sweeps*, that is, runs over several parameter configurations.
 > These may take a while to run. 
 
 Running the configuration set will produce plots. If you wish to re-evaluate a run (perhaps plotting different figures),

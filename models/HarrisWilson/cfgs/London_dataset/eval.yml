@@ -18,10 +18,7 @@ _:
     half_width:         &half_width       !expr 7.00787402 / 2
     third_width:        &third_width      !expr 7.00787402 / 3
     quarter_width:      &quarter_width    !expr 7.00787402 / 4
-    fifth_width:        &fifth_width          !expr 7.00787402 / 5
-  # file locations
-  temporal_metric:    &temp_metric      'data/HarrisWilson/London_data/exp_times.csv'
-  spatial_metric:     &sp_metric        'data/HarrisWilson/London_data/exp_distances.csv'
+    fifth_width:        &fifth_width      !expr 7.00787402 / 5
 
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
@@ -205,4 +202,4 @@ high_noise/kappa:
     set_limits:
       x: [ 1, 9 ]
   smooth_kwargs:
-    sigma: 1.5
+    sigma: 10

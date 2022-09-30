@@ -1,35 +1,23 @@
 ---
 dirty: true
-git_diff: /Users/thomasgaskin/utopya_output/SIR/220906-140153/config/git_diff_project.patch
+git_diff: /Users/thomasgaskin/utopya_output/SIR/220927-081223_ABM_data/config/git_diff_project.patch
 git_status:
-- [M, include/neural_net.py]
-- ['', M model_plots/HarrisWilson/prob_density.py]
-- ['', M model_plots/SIR/scatter.py]
-- ['', M models/HarrisWilson/HarrisWilson_base_plots.yml]
+- [M, models/HarrisWilson/ABM.py]
 - ['', M models/HarrisWilson/HarrisWilson_cfg.yml]
-- ['', M models/HarrisWilson/HarrisWilson_plots.yml]
-- ['', M models/HarrisWilson/cfgs/London_dataset/eval.yml]
-- ['', M models/HarrisWilson/cfgs/Loss_landscape/eval.yml]
+- ['', M models/HarrisWilson/cfgs/London_dataset/run.yml]
+- ['', M models/HarrisWilson/cfgs/Loss_landscape/run.yml]
 - ['', M models/HarrisWilson/cfgs/Marginals/eval.yml]
-- ['', M models/SIR/ABM.py]
-- [AM, models/SIR/DataGeneration.py]
-- ['', M models/SIR/SIR_base_plots.yml]
+- ['', M models/HarrisWilson/cfgs/Marginals/run.yml]
+- ['', M models/HarrisWilson/cfgs/Performance_analysis/run.yml]
+- ['', M models/HarrisWilson/cfgs/Sample_run/run.yml]
 - ['', M models/SIR/SIR_cfg.yml]
-- ['', M models/SIR/SIR_plots.yml]
-- ['', M models/SIR/__init__.py]
-- [AM, models/SIR/cfgs/example_run/eval.yml]
-- [AM, models/SIR/cfgs/example_run/run.yml]
-- [AM, models/SIR/cfgs/marginals/eval.yml]
-- [AM, models/SIR/cfgs/marginals/run.yml]
-- [AM, models/SIR/cfgs/synthetic_data_generation/eval.yml]
-- [AM, models/SIR/cfgs/synthetic_data_generation/run.yml]
-- ['', M models/SIR/run.py]
-- ['', M run_cfg.yml]
+- ['', M models/SIR/cfgs/Predictions/eval.yml]
+- ['', M models/SIR/cfgs/Predictions/run.yml]
 have_git_repo: true
-latest_commit: {author: Thomas Gaskin <tgaskin@live.co.uk>, author_date: '2022-08-22
-    17:39:54', commit: f4101f0d56f77e4133c6038e542b4be87d548403, gitdir: /Users/thomasgaskin/Neural_ABM/.git,
-  message: Add prediction plots, parent: 4f631721c16536ce88582fb224c272e8e8a30d53,
-  refs: add_SIR_model, tree: c349746e2d829793f715897b3502cadee6452489}
+latest_commit: {author: Thomas Gaskin <tgaskin@live.co.uk>, author_date: '2022-09-22
+    16:49:28', commit: ce032b22c2b88a890d7cbb4b892e7f2125f762a7, gitdir: /Users/thomasgaskin/Neural_ABM/.git,
+  message: 'Update doc strings, clean-up code and config sets for HW', parent: 113ff72cf612a062a4233d7d214f16c77816cf33,
+  refs: main, tree: e7cf2a87c250ec96d41e480b9d33048039a740cb}
 project_base_dir: /Users/thomasgaskin/Neural_ABM
 project_name: NeuralABM
 

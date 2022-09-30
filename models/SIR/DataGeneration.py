@@ -179,16 +179,14 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group):
             # Initialise agent kind dataset
             dset_kinds = h5group.create_dataset(
                 "kinds",
-                (0, N, 1),
-                maxshape=(None, N, 1),
+                (0, N),
+                maxshape=(None, N),
                 chunks=True,
                 compression=3,
             )
-            dset_kinds.attrs['dim_names'] = ['time', 'agent_id', 'kind']
+            dset_kinds.attrs['dim_names'] = ['time', 'agent_id']
             dset_kinds.attrs["coords_mode__time"] = "trivial"
             dset_kinds.attrs["coords_mode__agent_id"] = "trivial"
-            dset_kinds.attrs["coords_mode__kind"] = "values"
-            dset_kinds.attrs["coords__kind"] = ["kind"]
 
             training_data = generate_data_from_ABM(cfg=data_cfg['synthetic_data'],
                                                    positions=dset_position,

@@ -1,6 +1,8 @@
 ---
+paths:
+  model_note: Sample_run
 parameter_space:
-  seed: 42
+  seed: 0
   num_epochs: 6000
   write_start: 1
   write_every: 1
@@ -10,13 +12,14 @@ parameter_space:
 
     # Settings for the neural net architecture
     NeuralNet:
-      num_layers: 10
+      num_layers: 2
       nodes_per_layer: 20
       activation_funcs:
-        last: abs
+        -1: abs
       bias: True
       init_bias: [ 0, 4 ]
       learning_rate: 0.002
+      optimizer: Adam
 
     # Settings for the neural net training
     Training:

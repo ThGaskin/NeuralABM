@@ -1,9 +1,11 @@
 ---
+paths:
+  model_note: Performance_analysis
 perform_sweep: True
 parameter_space:
   seed: !sweep
     default: 2
-    range: [20]
+    range: [10]
   num_epochs: 6000
   write_start: 1
   write_every: 10
@@ -29,13 +31,14 @@ parameter_space:
 
     # Settings for the neural net architecture
     NeuralNet:
-      num_layers: 10
+      num_layers: 1
       nodes_per_layer: 20
       activation_funcs:
-        last: abs
+        -1: abs
       bias: True
       init_bias: [ 0, 4 ]
       learning_rate: 0.002
+      optimizer: Adam
 
     # Settings for the neural net training
     Training:

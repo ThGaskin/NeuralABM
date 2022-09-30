@@ -42,6 +42,7 @@ data_manager:
       required: true
       target_path: multiverse/{match:}/cfg
   out_dir: eval/{timestamp:}
+debug_level: 0
 executable_control: {run_from_tmpdir: false}
 parameter_space: !pspace
   SIR:
@@ -61,74 +62,37 @@ parameter_space: !pspace
         type: from_ABM
     NeuralNet:
       activation_funcs: {-1: abs}
-      bias: true
+      bias: false
       init_bias: [0, 1]
-      learning_rate: 0.0005
+      learning_rate: 0.002
       nodes_per_layer: 20
-      num_layers: 20
+      num_layers: 2
     Training:
-      batch_size: 10
-      to_learn: [p_infect, t_infectious]
-      true_parameters: {sigma: 0.0}
+      batch_size: 1
+      to_learn: [p_infect, t_infectious, sigma]
   log_levels: {backend: warning, model: info}
   monitor_emit_interval: 2.0
-  num_epochs: 50
+  num_epochs: 1
   num_steps: 3
   root_model_name: SIR
-  seed: 21
+  seed: 0
   write_every: 1
   write_start: 1
 parameters_to_validate:
-  [SIR, Data, synthetic_data, N]: !param
-    default: 150
-    dtype: int64
-    limits: [0, null]
-    limits_mode: ()
-  [SIR, Data, synthetic_data, is_periodic]: !param {default: false, dtype: bool}
-  [SIR, Data, synthetic_data, p_infect]: !param
-    default: 0.5
-    dtype: float64
-    limits: [0, 1]
-    limits_mode: '[]'
-  [SIR, Data, synthetic_data, r_infectious]: !param
-    default: 1.0
-    limits: [0, null]
-    limits_mode: (]
-  [SIR, Data, synthetic_data, sigma_i]: !param
-    default: 0.03
-    dtype: float64
-    limits: [0, null]
-    limits_mode: '[]'
-  [SIR, Data, synthetic_data, sigma_r]: !param
-    default: 0.15
-    dtype: float64
-    limits: [0, null]
-    limits_mode: '[]'
-  [SIR, Data, synthetic_data, sigma_s]: !param
-    default: 0.15
-    dtype: float64
-    limits: [0, null]
-    limits_mode: '[]'
-  [SIR, Data, synthetic_data, t_infectious]: !param
-    default: 30
-    limits: [0, null]
-    limits_mode: (]
-  [SIR, NeuralNet, bias]: !param {default: false, dtype: bool}
-  [SIR, NeuralNet, learning_rate]: !param
-    default: 0.002
-    limits: [0, null]
-    limits_mode: (]
-  [SIR, NeuralNet, nodes_per_layer]: !param
-    default: 10
-    dtype: int64
-    limits: [0, null]
-    limits_mode: ()
-  [SIR, NeuralNet, num_layers]: !param
-    default: 6
-    dtype: int64
-    limits: [0, null]
-    limits_mode: ()
-paths: {model_note: null, out_dir: ~/utopya_output}
+  [SIR, Data, synthetic_data, N]: !is-positive-int 150
+  [SIR, Data, synthetic_data, is_periodic]: !is-bool False
+  [SIR, Data, synthetic_data, p_infect]: !is-probability 0.5
+  [SIR, Data, synthetic_data, r_infectious]: !is-positive 1.0
+  [SIR, Data, synthetic_data, sigma_i]: !is-positive-or-zero 0.03
+  [SIR, Data, synthetic_data, sigma_r]: !is-positive-or-zero 0.15
+  [SIR, Data, synthetic_data, sigma_s]: !is-positive-or-zero 0.15
+  [SIR, Data, synthetic_data, t_infectious]: !is-positive 30
+  [SIR, NeuralNet, bias]: !is-bool False
+  [SIR, NeuralNet, learning_rate]: !is-positive 0.002
+  [SIR, NeuralNet, nodes_per_layer]: !is-positive-int 20
+  [SIR, NeuralNet, num_layers]: !is-positive-int 2
+  [SIR, Training, batch_size]: !is-positive-int 1
+paths: {model_note: ABM_data, out_dir: ~/utopya_output}
 perform_sweep: false
 perform_validation: true
 plot_manager:

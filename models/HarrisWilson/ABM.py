@@ -42,7 +42,6 @@ class HarrisWilsonABM:
                     params_to_learn[param] = idx
                     idx += 1
         self.parameters_to_learn = params_to_learn
-
         self.epsilon = epsilon
         self.dt = dt
 

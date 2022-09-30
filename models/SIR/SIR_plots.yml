@@ -35,27 +35,23 @@ _:
 state:
   based_on: state
   # Animation control
-  animation:
-    writer_kwargs:
-      ffmpeg:
-        saving:
-          dpi: 400
+
   # Plot helpers
-  helpers:
-    setup_figure:
-      figsize: [8, 8]
-    set_title:
-      title: 'Diffusive SIR model'
-    set_limits:
-      x: [0, 10]
-      y: [0, 10]
-    set_ticks:
-      x: &labels
-        major:
-          locs: [0, 10]
-          labels: ['-L', '+L']
-      y:
-        <<: *labels
+#  helpers:
+#    setup_figure:
+#      figsize: [8, 8]
+#    set_title:
+#      title: 'Diffusive SIR model'
+#    set_limits:
+#      x: [0, 10]
+#      y: [0, 10]
+#    set_ticks:
+#      x: &labels
+#        major:
+#          locs: [0, 10]
+#          labels: ['-L', '+L']
+#      y:
+#        <<: *labels
 
 # Densities of agent types
 densities:

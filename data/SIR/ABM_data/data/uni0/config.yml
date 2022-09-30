@@ -16,23 +16,22 @@ SIR:
       type: from_ABM
   NeuralNet:
     activation_funcs: {-1: abs}
-    bias: true
+    bias: false
     init_bias: [0, 1]
-    learning_rate: 0.0005
+    learning_rate: 0.002
     nodes_per_layer: 20
-    num_layers: 20
+    num_layers: 2
   Training:
-    batch_size: 10
-    to_learn: [p_infect, t_infectious]
-    true_parameters: {sigma: 0.0}
+    batch_size: 1
+    to_learn: [p_infect, t_infectious, sigma]
 log_levels: {backend: warning, model: info}
 monitor_emit_interval: 2.0
-num_epochs: 50
+num_epochs: 1
 num_steps: 3
-output_dir: /Users/thomasgaskin/utopya_output/SIR/220906-140153/data/uni0
-output_path: /Users/thomasgaskin/utopya_output/SIR/220906-140153/data/uni0/data.h5
+output_dir: /Users/thomasgaskin/utopya_output/SIR/220927-081223_ABM_data/data/uni0
+output_path: /Users/thomasgaskin/utopya_output/SIR/220927-081223_ABM_data/data/uni0/data.h5
 root_model_name: SIR
-seed: 21
+seed: 0
 write_every: 1
 write_start: 1
 

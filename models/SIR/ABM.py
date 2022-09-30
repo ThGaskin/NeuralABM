@@ -188,7 +188,7 @@ class SIR_ABM:
         self.kinds = {kinds.SUSCEPTIBLE: {i: None for i in range(1, self.N)},
                       kinds.INFECTED: {0: None},
                       kinds.RECOVERED: {}}
-        self.current_kinds = [[int(self.agents[i].kind)] for i in range(self.N)]
+        self.current_kinds = [int(self.agents[i].kind) for i in range(self.N)]
         self.current_counts = torch.tensor([[self.N - 1], [1.0], [0.0]], dtype=torch.float)
         self.susceptible = torch.tensor(self.N - 1, dtype=torch.float)
         self.infected = torch.tensor(1, dtype=torch.float)
@@ -204,9 +204,9 @@ class SIR_ABM:
     def update_kinds(self, id=None, kind=None):
 
         if id is None:
-            self.current_kinds = [[int(self.agents[i].kind)] for i in range(self.N)]
+            self.current_kinds = [int(self.agents[i].kind) for i in range(self.N)]
         else:
-            self.current_kinds[id] = [int(kind)]
+            self.current_kinds[id] = int(kind)
 
     # Updates the kind counts
     def update_counts(self):

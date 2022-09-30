@@ -57,7 +57,7 @@ class HarrisWilson_NN:
         self._h5group = h5group
         self._rng = rng
 
-        self.ABM = ABM
+        self._ABM = ABM
         self._neural_net = neural_net
         self._neural_net.optimizer.zero_grad()
 
@@ -118,6 +118,8 @@ class HarrisWilson_NN:
         :param epsilon: (optional) the epsilon value to use during training
         :param dt: (optional) the time differential to use during training
         """
+
+        start_time = time.time()
 
         loss = torch.tensor(0.0, requires_grad=True)
 

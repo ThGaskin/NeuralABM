@@ -7,23 +7,14 @@ Data:
     r_infectious: !is-positive 1.0
     p_infect: !is-probability 0.5
     t_infectious: !is-positive 30
-    sigma_s: !param
-      default: 0.15
-      dtype: float
-      limits: [0, ~]
-    sigma_i: !param
-      default: 0.03
-      dtype: float
-      limits: [0, ~]
-    sigma_r: !param
-      default: 0.15
-      dtype: float
-      limits: [0, ~]
+    sigma_s: !is-positive-or-zero 0.15
+    sigma_i: !is-positive-or-zero 0.03
+    sigma_r: !is-positive-or-zero 0.15
     num_steps: 200
 
 NeuralNet:
-  num_layers: !is-positive-int 6
-  nodes_per_layer: !is-positive-int 10
+  num_layers: !is-positive-int 2
+  nodes_per_layer: !is-positive-int 20
   activation_funcs:
     -1: abs
   bias: !is-bool False
@@ -31,6 +22,6 @@ NeuralNet:
   learning_rate: !is-positive 0.002
 
 Training:
-  batch_size: 1
+  batch_size: !is-positive-int 1
   to_learn: [ p_infect, t_infectious, sigma ]
 

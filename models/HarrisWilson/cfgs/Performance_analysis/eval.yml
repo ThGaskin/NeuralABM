@@ -56,7 +56,7 @@ time_and_loss:
           - !dag_result nw_size
           - !dag_result time_mean
         color: *darkblue
-    [0, 1]:
+    [1, 0]:
       - function: [ matplotlib.pyplot, fill_between]
         args:
           - !dag_result nw_size
@@ -70,21 +70,22 @@ time_and_loss:
           - !dag_result nw_size
           - !dag_result loss_mean
         color: black
-  style:
-    figure.figsize: [ *half_width, *half_width ]
   file_ext: pdf
   helpers:
     setup_figure:
-      nrows: 2
-      sharex: True
+      ncols: 2
+      nrows: 1
+      gridspec_kw:
+        wspace: 0.3
+      figsize: [ *full_width, *third_width ]
     axis_specific:
       time_axis:
         axis: [0, 0]
         set_labels:
-          x: ' '
+          x: $N + M$
           y:
             label: $t \ [s]$
-            labelpad: 14
+            #labelpad: 14
         set_ticks:
           x:
             major:
@@ -95,7 +96,7 @@ time_and_loss:
                 data/HarrisWilson/synthetic_data/noiseless/N_7000_M_700,
                 data/HarrisWilson/synthetic_data/noiseless/N_10000_M_1000
               ]
-              labels: [' ', ' ', ' ', ' ', ' ']
+              labels: &labels [110, 2200, 5500, 7700, 11000]
             minor:
               locs: &minor_locs [
                 data/HarrisWilson/synthetic_data/noiseless/N_200_M_20,
@@ -108,7 +109,7 @@ time_and_loss:
               ]
               labels: [' ', ' ', ' ', ' ', ' ', ' ', ' ']
       loss:
-        axis: [0, 1]
+        axis: [1, 0]
         set_labels:
           x: $N + M$
           y: $J_f$
