@@ -1,0 +1,17 @@
+loss:
+  based_on: loss
+
+true_graph:
+  based_on: graph
+  graph_creation:
+    at_time_idx: 0
+
+predicted_graph:
+  based_on: graph
+  select:
+    graph_group: data/predicted_network
+    opinions: data/opinion_data/predicted_opinions
+
+
+opinion_comparison:
+  based_on: opinion_comparison

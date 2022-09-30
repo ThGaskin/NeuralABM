@@ -1,0 +1,173 @@
+---
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+
+.variables:
+  colors: &colors
+    yellow:         &yellow       '#F5DDA9'
+    darkblue:       &darkblue     '#2F7194'
+    red:            &red          '#ec7070'
+    skyblue:        &skyblue      '#97c3d0'
+    green:          &green        '#48675A'
+    lightbrown:     &lightbrown   '#C6BFA2'
+    orange:         &orange       '#EC9F7E'
+    lightgreen:     &lightgreen   '#AFD8BC'
+    grey:           &grey         '#3D4244'
+
+.default_style:
+  style:
+    text.usetex:        True
+    mathtext.fontset:   cm
+    font.family:        serif
+    font.size:          &font_size 9
+    axes.titlesize:     *font_size
+    axes.labelsize:     *font_size
+    legend.fontsize:    *font_size
+    xtick.labelsize:    *font_size
+    ytick.labelsize:    *font_size
+    grid.linewidth:     0.5
+    savefig.bbox:       tight
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[yellow]:}', 
+                              '{colors[darkblue]:}', 
+                              '{colors[red]:}', 
+                              '{colors[skyblue]:}', 
+                              '{colors[green]:}', 
+                              '{colors[lightbrown]:}', 
+                              ])"
+      colors: *colors
+    axes.grid:          True
+    axes.spines.top:    False
+    axes.spines.right:  False
+
+  helpers:
+    save_figure:
+      dpi: 900
+  file_ext: png
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
+#   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
+#   ╩ ╚═╝╩ ╩╩  ╩═╝╩ ╩ ╩ ╚═╝╚═╝
+# ======================================================================================================================
+# -- Overloads ---------------------------------------------------------------------------------------------------------
+# Overload some configs to insert model-specific settings
+.creator.universe:
+  based_on:
+    - .creator.universe
+    - .default_style
+
+.creator.multiverse:
+  based_on:
+    - .creator.multiverse
+    - .default_style
+
+# ======================================================================================================================
+#  ╔═╗╦  ╔═╗╔╦╗╔═╗
+#  ╠═╝║  ║ ║ ║ ╚═╗
+#  ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+# -- Network plot ------------------------------------------------------------------------------------------------------
+graph:
+  based_on:
+    - .creator.universe
+    - .plot.graph
+
+  select:
+    graph_group: data/true_network
+    opinions: data/opinion_data/true_opinions
+
+  register_property_maps:
+    - opinions
+
+  graph_creation:
+    at_time_idx: -1
+    node_props: [opinions]
+    edge_props: [_edge_weights]
+
+  graph_drawing:
+    nodes:
+      node_size:
+        from_property: degree
+        scale_to_interval: [1, 100]
+      node_color:
+        from_property: opinions
+      cmap:
+        continuous: true
+        from_values:
+          0: *darkblue
+          0.5: *skyblue
+          1: *red
+      vmin: 0
+      vmax: 1
+      colorbar:
+        label: opinion $\sigma$
+        labels:
+          0: 0
+          1: 1
+        aspect: 10
+        orientation: horizontal
+    edges:
+      width:
+        from_property: _edge_weights
+        scale_to_interval: [0, 1]
+
+# -- Opinion plot ------------------------------------------------------------------------------------------------------
+opinions:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: data/opinion_data/true_opinions
+  color: black
+  add_legend: False
+  hue: vertex_idx
+  x: time
+
+opinion_comparison:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    true_data:
+      path: data/opinion_data/true_opinions
+      transform:
+        - .data: [!dag_prev ]
+    pred_data:
+      path: data/opinion_data/predicted_opinions
+      transform:
+        - .data: [ !dag_prev ]
+  transform:
+    - operation: pd.Index
+      args: [ [ 'true', 'predicted' ] ]
+      kwargs:
+        name: 'type'
+    - xr.concat: [ [ !dag_tag true_data, !dag_tag pred_data ], !dag_prev ]
+      tag: data
+  col: type
+  hue: vertex_idx
+  color: black
+  add_legend: False
+  x: time
+  lw: 0.5
+  alpha: 0.5
+
+# -- Plot of the training loss -----------------------------------------------------------------------------------------
+loss:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: data/training_data/loss
+  color: black
+  helpers:
+    set_labels:
+      x: iteration
+      y: Training loss
+    set_scales:
+      y: log
+
+
