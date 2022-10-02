@@ -99,6 +99,7 @@ def get_data(cfg, h5file: h5.File, h5group: h5.Group, *, seed: int) -> (torch.Te
         edge_weights.attrs["coords__time"] = [write_start, write_every]
         edge_weights.attrs["coords_mode__edge_idx"] = "trivial"
 
+        # Topological properties
         degree = nw_group.create_dataset(
             "_degree",
             (1, N),
@@ -107,12 +108,23 @@ def get_data(cfg, h5file: h5.File, h5group: h5.Group, *, seed: int) -> (torch.Te
             compression=3,
             dtype=int
         )
-        degree.attrs['dim_names'] = ['time', 'vertex_idx']
-        degree.attrs["coords_mode__time"] = "start_and_step"
-        degree.attrs["coords__time"] = [write_start, write_every]
+        degree.attrs['dim_names'] = ['dim_name__0', 'vertex_idx']
         degree.attrs["coords_mode__vertex_idx"] = "trivial"
 
         degree[0, :] = [network.degree(i) for i in network.nodes()]
+
+        clustering = nw_group.create_dataset(
+            "_clustering",
+            (1, N),
+            maxshape=(None, N),
+            chunks=True,
+            compression=3,
+            dtype=float
+        )
+        clustering.attrs['dim_names'] = ['dim_name__0', 'vertex_idx']
+        clustering.attrs["coords_mode__vertex_idx"] = "trivial"
+
+        clustering[0, :] = [val for val in nx.clustering(network).values()]
 
         nw_group.attrs['content'] = 'graph'
         nw_group.attrs['allows_parallel'] = False

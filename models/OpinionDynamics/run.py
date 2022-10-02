@@ -5,6 +5,7 @@ import sys
 import h5py as h5
 import numpy as np
 import ruamel.yaml as yaml
+import networkx as nx
 import time
 import torch
 from dantro._import_tools import import_module_from_path
@@ -109,7 +110,6 @@ class OpinionDynamics_NN:
         self._dset_current_predictions.attrs["coords__time"] = [write_start, self._write_predictions_every]
 
         if 'network' in to_learn:
-            # Vertices
 
             # Vertices
             self._dset_vertices = self._pred_nw_group.create_dataset(
@@ -119,7 +119,7 @@ class OpinionDynamics_NN:
                 compression=3,
                 dtype=int
             )
-            self._dset_vertices.attrs['dim_names'] = ['dim_name__1', 'vertex_idx']
+            self._dset_vertices.attrs['dim_names'] = ['dim_name__0', 'vertex_idx']
             self._dset_vertices.attrs["coords_mode__vertex_idx"] = "trivial"
             self._dset_vertices[0, :] = np.arange(0, self.num_agents, 1)
 
@@ -137,7 +137,7 @@ class OpinionDynamics_NN:
             self._dset_edges.attrs["coords_mode__edge_idx"] = "trivial"
             self._dset_edges.attrs["coords_mode__vertex_idx"] = "trivial"
 
-            # Edge properties
+            # Edge weights (probability of that edge existing)
             self._dset_edge_weights = pred_nw_group.create_dataset(
                 "_edge_weights",
                 (0, self.nw_size),
@@ -149,6 +149,84 @@ class OpinionDynamics_NN:
             self._dset_edge_weights.attrs["coords_mode__time"] = "start_and_step"
             self._dset_edge_weights.attrs["coords__time"] = [write_start, write_every]
             self._dset_edge_weights.attrs["coords_mode__edge_idx"] = "trivial"
+
+            # In-degree
+            self._dset_in_degree = predicted_nw_group.create_dataset(
+                "_in_degree",
+                (1, self.num_agents),
+                maxshape=(None, self.num_agents),
+                chunks=True,
+                compression=3,
+                dtype=int
+            )
+            self._dset_in_degree.attrs['dim_names'] = ['time', 'vertex_idx']
+            self._dset_in_degree.attrs["coords_mode__time"] = "start_and_step"
+            self._dset_in_degree.attrs["coords__time"] = [write_start, self._write_predictions_every]
+
+            # Weighted in-degree
+            self._dset_in_degree_w = predicted_nw_group.create_dataset(
+                "_in_degree_weighted",
+                (1, self.num_agents),
+                maxshape=(None, self.num_agents),
+                chunks=True,
+                compression=3,
+                dtype=float
+            )
+            self._dset_in_degree_w.attrs['dim_names'] = ['time', 'vertex_idx']
+            self._dset_in_degree_w.attrs["coords_mode__time"] = "start_and_step"
+            self._dset_in_degree_w.attrs["coords__time"] = [write_start, self._write_predictions_every]
+
+            # Out-degree
+            self._dset_out_degree = predicted_nw_group.create_dataset(
+                "_out_degree",
+                (1, self.num_agents),
+                maxshape=(None, self.num_agents),
+                chunks=True,
+                compression=3,
+                dtype=int
+            )
+            self._dset_out_degree.attrs['dim_names'] = ['time', 'vertex_idx']
+            self._dset_out_degree.attrs["coords_mode__time"] = "start_and_step"
+            self._dset_out_degree.attrs["coords__time"] = [write_start, self._write_predictions_every]
+
+            # Weighted out-degree
+            self._dset_out_degree_w = predicted_nw_group.create_dataset(
+                "_out_degree_weighted",
+                (1, self.num_agents),
+                maxshape=(None, self.num_agents),
+                chunks=True,
+                compression=3,
+                dtype=float
+            )
+            self._dset_out_degree_w.attrs['dim_names'] = ['time', 'vertex_idx']
+            self._dset_out_degree_w.attrs["coords_mode__time"] = "start_and_step"
+            self._dset_out_degree_w.attrs["coords__time"] = [write_start, self._write_predictions_every]
+
+            # Clustering coefficients
+            self._dset_clustering = predicted_nw_group.create_dataset(
+                "_clustering",
+                (1, self.num_agents),
+                maxshape=(None, self.num_agents),
+                chunks=True,
+                compression=3,
+                dtype=float
+            )
+            self._dset_clustering.attrs['dim_names'] = ['time', 'vertex_idx']
+            self._dset_clustering.attrs["coords_mode__time"] = "start_and_step"
+            self._dset_clustering.attrs["coords__time"] = [write_start, self._write_predictions_every]
+
+            # Weighted clustering coefficients
+            self._dset_clustering_w = predicted_nw_group.create_dataset(
+                "_clustering_weighted",
+                (1, self.num_agents),
+                maxshape=(None, self.num_agents),
+                chunks=True,
+                compression=3,
+                dtype=float
+            )
+            self._dset_clustering_w.attrs['dim_names'] = ['time', 'vertex_idx']
+            self._dset_clustering_w.attrs["coords_mode__time"] = "start_and_step"
+            self._dset_clustering_w.attrs["coords__time"] = [write_start, self._write_predictions_every]
 
         if write_time:
             self.dset_time = self._training_group.create_dataset(
@@ -164,7 +242,7 @@ class OpinionDynamics_NN:
 
         self.to_learn = to_learn
 
-    def epoch(self, *, training_data, batch_size):
+    def epoch(self, *, training_data, batch_size: int):
 
         start_time = time.time()
 
@@ -186,7 +264,8 @@ class OpinionDynamics_NN:
 
                 # Calculate loss
                 loss = loss + torch.nn.functional.l1_loss(current_values, training_data[ele]) / batch_size
-                loss = loss + torch.trace(torch.reshape(predicted_parameters, (self.num_agents, self.num_agents)))
+                loss = loss + torch.trace(torch.reshape(predicted_parameters, (self.num_agents, self.num_agents))) / batch_size
+
             loss.backward()
             self.neural_net.optimizer.step()
             self.neural_net.optimizer.zero_grad()
@@ -217,17 +296,39 @@ class OpinionDynamics_NN:
                 self._dset_current_predictions[-1, :] = self.current_predictions
 
                 # Write predicted network structure and edge weights, corresponding to the probability of that
-                # edge existing
+                # edge existing. Write topological properties.
                 if 'network' in self.to_learn:
 
-                    curr_edges = torch.nonzero(torch.reshape(self.current_predictions, (self.num_agents, self.num_agents)))
-                    edge_weights = torch.flatten(self.current_predictions[torch.nonzero(self.current_predictions)])
+                    # Create a graph from the current prediction
+                    G = nx.empty_graph(self.num_agents, create_using=nx.DiGraph)
+                    adj_matrix = torch.reshape(self.current_predictions, (self.num_agents, self.num_agents))
+                    curr_edges = torch.nonzero(adj_matrix).numpy()
+                    edge_weights = torch.flatten(self.current_predictions[torch.nonzero(self.current_predictions)]).numpy()
+                    G.add_weighted_edges_from(np.column_stack([curr_edges, edge_weights]), weight='weight')
 
                     self._dset_edges.resize(self._dset_edges.shape[0] + 1, axis=0)
-                    self._dset_edges[-1, 0:len(curr_edges), :] = curr_edges
+                    self._dset_edges[-1, 0:G.size(), :] = G.edges()
 
                     self._dset_edge_weights.resize(self._dset_edge_weights.shape[0] + 1, axis=0)
-                    self._dset_edge_weights[-1, 0:len(curr_edges)] = edge_weights
+                    self._dset_edge_weights[-1, 0:G.size()] = edge_weights
+
+                    self._dset_in_degree.resize(self._dset_in_degree.shape[0] + 1, axis=0)
+                    self._dset_in_degree[-1, :] = [deg[1] for deg in G.in_degree()]
+
+                    self._dset_in_degree_w.resize(self._dset_in_degree_w.shape[0] + 1, axis=0)
+                    self._dset_in_degree_w[-1, :] = [deg[1] for deg in G.in_degree(weight='weight')]
+
+                    self._dset_out_degree.resize(self._dset_out_degree.shape[0] + 1, axis=0)
+                    self._dset_out_degree[-1, :] = [deg[1] for deg in G.out_degree()]
+
+                    self._dset_out_degree_w.resize(self._dset_out_degree_w.shape[0] + 1, axis=0)
+                    self._dset_out_degree_w[-1, :] = [deg[1] for deg in G.out_degree(weight='weight')]
+
+                    self._dset_clustering.resize(self._dset_clustering.shape[0] + 1, axis=0)
+                    self._dset_clustering[-1, :] = [c for c in nx.clustering(G).values()]
+
+                    self._dset_clustering_w.resize(self._dset_clustering_w.shape[0] + 1, axis=0)
+                    self._dset_clustering_w[-1, :] = [c for c in nx.clustering(G, weight='weight').values()]
 
 # ----------------------------------------------------------------------------------------------------------------------
 # -- Performing the simulation run -------------------------------------------------------------------------------------
@@ -303,6 +404,7 @@ if __name__ == "__main__":
                                neural_net=net,
                                ABM=ABM,
                                to_learn=model_cfg['Training']['to_learn'],
+                               num_steps=len(training_data),
                                write_every=cfg['write_every'],
                                write_predictions_every=cfg.pop('write_predictions_every', None),
                                write_start=cfg['write_start'],

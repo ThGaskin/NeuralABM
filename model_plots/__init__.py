@@ -23,6 +23,7 @@ register_operation(name="np.subtract", func=np.subtract)
 register_operation(name="np.exp", func=np.exp)
 register_operation(name=".idxmax", func=lambda d, *a, **k: d.idxmax(*a, **k))
 register_operation(name=".stack", func=lambda d, *a, **k: d.stack(*a, **k))
+register_operation(name=".to_dataset", func=lambda d, *a, **k: d.to_dataset(*a, **k))
 from .data_ops import *
 
 

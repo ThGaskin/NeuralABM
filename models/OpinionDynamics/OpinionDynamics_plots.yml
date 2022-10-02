@@ -6,12 +6,98 @@ true_graph:
   graph_creation:
     at_time_idx: 0
 
-predicted_graph:
-  based_on: graph
-  select:
-    graph_group: data/predicted_network
-    opinions: data/opinion_data/predicted_opinions
+#predicted_graph:
+#  based_on: graph
+#  select:
+#    graph_group: data/predicted_network
+#    opinions: data/opinion_data/predicted_opinions
 
 
 opinion_comparison:
   based_on: opinion_comparison
+
+properties:
+  based_on:
+    - .creator.universe
+    - .plot.multiplot
+  select:
+    true_degree:
+      path: data/true_network/_degree
+      transform:
+        - .isel: [!dag_prev , {dim_name__0: 0}]
+          kwargs:
+            drop: True
+        - .data: [!dag_prev ]
+    predicted_out_degree:
+      path: data/predicted_network/_out_degree_weighted
+      transform:
+        - .isel: [ !dag_prev , { time: -1 } ]
+          kwargs:
+            drop: True
+        - .data: [ !dag_prev ]
+    predicted_in_degree:
+      path: data/predicted_network/_in_degree_weighted
+      transform:
+        - .isel: [ !dag_prev , { time: -1 } ]
+          kwargs:
+            drop: True
+        - .data: [ !dag_prev ]
+    true_clustering:
+      path: data/true_network/_clustering
+      transform:
+        - .isel: [ !dag_prev , { dim_name__0: 0 } ]
+          kwargs:
+            drop: True
+        - .data: [ !dag_prev ]
+    predicted_clustering:
+      path: data/predicted_network/_clustering_weighted
+      transform:
+        - .isel: [ !dag_prev , { time: -1 } ]
+          kwargs:
+            drop: True
+        - .data: [ !dag_prev ]
+
+  compute_only: []
+  to_plot:
+    [ 0, 0 ]:
+      - function: sns.kdeplot
+        args:
+          - !dag_result true_degree
+        label: $P(k)$
+      - function: sns.kdeplot
+        args:
+          - !dag_result predicted_out_degree
+        label: $\hat{P}_\mathrm{out}(k)$
+      - function: sns.kdeplot
+        args:
+          - !dag_result predicted_in_degree
+        label: $\hat{P}_\mathrm{in}(k)$
+    [ 1, 0]:
+    - function: sns.kdeplot
+      args:
+        - !dag_result true_clustering
+      label: $P(c)$
+    - function: sns.kdeplot
+      args:
+        - !dag_result predicted_clustering
+      label: $\hat{P}(c)$
+  helpers:
+    setup_figure:
+      ncols: 2
+    axis_specific:
+      degree:
+        axis: [0, 0]
+        set_legend:
+          use_legend: True
+          title: ~
+          loc: 'best'
+        set_title:
+          title: Node degrees
+      clustering:
+        axis: [1, 0]
+        set_legend:
+          use_legend: True
+          title: ~
+          loc: 'best'
+        set_title:
+          title: Clustering coefficient
