@@ -62,7 +62,7 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group):
     else:
         print("\nGenerating synthetic data ...")
 
-        # Create directory for synthetic data
+        # Get run configuration properties
         data_cfg = cfg['synthetic_data']
         N_origin, N_destination = data_cfg['N_origin'], data_cfg['N_destination']
         num_steps = data_cfg['num_steps']
@@ -70,7 +70,7 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group):
         write_every = data_cfg.pop('write_every', 1)
         training_data_size = data_cfg['training_data_size']
 
-        # Setup chunked dataset to store the state data in
+        # Set up chunked dataset to store the state data in
         # Origin zone sizes
         dset_origin_sizes = h5group.create_dataset(
             "origin_sizes",
@@ -159,7 +159,7 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group):
         # Get individual time frames for saving
         time_series = dset_sizes_ts[write_start::write_every]
 
-        # Complete synthetic time series
+        # Set up dataset for complete synthetic time series
         dset_time_series = h5group.create_dataset(
             "time_series",
             (len(time_series), N_destination),
