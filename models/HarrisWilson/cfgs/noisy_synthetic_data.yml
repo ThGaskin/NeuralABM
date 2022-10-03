@@ -10,6 +10,10 @@ parameter_space:
   write_every: 1
   HarrisWilson:
     Data:
+      training_data_size: !coupled-sweep
+        default: 1
+        values: [ 1, 4, 4, 4, 4 ]
+        target_name: sigma
       synthetic_data:
         N_destination: 100
         N_origin: 1000
@@ -23,7 +27,3 @@ parameter_space:
         sigma: !sweep
           default: 0
           values: [0, 0.25, 0.5, 1, 1.5]
-        training_data_size: !coupled-sweep
-          default: 1
-          values: [1, 4, 4, 4, 4]
-          target_name: sigma
