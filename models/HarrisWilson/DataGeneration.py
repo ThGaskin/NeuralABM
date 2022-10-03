@@ -2,11 +2,13 @@ import h5py as h5
 import numpy as np
 import pandas as pd
 import torch
+import logging
 
 from .ABM import HarrisWilsonABM
 
 """ Load a dataset or generate synthetic data on which to train the neural net """
 
+log = logging.getLogger(__name__)
 
 def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group):
 
@@ -60,7 +62,7 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group):
         network = torch.reshape(torch.tensor(nw, dtype=torch.float), (N, M))
 
     else:
-        print("\nGenerating synthetic data ...")
+        log.note("   Generating synthetic data ...")
 
         # Get run configuration properties
         data_cfg = cfg['synthetic_data']
