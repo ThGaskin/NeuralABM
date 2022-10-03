@@ -69,10 +69,8 @@ low_noise/alpha:
 
     # Compute the model marginals
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag param1
-          loss: !dag_tag loss
+      - param1: !dag_tag param1
+        loss: !dag_tag loss
     - operation: NeuralABM.compute_marginals
       args: [!dag_prev ]
       kwargs:
@@ -127,10 +125,8 @@ low_noise/kappa:
         idx: 1
   transform:
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag param1
-          loss: !dag_tag loss
+      - param1: !dag_tag param1
+        loss: !dag_tag loss
     - operation: NeuralABM.compute_marginals
       args: [ !dag_prev ]
       kwargs:
