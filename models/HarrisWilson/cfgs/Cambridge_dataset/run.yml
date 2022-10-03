@@ -1,0 +1,28 @@
+perform_sweep: True  
+paths:
+  model_note: Cambridge_dataset
+parameter_space:
+  seed: !sweep
+    default: 2
+    range: [20]
+  num_epochs: 10000
+  write_start: 1
+  write_every: 1
+  HarrisWilson:
+    Data:
+      load_from_dir:
+        network: data/HarrisWilson/Cambridge_data/exp_distances.csv
+        origin_zones: data/HarrisWilson/Cambridge_data/origin_sizes.csv
+        destination_zones: data/HarrisWilson/Cambridge_data/dest_sizes.csv
+    NeuralNet:
+      init_bias: [ 0, 4 ]
+      num_layers: 1
+      nodes_per_layer: 20
+      optimizer: Adam
+      learning_rate: 0.002
+    Training:
+      to_learn: [alpha, beta, kappa]
+      true_parameters:
+        sigma: !sweep
+          default: 0
+          values: [0.0, 0.2]
