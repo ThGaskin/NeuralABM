@@ -179,12 +179,7 @@ class HarrisWilson_NN:
 if __name__ == "__main__":
 
     # Select the training device to use
-    try:
-        # This will only work on Apple Silicon
-        device = "mps" if torch.backends.mps.is_available() else "cpu"
-    except:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
+    device = "mps" if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Using '{device}' as training device")
 
     cfg_file_path = sys.argv[1]
