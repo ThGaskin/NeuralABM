@@ -92,7 +92,8 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
 
     # Initialise the ABM
     ABM = HarrisWilsonABM(origin_sizes=or_sizes, network=network, true_parameters=true_parameters,
-                          M=data_cfg['N_destination'], epsilon=data_cfg['epsilon'], dt=data_cfg['dt'])
+                          M=data_cfg['N_destination'], epsilon=data_cfg['epsilon'], dt=data_cfg['dt'],
+                          device='cpu')
 
     # Run the ABM for n iterations, generating the entire time series
     dset_sizes_ts = ABM.run(init_data=init_dest_sizes, input_data=None, n_iterations=num_steps,
@@ -101,7 +102,7 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
     # Return all three
     return or_sizes, dset_sizes_ts, network
 
-def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group):
+def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
 
     """ Gets the data for the Harris-Wilson model. If no path to a dataset is passed, synthetic data is generated using
     the config settings
@@ -231,4 +232,4 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group):
     edge_weights.attrs["coords_mode__edge_idx"] = "trivial"
     edge_weights[0, :] = torch.reshape(network, (N_origin * N_destination, ))
 
-    return or_sizes, training_data, network
+    return or_sizes.to(device), training_data.to(device), network.to(device)

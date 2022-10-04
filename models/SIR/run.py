@@ -198,8 +198,8 @@ class SIR_NN:
             loss.backward()
             self.neural_net.optimizer.step()
             self.neural_net.optimizer.zero_grad()
-            self.current_loss = loss.clone().detach().numpy().item()
-            self.current_predictions = predicted_parameters.clone().detach()
+            self.current_loss = loss.clone().detach().cpu().numpy().item()
+            self.current_predictions = predicted_parameters.clone().detach().cpu()
             if 't_infectious' in self.to_learn.keys():
                 self.current_predictions[self.to_learn['t_infectious']] *= 10
             self.write_data()
@@ -226,11 +226,6 @@ class SIR_NN:
 
 if __name__ == "__main__":
 
-    # Select the training device to use
-    device = "mps" if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    log.info(f"   Using '{device}' as training device")
-
     cfg_file_path = sys.argv[1]
 
     log.note("   Preparing model run ...")
@@ -241,6 +236,16 @@ if __name__ == "__main__":
     log.note(f"   Model name:  {model_name}")
     model_cfg = cfg[model_name]
 
+    # Select the training device and number of threads to use
+    device = model_cfg['Training'].pop('device', None)
+    if device is None:
+      device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
+    num_threads = model_cfg['Training'].pop('num_threads', None)
+    if num_threads is not None:
+      torch.set_num_threads(num_threads)
+    log.info(f"   Using '{device}' as training device. Number of threads: {torch.get_num_threads()}")
+
+    # Get the random number generator
     log.note("   Creating global RNG ...")
     rng = np.random.default_rng(cfg["seed"])
     np.random.seed(cfg['seed'])
@@ -252,13 +257,13 @@ if __name__ == "__main__":
 
     # Get the training data
     log.info("   Generating synthetic training data ...")
-    training_data = SIR.get_SIR_data(data_cfg=model_cfg['Data'], h5group=h5group)
+    training_data = SIR.get_SIR_data(data_cfg=model_cfg['Data'], h5group=h5group).to(device)
 
     # Initialise the neural net
     log.info("   Initializing the neural net ...")
     batch_size = model_cfg['Training']['batch_size']
     net = base.NeuralNet(input_size=3, output_size=len(model_cfg['Training']['to_learn']),
-                         **model_cfg['NeuralNet'])
+                         **model_cfg['NeuralNet']).to(device)
 
     # Initialise the model
     model = SIR_NN(
@@ -287,7 +292,7 @@ if __name__ == "__main__":
         else:
             parameters[idx] = model.true_parameters[item]
 
-    SIR.generate_smooth_data(init_state=training_data[0],
+    SIR.generate_smooth_data(init_state=training_data[0].cpu(),
                              counts=model._dset_pred_counts,
                              num_steps=len(training_data),
                              parameters=parameters, )
