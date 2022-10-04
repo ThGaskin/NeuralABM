@@ -24,4 +24,6 @@ NeuralNet:
 Training:
   batch_size: !is-positive-int 1
   to_learn: [ p_infect, t_infectious, sigma ]
+  device: ~
+  num_threads: ~
 
