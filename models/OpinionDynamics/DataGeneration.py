@@ -5,6 +5,7 @@ import torch
 from typing import Union
 from os.path import dirname as up
 import sys
+import logging
 
 from dantro._import_tools import import_module_from_path
 
@@ -13,6 +14,8 @@ sys.path.append(up(up(up(__file__))))
 base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include')
 
 from .ABM import OpinionDynamics_ABM
+
+log = logging.getLogger(__name__)
 
 
 # --- Data generation functions ------------------------------------------------------------------------------------
@@ -50,13 +53,13 @@ def get_data(cfg, h5file: h5.File, h5group: h5.Group, *, seed: int) -> (torch.Te
         nw_group = h5file.create_group('true_network')
 
         # Generate the network
-        print("     Generating the network (step 1 of 3) ... ")
+        log.info("   Generating the network (step 1 of 3) ... ")
         nw_cfg = cfg.pop('network')
 
         network = base.generate_graph(N=N, **nw_cfg, seed=seed)
 
         # Save the network
-        print("     Saving the network (step 3 of 3) ... ")
+        log.info("   Saving the network (step 2 of 3) ... ")
 
         # Vertices
         vertices = nw_group.create_dataset(
@@ -131,7 +134,7 @@ def get_data(cfg, h5file: h5.File, h5group: h5.Group, *, seed: int) -> (torch.Te
         nw_group.attrs['is_directed'] = network.is_directed()
 
         # Setup the ABM and generate synthetic data
-        print("     Generating the time series data (step 2 of 2) ... ")
+        log.info("   Generating the time series data (step 3 of 3) ... ")
         ABM = OpinionDynamics_ABM(**cfg, network=network)
         training_data = torch.empty((num_steps + 1, N, 1))
         training_data[0, :, :] = ABM.initial_opinions
@@ -146,9 +149,8 @@ def get_data(cfg, h5file: h5.File, h5group: h5.Group, *, seed: int) -> (torch.Te
             edge_weights[i+1, :] = ABM.edge_weights
             opinions[i+1, :] = torch.flatten(training_data[i+1, :, :]).numpy()
 
-        print("     Done.")
+        log.info("   Done.")
         del ABM
 
-        print(f'Training data shape: {training_data.shape}')
         # Return the training data and the network
         return training_data, network

@@ -9,12 +9,16 @@ import networkx as nx
 import time
 import torch
 from dantro._import_tools import import_module_from_path
+from dantro import logging
 
 sys.path.append(up(up(__file__)))
 sys.path.append(up(up(up(__file__))))
 
 OpinionDynamics = import_module_from_path(mod_path=up(up(__file__)), mod_str='OpinionDynamics')
 base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include')
+
+log = logging.getLogger(__name__)
+coloredlogs.install(fmt='%(levelname)s %(message)s', level='INFO', logger=log)
 
 
 # -----------------------------------------------------------------------------
@@ -336,37 +340,33 @@ class OpinionDynamics_NN:
 
 if __name__ == "__main__":
 
-    try:
-        # This will only work on Apple Silicon
-        device = "mps" if torch.backends.mps.is_available() else "cpu"
-    except:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    print(f"Using '{device}' as training device")
+    # Select the training device to use
+    device = "mps" if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
+    log.info(f"   Using '{device}' as training device")
 
     cfg_file_path = sys.argv[1]
 
-    print("Preparing model run ...")
-    print(f"  Loading config file:\n    {cfg_file_path}")
+    log.note("   Preparing model run ...")
+    log.note(f"   Loading config file:\n        {cfg_file_path}")
     with open(cfg_file_path, "r") as cfg_file:
         cfg = yaml.load(cfg_file, Loader=yaml.Loader)
     model_name = cfg.get("root_model_name", "OpinionDynamics")
-    print(f"Model name:  {model_name}")
+    log.note(f"   Model name:  {model_name}")
     model_cfg = cfg[model_name]
 
-    print("  Creating global RNG ...")
+    log.note("   Creating global RNG ...")
     seed = cfg["seed"]
     rng = np.random.default_rng(seed)
     np.random.seed(seed)
     torch.random.manual_seed(seed)
 
-    print(f"  Creating output file at:\n    {cfg['output_path']}")
+    log.note(f"   Creating output file at:\n        {cfg['output_path']}")
     h5file = h5.File(cfg["output_path"], mode="w")
     op_data_group = h5file.create_group('opinion_data')
     training_data_group = h5file.create_group('training_data')
 
     # Get the training data and the network, if synthetic data is used
-    print(f"  Generating training data: ")
+    log.info("   Generating training data ...")
     training_data, network = OpinionDynamics.DataGeneration.get_data(model_cfg['Data'], h5file, op_data_group,
                                                                      seed=seed)
 
@@ -382,7 +382,7 @@ if __name__ == "__main__":
 
     output_size = len(to_learn) if 'network' not in to_learn else len(to_learn) + num_agents ** 2 - 1
 
-    print(f"\nInitializing the neural net; input size: {num_agents}, output size: {output_size} ...")
+    log.info("   Initializing the neural net; input size: {num_agents}, output size: {output_size} ...")
     net = base.NeuralNet(input_size=num_agents, output_size=output_size, **model_cfg['NeuralNet'])
 
     # Get the true parameters
@@ -410,18 +410,18 @@ if __name__ == "__main__":
                                write_start=cfg['write_start'],
                                write_time=model_cfg.pop('write_time', False))
 
-    print(f"Initialized model '{model_name}'.")
+    log.info("   Initialized model '{model_name}'.")
 
     # Train the neural net
     num_epochs = cfg["num_epochs"]
-    print(f"\nNow commencing training for {num_epochs} epochs ...")
+    log.info(f"   Now commencing training for {num_epochs} epochs ...")
 
     for i in range(num_epochs):
         model.epoch(training_data=training_data, batch_size=model_cfg['Training']['batch_size'])
 
-        print(f"  Completed epoch {i + 1} / {num_epochs}.")
+        log.progress(f"   Completed epoch {i + 1} / {num_epochs}.")
 
-    print("\nSimulation run finished.")
+    log.progress("   Generating predicted dataset ...")
 
     # Generate a predicted time series using the neural net prediction:
     num_steps = training_data.shape[0] - 1
@@ -445,8 +445,10 @@ if __name__ == "__main__":
                                         requires_grad=False)
         pred_opinions[_+1, :] = torch.flatten(current_values)
 
-    print("  Wrapping up ...")
+    log.info("   Simulation run finished.")
+    log.info("   Wrapping up ...")
 
     h5file.close()
 
-    print("  All done.")
+    log.success("   All done.")
+
