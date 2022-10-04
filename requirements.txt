@@ -10,3 +10,4 @@ setuptools
 torch
 utopya>=1.1.3
 xarray
+coloredlogs
