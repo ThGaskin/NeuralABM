@@ -104,10 +104,9 @@ alpha_beta:
   based_on: loss_potential_3d
   transform:
     - xr.Dataset:
-        data_vars:
-          param1: !dag_tag param1
-          param2: !dag_tag param2
-          loss: !dag_tag loss
+      - param1: !dag_tag param1
+        param2: !dag_tag param2
+        loss: !dag_tag loss
     - .stack: [ !dag_prev , { ' ': [ 'seed', 'time' ] }, False ]
       tag: data
     - getitem: [ !dag_tag data, param1 ]
