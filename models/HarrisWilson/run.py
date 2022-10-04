@@ -141,8 +141,8 @@ class HarrisWilson_NN:
 
             loss = loss + torch.nn.functional.mse_loss(predicted_data, sample) / batch_size
 
-            self._current_loss = loss.clone().detach().numpy().item()
-            self._current_predictions = predicted_parameters.clone().detach()
+            self._current_loss = loss.clone().detach().cpu().numpy().item()
+            self._current_predictions = predicted_parameters.clone().detach().cpu()
             self.write_data()
 
             # Update the model parameters after every batch and clear the loss
@@ -183,10 +183,6 @@ class HarrisWilson_NN:
 
 if __name__ == "__main__":
 
-    # Select the training device to use
-    device = "mps" if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
-    log.info(f"   Using '{device}' as training device")
-
     cfg_file_path = sys.argv[1]
 
     log.note("   Preparing model run ...")
@@ -197,6 +193,16 @@ if __name__ == "__main__":
     log.note(f"   Model name:  {model_name}")
     model_cfg = cfg[model_name]
 
+    # Select the training device and number of threads to use
+    device = model_cfg['Training'].pop('device', None)
+    if device is None:
+      device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
+    num_threads = model_cfg['Training'].pop('num_threads', None)
+    if num_threads is not None:
+      torch.set_num_threads(num_threads)
+    log.info(f"   Using '{device}' as training device. Number of threads: {torch.get_num_threads()}")
+
+    # Get the random number generator
     log.note("   Creating global RNG ...")
     rng = np.random.default_rng(cfg["seed"])
     np.random.seed(cfg['seed'])
@@ -207,18 +213,18 @@ if __name__ == "__main__":
     h5group = h5file.create_group(model_name)
 
     # Get the datasets
-    or_sizes, dest_sizes, network = HW.get_HW_data(model_cfg['Data'], h5file, h5group)
+    or_sizes, dest_sizes, network = HW.get_HW_data(model_cfg['Data'], h5file, h5group, device=device)
 
     # Set up the neural net
     log.info("   Initializing the neural net ...")
     net = base.NeuralNet(input_size=dest_sizes.shape[1], output_size=len(model_cfg['Training']['to_learn']),
-                         **model_cfg['NeuralNet'])
+                         **model_cfg['NeuralNet']).to(device)
 
     # Set up the numerical solver
     log.info("   Initializing the numerical solver ...")
     true_parameters = model_cfg['Training'].pop('true_parameters', None)
     ABM = HW.HarrisWilsonABM(origin_sizes=or_sizes, network=network, true_parameters=true_parameters,
-                             M=dest_sizes.shape[1])
+                             M=dest_sizes.shape[1], device=device)
     write_time = model_cfg.pop('write_time', False)
 
     model = HarrisWilson_NN(
