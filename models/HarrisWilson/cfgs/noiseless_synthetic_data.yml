@@ -9,6 +9,7 @@ parameter_space:
   write_every: 1
   HarrisWilson:
     Data:
+      training_data_size: 1
       synthetic_data:
         # Larger system sizes require longer times to reach equilibrium
         num_steps: !coupled-sweep
@@ -32,7 +33,6 @@ parameter_space:
           default: 0.01
           values: [0.01, 0.01, 0.01, 0.01, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.0001]
           target_name: N_origin
-        training_data_size: 1
         init_weights:
           mean: 1.2
           std: 1.2

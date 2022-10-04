@@ -257,7 +257,7 @@ marginals:
         data_vars:
           param1: !dag_tag param1
           loss: !dag_tag loss
-    - HarrisWilson.get_marginals: [ !dag_prev ]
+    - NeuralABM.compute_marginals: [ !dag_prev ]
       kwargs:
         bins: 200
       tag: data
