@@ -7,6 +7,8 @@ import numpy as np
 import ruamel.yaml as yaml
 import torch
 from dantro._import_tools import import_module_from_path
+from dantro import logging
+import coloredlogs
 
 sys.path.append(up(up(__file__)))
 sys.path.append(up(up(up(__file__))))
@@ -14,7 +16,8 @@ sys.path.append(up(up(up(__file__))))
 SIR = import_module_from_path(mod_path=up(up(__file__)), mod_str='SIR')
 base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include')
 
-
+log = logging.getLogger(__name__)
+coloredlogs.install(fmt='%(levelname)s %(message)s', level='INFO', logger=log)
 # -----------------------------------------------------------------------------
 # -- Model implementation -----------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -195,8 +198,8 @@ class SIR_NN:
             loss.backward()
             self.neural_net.optimizer.step()
             self.neural_net.optimizer.zero_grad()
-            self.current_loss = loss.clone().detach().numpy().item()
-            self.current_predictions = predicted_parameters.clone().detach()
+            self.current_loss = loss.clone().detach().cpu().numpy().item()
+            self.current_predictions = predicted_parameters.clone().detach().cpu()
             if 't_infectious' in self.to_learn.keys():
                 self.current_predictions[self.to_learn['t_infectious']] *= 10
             self.write_data()
@@ -223,42 +226,44 @@ class SIR_NN:
 
 if __name__ == "__main__":
 
-    try:
-        # This will only work on Apple Silicon
-        device = "mps" if torch.backends.mps.is_available() else "cpu"
-    except:
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    print(f"Using '{device}' as training device")
-
     cfg_file_path = sys.argv[1]
 
-    print("Preparing model run ...")
-    print(f"  Loading config file:\n    {cfg_file_path}")
+    log.note("   Preparing model run ...")
+    log.note(f"   Loading config file:\n        {cfg_file_path}")
     with open(cfg_file_path, "r") as cfg_file:
         cfg = yaml.load(cfg_file, Loader=yaml.Loader)
     model_name = cfg.get("root_model_name", "SIR")
-    print(f"Model name:  {model_name}")
+    log.note(f"   Model name:  {model_name}")
     model_cfg = cfg[model_name]
 
-    print("  Creating global RNG ...")
+    # Select the training device and number of threads to use
+    device = model_cfg['Training'].pop('device', None)
+    if device is None:
+      device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
+    num_threads = model_cfg['Training'].pop('num_threads', None)
+    if num_threads is not None:
+      torch.set_num_threads(num_threads)
+    log.info(f"   Using '{device}' as training device. Number of threads: {torch.get_num_threads()}")
+
+    # Get the random number generator
+    log.note("   Creating global RNG ...")
     rng = np.random.default_rng(cfg["seed"])
     np.random.seed(cfg['seed'])
     torch.random.manual_seed(cfg['seed'])
 
-    print(f"  Creating output file at:\n    {cfg['output_path']}")
+    log.note(f"   Creating output file at:\n        {cfg['output_path']}")
     h5file = h5.File(cfg["output_path"], mode="w")
     h5group = h5file.create_group(model_name)
 
     # Get the training data
-    print("\nGenerating synthetic training data ...")
-    training_data = SIR.get_SIR_data(data_cfg=model_cfg['Data'], h5group=h5group)
+    log.info("   Generating synthetic training data ...")
+    training_data = SIR.get_SIR_data(data_cfg=model_cfg['Data'], h5group=h5group).to(device)
 
     # Initialise the neural net
-    print("\nInitializing the neural net ...")
+    log.info("   Initializing the neural net ...")
     batch_size = model_cfg['Training']['batch_size']
     net = base.NeuralNet(input_size=3, output_size=len(model_cfg['Training']['to_learn']),
-                         **model_cfg['NeuralNet'])
+                         **model_cfg['NeuralNet']).to(device)
 
     # Initialise the model
     model = SIR_NN(
@@ -268,17 +273,17 @@ if __name__ == "__main__":
         write_every=cfg['write_every'], write_start=cfg['write_start'],
         num_steps=len(training_data)
     )
-    print(f"Initialized model '{model_name}'.")
+    log.info(f"   Initialized model '{model_name}'.")
 
     num_epochs = cfg["num_epochs"]
-    print(f"\nNow commencing training for {num_epochs} epochs ...")
+    log.info(f"   Now commencing training for {num_epochs} epochs ...")
     for i in range(num_epochs):
         model.epoch(training_data=training_data, batch_size=batch_size)
-        print(f"  Completed epoch {i + 1} / {num_epochs}; "
-              f"current loss: {model.current_loss}")
+        log.progress(f"   Completed epoch {i+1} / {num_epochs}; "
+                     f"   current loss: {model.current_loss}")
 
     # Generate a complete dataset using the predicted parameters
-    print("\nGenerating predicted dataset ...")
+    log.progress("   Generating predicted dataset ...")
     parameters = torch.empty(3, dtype=torch.float)
 
     for idx, item in enumerate(['p_infect', 't_infectious', 'sigma']):
@@ -287,13 +292,13 @@ if __name__ == "__main__":
         else:
             parameters[idx] = model.true_parameters[item]
 
-    SIR.generate_smooth_data(init_state=training_data[0],
+    SIR.generate_smooth_data(init_state=training_data[0].cpu(),
                              counts=model._dset_pred_counts,
                              num_steps=len(training_data),
                              parameters=parameters, )
 
-    print("\nSimulation run finished.")
-    print("  Wrapping up ...")
+    log.info("   Simulation run finished.")
+    log.info("   Wrapping up ...")
     h5file.close()
 
-    print("  All done.")
+    log.success("   All done.")

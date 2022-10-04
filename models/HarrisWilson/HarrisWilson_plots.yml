@@ -19,7 +19,6 @@ predictions:
       title: ~
       loc: 'best'
 
-# !! These plots only work if synthetic data is generated and used
 # Plot the synthetic time series
 time_series:
   based_on: time_series

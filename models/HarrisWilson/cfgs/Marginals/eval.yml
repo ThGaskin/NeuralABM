@@ -60,10 +60,8 @@ marginal_alpha:
   # Calculate marginals along the noise dimension
   transform:
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag param1
-          loss: !dag_tag loss
+      - param1: !dag_tag param1
+        loss: !dag_tag loss
     - operation: NeuralABM.compute_marginals
       args: [ !dag_prev ]
       kwargs:
@@ -205,10 +203,8 @@ peak_widths:
   transform:
     # alpha
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag alpha
-          loss: !dag_tag loss
+      - param1: !dag_tag alpha
+        loss: !dag_tag loss
     - operation: NeuralABM.compute_marginals
       args: [ !dag_prev ]
       kwargs:
@@ -226,10 +222,8 @@ peak_widths:
     # Beta. Since scipy.find_peaks cannot find peaks at the beginning of the data,
     # we need to add an additional point to the marginals to ensure the peak at b=0 is found
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag beta
-          loss: !dag_tag loss
+      - param1: !dag_tag beta
+        loss: !dag_tag loss
     - operation: NeuralABM.compute_marginals
       args: [ !dag_prev ]
       kwargs:
@@ -243,8 +237,7 @@ peak_widths:
       tag: dim1
     - tuple: [[['sigma', 'bin_idx'], [[0], [0] , [0], [0], [0]]]]
       tag: dim2
-    - operation: xr.Dataset
-      kwargs:
+    - xr.Dataset:
         coords:
           sigma: [0.0, 0.25, 0.5, 1.0, 1.5]
           bin_idx: [-1]
@@ -264,10 +257,8 @@ peak_widths:
 
     # kappa
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag kappa
-          loss: !dag_tag loss
+      - param1: !dag_tag kappa
+        loss: !dag_tag loss
     - operation: NeuralABM.compute_marginals
       args: [ !dag_prev ]
       kwargs:
