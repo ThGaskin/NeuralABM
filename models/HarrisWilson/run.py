@@ -7,6 +7,8 @@ import numpy as np
 import ruamel.yaml as yaml
 import time
 import torch
+import coloredlogs
+from dantro import logging
 
 from dantro._import_tools import import_module_from_path
 
@@ -15,6 +17,9 @@ sys.path.append(up(up(up(__file__))))
 
 HW = import_module_from_path(mod_path=up(up(__file__)), mod_str='HarrisWilson')
 base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include')
+
+log = logging.getLogger(__name__)
+coloredlogs.install(fmt='%(levelname)s %(message)s', level='INFO', logger=log)
 
 # ----------------------------------------------------------------------------------------------------------------------
 # -- Model implementation ----------------------------------------------------------------------------------------------
@@ -180,24 +185,24 @@ if __name__ == "__main__":
 
     # Select the training device to use
     device = "mps" if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Using '{device}' as training device")
+    log.info(f"   Using '{device}' as training device")
 
     cfg_file_path = sys.argv[1]
 
-    print("Preparing model run ...")
-    print(f"  Loading config file:\n    {cfg_file_path}")
+    log.note("   Preparing model run ...")
+    log.note(f"   Loading config file:\n        {cfg_file_path}")
     with open(cfg_file_path, "r") as cfg_file:
         cfg = yaml.load(cfg_file, Loader=yaml.Loader)
     model_name = cfg.get("root_model_name", "HarrisWilson")
-    print(f"Model name:  {model_name}")
+    log.note(f"   Model name:  {model_name}")
     model_cfg = cfg[model_name]
 
-    print("  Creating global RNG ...")
+    log.note("   Creating global RNG ...")
     rng = np.random.default_rng(cfg["seed"])
     np.random.seed(cfg['seed'])
     torch.random.manual_seed(cfg['seed'])
 
-    print(f"  Creating output file at:\n    {cfg['output_path']}")
+    log.note(f"   Creating output file at:\n        {cfg['output_path']}")
     h5file = h5.File(cfg["output_path"], mode="w")
     h5group = h5file.create_group(model_name)
 
@@ -205,37 +210,35 @@ if __name__ == "__main__":
     or_sizes, dest_sizes, network = HW.get_HW_data(model_cfg['Data'], h5file, h5group)
 
     # Set up the neural net
-    print("\nInitializing the neural net ...")
+    log.info("   Initializing the neural net ...")
     net = base.NeuralNet(input_size=dest_sizes.shape[1], output_size=len(model_cfg['Training']['to_learn']),
                          **model_cfg['NeuralNet'])
 
     # Set up the numerical solver
-    print("\nInitializing the numerical solver ...")
+    log.info("   Initializing the numerical solver ...")
     true_parameters = model_cfg['Training'].pop('true_parameters', None)
     ABM = HW.HarrisWilsonABM(origin_sizes=or_sizes, network=network, true_parameters=true_parameters,
                              M=dest_sizes.shape[1])
     write_time = model_cfg.pop('write_time', False)
 
-    # Initialise the neural net
-    print("\nInitializing the neural net ...")
     model = HarrisWilson_NN(
         model_name, rng=rng, h5group=h5group, neural_net=net, ABM=ABM, to_learn=model_cfg['Training']['to_learn'],
         write_every=cfg['write_every'], write_start=cfg['write_start'], write_time=write_time
     )
-    print(f"Initialized model '{model_name}'.")
+    log.info(f"   Initialized model '{model_name}'.")
 
     # Train the neural net
     num_epochs = cfg["num_epochs"]
-    print(f"\nNow commencing training for {num_epochs} epochs ...")
+    log.info(f"   Now commencing training for {num_epochs} epochs ...")
 
     for _ in range(num_epochs):
 
         model.epoch(training_data=dest_sizes, batch_size=model_cfg['Training']['batch_size'])
 
-        print(f"  Completed epoch {_+1} / {num_epochs}.")
+        log.progress(f"   Completed epoch {_+1} / {num_epochs}.")
 
-    print("\nSimulation run finished.")
-    print("  Wrapping up ...")
+    log.info("   Simulation run finished.")
+    log.note("   Wrapping up ...")
     h5file.close()
 
-    print("  All done.")
+    log.success("   All done.")

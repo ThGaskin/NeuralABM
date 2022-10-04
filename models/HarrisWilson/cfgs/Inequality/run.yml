@@ -6,10 +6,10 @@ parameter_space:
   num_epochs: 0
   HarrisWilson:
     Data:
+      training_data_size: 1
       synthetic_data:
         N_origin: 1000
         N_destination: 100
-        training_data_size: 1
         dt: 0.001
         alpha: !sweep
           default: 1.2
