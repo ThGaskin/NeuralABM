@@ -210,6 +210,33 @@ with the name of a common function, such as ``relu``, ``linear``, ``tanh``, ``si
 ``bias`` controls use of the bias, and the ``init_bias`` sets the initialisation interval for the 
 bias.
 
+## Training settings
+You can modify the training settings, such as the batch size or the training device, from the 
+`Training` entry of the config:
+
+```yaml
+Training:
+  batch_size: 1
+  to_learn: [ param1, param2, param3 ]
+  true_parameters:
+    param4: 0.5
+  device: cpu
+  num_threads: ~
+```
+The `to_learn` entry lists the parameters you wish to learn. If you are not learning the complete
+parameter set, you must supply the parameter value to use during training for that parameter under
+`true_parameters`.
+
+The `device` entry sets the training device. The default here is the `cpu`; you can set it to any 
+supported pytorch training device. Make sure your platform is configured to support the selected device.
+On Apple Silicon, set the device to `mps` to enable GPU training, provided you have followed the corresponding
+installation instructions (see above). 
+
+`utopya` automatically parallelises multiple runs; the number of CPU cores available to do this
+can be specified under `worker_managers/num_workers` on the root-level configuration (i.e. on the same level as 
+`parameter_space`). The `Training/num_threads` entry controls the number of threads *per model run* to be used during training.
+If you thus set `num_workers` to 4 and `num_threads` to 3, you will in total be able to use 12 threads.
+
 ## Loading data
 See the model-specific README files to see how to load different types of data. Data is stored in the `data/`
 folder.

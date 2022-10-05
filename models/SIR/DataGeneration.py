@@ -1,9 +1,11 @@
 import h5py as h5
 import numpy as np
 import torch
+import logging
 
 from .ABM import SIR_ABM
 
+log = logging.getLogger(__name__)
 
 # --- Data generation functions ------------------------------------------------------------------------------------
 def generate_data_from_ABM(*,
@@ -23,7 +25,7 @@ def generate_data_from_ABM(*,
     :counts: (optional) the dataset to write the ABM counts to
     """
 
-    print(f'\n   Initialising the ABM ... ')
+    log.info('   Initialising the ABM ... ')
 
     ABM = SIR_ABM(**cfg)
     num_steps: int = cfg['num_steps']
@@ -34,7 +36,7 @@ def generate_data_from_ABM(*,
 
     parameters = torch.tensor([ABM.p_infect, ABM.t_infectious]) if parameters is None else parameters
 
-    print(f'\n   Generating synthetic data ... ')
+    log.info('   Generating synthetic data ... ')
     for _ in range(num_steps):
 
         # Run the ABM for a single step
@@ -61,7 +63,7 @@ def generate_data_from_ABM(*,
         # Append the new counts to training dataset
         data[_] = densities
 
-        print(f'   Completed run {_} of {num_steps} ... ')
+        log.debug(f'   Completed run {_} of {num_steps} ... ')
 
     return data
 
