@@ -37,6 +37,7 @@ NeuralNet:
 Training:
   to_learn: [alpha, beta, kappa, sigma]
   batch_size: !is-positive-int 1
+  device: cpu
 
 # Whether to write out the computation time for each epoch
 write_time: False
