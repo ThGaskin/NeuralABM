@@ -12,7 +12,8 @@ class HarrisWilsonABM:
                  M,
                  true_parameters: dict = None,
                  epsilon: float = 1.0,
-                 dt: float = 0.001):
+                 dt: float = 0.001,
+                 device: str):
 
         """ The Harris and Wilson model of economic activity.
 
@@ -22,6 +23,7 @@ class HarrisWilsonABM:
         :param true_parameters: (optional) a dictionary of the true parameters
         :param epsilon: (optional) the epsilon value to use for the solver
         :param dt: (optional) the time differential to use for the solver
+        :param device: the training device to use
         """
 
         # The origin zone sizes, number of origin zones, and number of destination zones
@@ -42,8 +44,9 @@ class HarrisWilsonABM:
                     params_to_learn[param] = idx
                     idx += 1
         self.parameters_to_learn = params_to_learn
-        self.epsilon = epsilon
-        self.dt = dt
+        self.epsilon = torch.tensor(epsilon).to(device)
+        self.dt = torch.tensor(dt).to(device)
+        self.device = device
 
     # ... Model run functions ..........................................................................................
 
@@ -105,7 +108,7 @@ class HarrisWilsonABM:
         new_sizes = new_sizes + \
                     + torch.mul(curr_vals, epsilon * (demand - kappa * curr_vals)
                                 + sigma * 1 / torch.sqrt(
-                        torch.tensor(2 * torch.pi * dt, dtype=torch.float)) * torch.normal(0, 1, size=(self.M, 1))
+                        torch.tensor(2 * torch.pi * dt, dtype=torch.float)).to(self.device) * torch.normal(0, 1, size=(self.M, 1)).to(self.device)
                                 ) * dt
 
         return new_sizes

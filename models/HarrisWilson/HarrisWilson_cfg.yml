@@ -12,7 +12,6 @@ Data:
     sigma: !is-positive-or-zero 0
     epsilon: !is-positive 10
     dt: !is-positive 0.01
-    training_data_size: !is-positive-int 1
     init_weights:
       mean: !param
         default: 1.2
@@ -22,6 +21,7 @@ Data:
         default: 1.2
         limits: [0, ~]
         dtype: float
+
 
 # Settings for the neural net architecture
 NeuralNet:
@@ -37,6 +37,7 @@ NeuralNet:
 Training:
   to_learn: [alpha, beta, kappa, sigma]
   batch_size: !is-positive-int 1
+  device: cpu
 
 # Whether to write out the computation time for each epoch
 write_time: False
