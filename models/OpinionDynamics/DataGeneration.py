@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 # --- Data generation functions ------------------------------------------------------------------------------------
 
-def get_data(cfg, h5file: h5.File, h5group: h5.Group, *, seed: int) -> (torch.Tensor, Union[nx.Graph, None]):
+def get_data(cfg, h5file: h5.File, h5group: h5.Group, *, seed: int, device: str) -> (torch.Tensor, Union[nx.Graph, None]):
 
     load_from_dir = cfg.pop('load_from_dir', None)
     if load_from_dir is not None:
@@ -153,4 +153,4 @@ def get_data(cfg, h5file: h5.File, h5group: h5.Group, *, seed: int) -> (torch.Te
         del ABM
 
         # Return the training data and the network
-        return training_data, network
+        return training_data.to(device), network

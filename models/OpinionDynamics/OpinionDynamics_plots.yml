@@ -6,11 +6,11 @@ true_graph:
   graph_creation:
     at_time_idx: 0
 
-#predicted_graph:
-#  based_on: graph
-#  select:
-#    graph_group: data/predicted_network
-#    opinions: data/opinion_data/predicted_opinions
+predicted_graph:
+  based_on: graph
+  select:
+    graph_group: data/predicted_network
+    opinions: data/opinion_data/predicted_opinions
 
 
 opinion_comparison:
@@ -64,23 +64,28 @@ properties:
         args:
           - !dag_result true_degree
         label: $P(k)$
+        clip: &clip [0, ~]
       - function: sns.kdeplot
         args:
           - !dag_result predicted_out_degree
         label: $\hat{P}_\mathrm{out}(k)$
+        clip: *clip
       - function: sns.kdeplot
         args:
           - !dag_result predicted_in_degree
         label: $\hat{P}_\mathrm{in}(k)$
+        clip: *clip
     [ 1, 0]:
     - function: sns.kdeplot
       args:
         - !dag_result true_clustering
       label: $P(c)$
+      clip: *clip
     - function: sns.kdeplot
       args:
         - !dag_result predicted_clustering
       label: $\hat{P}(c)$
+      clip: *clip
   helpers:
     setup_figure:
       ncols: 2

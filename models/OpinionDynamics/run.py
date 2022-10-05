@@ -10,6 +10,7 @@ import time
 import torch
 from dantro._import_tools import import_module_from_path
 from dantro import logging
+import coloredlogs
 
 sys.path.append(up(up(__file__)))
 sys.path.append(up(up(up(__file__))))
@@ -19,7 +20,6 @@ base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include')
 
 log = logging.getLogger(__name__)
 coloredlogs.install(fmt='%(levelname)s %(message)s', level='INFO', logger=log)
-
 
 # -----------------------------------------------------------------------------
 # -- Model implementation -----------------------------------------------------
@@ -268,13 +268,13 @@ class OpinionDynamics_NN:
 
                 # Calculate loss
                 loss = loss + torch.nn.functional.l1_loss(current_values, training_data[ele]) / batch_size
-                loss = loss + torch.trace(torch.reshape(predicted_parameters, (self.num_agents, self.num_agents))) / batch_size
+                loss = loss + torch.sum(torch.reshape(predicted_parameters, (self.num_agents, self.num_agents)).diag()) / batch_size
 
             loss.backward()
             self.neural_net.optimizer.step()
             self.neural_net.optimizer.zero_grad()
-            self.current_loss = loss.clone().detach().numpy().item()
-            self.current_predictions = predicted_parameters.clone().detach()
+            self.current_loss = loss.clone().detach().cpu().numpy().item()
+            self.current_predictions = predicted_parameters.clone().detach().cpu()
             self._time += 1
             self.write_data()
 
@@ -340,10 +340,6 @@ class OpinionDynamics_NN:
 
 if __name__ == "__main__":
 
-    # Select the training device to use
-    device = "mps" if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
-    log.info(f"   Using '{device}' as training device")
-
     cfg_file_path = sys.argv[1]
 
     log.note("   Preparing model run ...")
@@ -354,6 +350,16 @@ if __name__ == "__main__":
     log.note(f"   Model name:  {model_name}")
     model_cfg = cfg[model_name]
 
+    # Select the training device and number of threads to use
+    device = model_cfg['Training'].pop('device', None)
+    if device is None:
+      device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
+    num_threads = model_cfg['Training'].pop('num_threads', None)
+    if num_threads is not None:
+      torch.set_num_threads(num_threads)
+    log.info(f"   Using '{device}' as training device. Number of threads: {torch.get_num_threads()}")
+
+    # Get the random number generator
     log.note("   Creating global RNG ...")
     seed = cfg["seed"]
     rng = np.random.default_rng(seed)
@@ -368,7 +374,7 @@ if __name__ == "__main__":
     # Get the training data and the network, if synthetic data is used
     log.info("   Generating training data ...")
     training_data, network = OpinionDynamics.DataGeneration.get_data(model_cfg['Data'], h5file, op_data_group,
-                                                                     seed=seed)
+                                                                     seed=seed, device=device)
 
     # Generate the h5group for the predicted network, if it is to be learned
     num_agents = training_data.shape[1]
@@ -382,8 +388,8 @@ if __name__ == "__main__":
 
     output_size = len(to_learn) if 'network' not in to_learn else len(to_learn) + num_agents ** 2 - 1
 
-    log.info("   Initializing the neural net; input size: {num_agents}, output size: {output_size} ...")
-    net = base.NeuralNet(input_size=num_agents, output_size=output_size, **model_cfg['NeuralNet'])
+    log.info(f"   Initializing the neural net; input size: {num_agents}, output size: {output_size} ...")
+    net = base.NeuralNet(input_size=num_agents, output_size=output_size, **model_cfg['NeuralNet']).to(device)
 
     # Get the true parameters
     true_parameters = model_cfg['Training']['true_parameters']
@@ -393,6 +399,11 @@ if __name__ == "__main__":
                                               network=None if 'network' in to_learn else network,
                                               init_values=training_data[0],
                                               **true_parameters)
+
+    write_predictions_every = cfg.pop('write_predictions_every', None)
+    num_epochs = cfg["num_epochs"]
+    if write_predictions_every == -1:
+      write_predictions_every = num_epochs * (len(training_data) -1 - model_cfg['Training']['batch_size']) - 1
 
     # Initialise the model
     model = OpinionDynamics_NN(model_name,
@@ -406,14 +417,13 @@ if __name__ == "__main__":
                                to_learn=model_cfg['Training']['to_learn'],
                                num_steps=len(training_data),
                                write_every=cfg['write_every'],
-                               write_predictions_every=cfg.pop('write_predictions_every', None),
+                               write_predictions_every=write_predictions_every,
                                write_start=cfg['write_start'],
                                write_time=model_cfg.pop('write_time', False))
 
-    log.info("   Initialized model '{model_name}'.")
+    log.info(f"   Initialized model '{model_name}'.")
 
     # Train the neural net
-    num_epochs = cfg["num_epochs"]
     log.info(f"   Now commencing training for {num_epochs} epochs ...")
 
     for i in range(num_epochs):
@@ -436,7 +446,7 @@ if __name__ == "__main__":
     pred_opinions.attrs["coords_mode__time"] = "start_and_step"
     pred_opinions.attrs["coords__time"] = [1, 1]
     pred_opinions.attrs["coords_mode__vertex_idx"] = "trivial"
-    current_values = ABM.initial_opinions
+    current_values = ABM.initial_opinions.to('cpu')
     pred_opinions[0, :] = torch.flatten(current_values)
 
     for _ in range(num_steps):
