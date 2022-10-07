@@ -31,6 +31,7 @@ from [PyPI](https://pypi.org/project/utopya/), as well as all other requirements
 pip install -r requirements.txt
 ```
 
+This assumes your current directory is the project folder.
 You should now be able to invoke the utopya CLI:
 ```console
 utopya --help

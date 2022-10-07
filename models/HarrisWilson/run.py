@@ -128,8 +128,6 @@ class HarrisWilson_NN:
 
         loss = torch.tensor(0.0, requires_grad=True)
 
-        start_time = time.time()
-
         for t, sample in enumerate(training_data):
 
             predicted_parameters = self._neural_net(torch.flatten(sample))
@@ -194,10 +192,10 @@ if __name__ == "__main__":
     model_cfg = cfg[model_name]
 
     # Select the training device and number of threads to use
-    device = model_cfg['Training'].pop('device', None)
+    device = model_cfg['Training'].get('device', None)
     if device is None:
       device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
-    num_threads = model_cfg['Training'].pop('num_threads', None)
+    num_threads = model_cfg['Training'].get('num_threads', None)
     if num_threads is not None:
       torch.set_num_threads(num_threads)
     log.info(f"   Using '{device}' as training device. Number of threads: {torch.get_num_threads()}")
@@ -222,10 +220,10 @@ if __name__ == "__main__":
 
     # Set up the numerical solver
     log.info("   Initializing the numerical solver ...")
-    true_parameters = model_cfg['Training'].pop('true_parameters', None)
+    true_parameters = model_cfg['Training'].get('true_parameters', None)
     ABM = HW.HarrisWilsonABM(origin_sizes=or_sizes, network=network, true_parameters=true_parameters,
                              M=dest_sizes.shape[1], device=device)
-    write_time = model_cfg.pop('write_time', False)
+    write_time = model_cfg.get('write_time', False)
 
     model = HarrisWilson_NN(
         model_name, rng=rng, h5group=h5group, neural_net=net, ABM=ABM, to_learn=model_cfg['Training']['to_learn'],

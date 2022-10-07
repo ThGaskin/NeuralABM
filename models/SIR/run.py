@@ -237,10 +237,10 @@ if __name__ == "__main__":
     model_cfg = cfg[model_name]
 
     # Select the training device and number of threads to use
-    device = model_cfg['Training'].pop('device', None)
+    device = model_cfg['Training'].get('device', None)
     if device is None:
       device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
-    num_threads = model_cfg['Training'].pop('num_threads', None)
+    num_threads = model_cfg['Training'].get('num_threads', None)
     if num_threads is not None:
       torch.set_num_threads(num_threads)
     log.info(f"   Using '{device}' as training device. Number of threads: {torch.get_num_threads()}")
@@ -269,7 +269,7 @@ if __name__ == "__main__":
     model = SIR_NN(
         model_name, rng=rng, h5group=h5group, neural_net=net,
         to_learn = model_cfg['Training']['to_learn'],
-        true_parameters = model_cfg['Training'].pop('true_parameters', {}),
+        true_parameters = model_cfg['Training'].get('true_parameters', {}),
         write_every=cfg['write_every'], write_start=cfg['write_start'],
         num_steps=len(training_data)
     )
