@@ -26,7 +26,7 @@ def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
 
         # If data is in h5 format
         if dir.lower().endswith('.h5'):
-            with h5.File(data_dir, "r") as f:
+            with h5.File(dir, "r") as f:
                 origins = np.array(f['HarrisWilson']['origin_sizes'])[0]
                 training_data = np.array(f['HarrisWilson']['training_data'])
                 nw = np.array(f['network']['_edge_weights'])

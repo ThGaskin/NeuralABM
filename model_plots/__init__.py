@@ -15,7 +15,7 @@ import model_plots.HarrisWilson
 # --- Custom DAG operations to register --------------------------------------------------------------------------------
 import numpy as np
 import pandas as pd
-from utopya.plotting import register_operation
+from utopya.eval import register_operation
 
 register_operation(name="pd.Index", func=pd.Index)
 register_operation(name="np.maximum", func=np.maximum)
