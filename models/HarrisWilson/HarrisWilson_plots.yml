@@ -15,7 +15,7 @@ predictions:
   based_on: predictions
   helpers:
     set_legend:
-      custom_labels: ['$\hat{\alpha}$', '$\hat{\beta}$', '$\hat{\kappa}$']
+      custom_labels: ['$\hat{\alpha}$', '$\hat{\beta}$', '$\hat{\kappa}$', '$\hat{\delta}$']
       title: ~
       loc: 'best'
 
@@ -32,6 +32,7 @@ network:
 #  ║║║║ ║║  ║ ║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
 #  ╩ ╩╚═╝╩═╝╩ ╩ ╚╝ ╚═╝╩╚═╚═╝╚═╝  ╩  ╩═╝╚═╝ ╩ ╚═╝
 # ======================================================================================================================
+
 # Plot the density of the loss over alpha
 loss_potential/alpha:
   based_on: loss_potential
@@ -62,6 +63,16 @@ loss_potential/kappa:
   helpers:
     set_labels:
       x: '$\kappa$'
+
+# Plot the density of the loss over delta
+loss_potential/delta:
+  based_on: loss_potential
+  select_and_combine:
+    fields:
+      param1: delta
+  helpers:
+    set_labels:
+      x: '$\delta$'
 
 # Plot the density of the loss over two parameters
 loss_potential/alpha_beta:
@@ -108,3 +119,14 @@ marginals/kappa:
     set_labels:
       x: '$\kappa$'
       y: '$\rho(\kappa)$'
+    
+# Plot the marginal density in delta
+marginals/delta:
+  based_on: marginals
+  select_and_combine:
+    fields:
+      param1: delta
+  helpers:
+    set_labels:
+      x: '$\delta$'
+      y: '$\rho(\delta)$'

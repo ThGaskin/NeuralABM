@@ -36,10 +36,10 @@ class HarrisWilsonABM:
 
         # Model parameters
         self.true_parameters = true_parameters
-        params_to_learn = {} if true_parameters is not None else {'alpha': 0, 'beta': 1, 'kappa': 2, 'sigma': 3}
+        params_to_learn = {} if true_parameters is not None else {'alpha': 0, 'beta': 1, 'kappa': 2, 'sigma': 3, 'delta': 4}
         if true_parameters is not None:
             idx = 0
-            for param in ['alpha', 'beta', 'kappa', 'sigma']:
+            for param in ['alpha', 'beta', 'kappa', 'sigma', 'delta']:
                 if param not in true_parameters.keys():
                     params_to_learn[param] = idx
                     idx += 1
@@ -76,9 +76,11 @@ class HarrisWilsonABM:
             else input_data[self.parameters_to_learn['beta']]
         kappa = self.true_parameters['kappa'] if 'kappa' not in self.parameters_to_learn.keys() \
             else input_data[self.parameters_to_learn['kappa']]
+        delta = self.true_parameters['delta'] if 'delta' not in self.parameters_to_learn.keys() \
+            else input_data[self.parameters_to_learn['delta']]
         sigma = self.true_parameters['sigma'] if 'sigma' not in self.parameters_to_learn.keys() \
             else input_data[self.parameters_to_learn['sigma']]
-
+        
         # Training parameters
         epsilon = self.epsilon if epsilon is None else epsilon
         dt = self.dt if dt is None else dt
@@ -106,7 +108,7 @@ class HarrisWilsonABM:
 
         # Update the current values
         new_sizes = new_sizes + \
-                    + torch.mul(curr_vals, epsilon * (demand - kappa * curr_vals)
+                    + torch.mul(curr_vals, epsilon * (demand - kappa * curr_vals + delta)
                                 + sigma * 1 / torch.sqrt(
                         torch.tensor(2 * torch.pi * dt, dtype=torch.float)).to(self.device) * torch.normal(0, 1, size=(self.M, 1)).to(self.device)
                                 ) * dt

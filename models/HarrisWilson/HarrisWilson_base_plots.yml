@@ -110,7 +110,7 @@ predictions:
       transform:
         - .data: [ !dag_prev ]
   transform:
-    - xr.concat: [[ !dag_tag alpha, !dag_tag beta, !dag_tag kappa ] ]
+    - xr.concat: [[ !dag_tag alpha, !dag_tag beta, !dag_tag kappa, !dag_tag delta ] ]
       kwargs:
         dim: values
         combine_attrs: drop
@@ -217,6 +217,47 @@ marginals:
   smooth_kwargs:
     enabled: true
     sigma: 1
+
+# Destination size predictions
+destination_sizes_predictions:
+  based_on: .creator.multiverse
+  expected_multiverse_ndim: [1,2,3,4,5]
+  module: model_plots.HarrisWilson
+  plot_func: plot_destination_size_predictions
+  select_and_combine:
+    fields:
+      time_series:
+        path: time_series
+        transform:
+          - .isel: [!dag_prev , {'time': -1}]
+            kwargs:
+              drop: true
+      training_data:
+        path: training_data
+        transform:
+          - .isel: [!dag_prev , {'time': -1}] # Select the time to plot here
+            kwargs:
+              drop: true
+  transform:
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          time_series: !dag_tag time_series
+          training_data: !dag_tag training_data
+    - NeuralABM.compute_empirical_mean: [ !dag_tag time_series ]
+      kwargs:
+        dims: seed
+      tag: x_predictions
+    - NeuralABM.compute_empirical_mean: [ !dag_tag training_data ]
+      kwargs:
+        dims: seed
+      tag: x_data
+              
+  hue: sigma   
+  helpers:
+    set_labels:
+      y: $W_j$
+      x: $\hat{W}_j$
 
 # Timeseries plot
 time_series:
