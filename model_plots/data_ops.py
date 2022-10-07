@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 from operator import itemgetter
 import scipy.signal
@@ -159,6 +160,14 @@ def compute_mean(data: xr.Dataset, *, coords: dict = None, x: str = 'param1', p:
     mean = (data[x].values * data[p].values * dx).sum()
 
     return xr.Dataset(data_vars=dict(mean=mean), coords=coords)
+
+@is_operation('NeuralABM.compute_empirical_mean')
+@apply_along_dim
+def compute_empirical_mean(data: xr.Dataset, *, coords: dict = None, dims: str = 'seed'):
+    """ Computes the mean of a one-dimensional dataset consisting of x-values"""
+    # Get time series mean
+    mean = data.mean(dim=dims,skipna=True)
+    return xr.Dataset(data_vars=dict(mean=mean), coords=mean.coords)
 
 
 @is_operation('NeuralABM.compute_std')

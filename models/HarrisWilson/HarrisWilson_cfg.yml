@@ -9,6 +9,7 @@ Data:
     alpha: !is-positive-or-zero 1.2
     beta: !is-positive-or-zero 4
     kappa: !is-positive-or-zero 2
+    delta: !is-positive-or-zero 0.1
     sigma: !is-positive-or-zero 0
     epsilon: !is-positive 10
     dt: !is-positive 0.01
@@ -35,7 +36,7 @@ NeuralNet:
 
 # Settings for the neural net training
 Training:
-  to_learn: [alpha, beta, kappa, sigma]
+  to_learn: [alpha, beta, kappa, delta, sigma]
   batch_size: !is-positive-int 1
 
 # Whether to write out the computation time for each epoch

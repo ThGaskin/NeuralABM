@@ -1,6 +1,9 @@
+worker_manager: 
+  num_workers: 8
 perform_sweep: True  
 paths:
   model_note: Cambridge_dataset
+  out_dir: outputs/
 parameter_space:
   seed: !sweep
     default: 2
@@ -10,10 +13,53 @@ parameter_space:
   write_every: 1
   HarrisWilson:
     Data:
-      load_from_dir:
-        network: data/HarrisWilson/Cambridge_data/exp_distances.csv
-        origin_zones: data/HarrisWilson/Cambridge_data/origin_sizes.csv
-        destination_zones: data/HarrisWilson/Cambridge_data/dest_sizes.csv
+      load_from_dir: 
+        network: data/HarrisWilson/Cambridge_data/exp_distances_unit_interval.csv
+        # network: data/HarrisWilson/Cambridge_data/driving_metrics_exp_distances_unit_interval.csv
+        # network: !sweep
+        #   default: data/HarrisWilson/Cambridge_data/driving_metrics_exp_times_unit_interval.csv
+        #   values: [
+        #         data/HarrisWilson/Cambridge_data/driving_metrics_exp_times_unit_interval.csv,
+        #         data/HarrisWilson/Cambridge_data/driving_metrics_exp_distances_unit_interval.csv]
+        # network: !sweep
+        #   default: data/HarrisWilson/Cambridge_data/transit_metrics_exp_times_unit_interval.csv
+        #   values: [
+        #       data/HarrisWilson/Cambridge_data/transit_metrics_exp_times_unit_interval.csv,
+        #       data/HarrisWilson/Cambridge_data/transit_metrics_exp_distances_unit_interval.csv
+        #   ]
+        # network: !sweep
+        #   default: data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times_unit_interval.csv
+        #   values: [
+        #       data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times_unit_interval.csv,
+        #       data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_distances_unit_interval.csv]
+        # network: !sweep
+        #   default: data/HarrisWilson/Cambridge_data/walking_metrics_exp_times_unit_interval.csv
+        #   values: [
+        #       data/HarrisWilson/Cambridge_data/walking_metrics_exp_times_unit_interval.csv,
+        #       data/HarrisWilson/Cambridge_data/walking_metrics_exp_distances_unit_interval.csv]
+
+        # network: !sweep
+        # default: data/HarrisWilson/Cambridge_data/driving_metrics_exp_times.csv
+        # values: [data/HarrisWilson/Cambridge_data/driving_metrics_exp_times.csv,
+        #          data/HarrisWilson/Cambridge_data/driving_metrics_exp_distances.csv]
+        # network: !sweep
+        # default: data/HarrisWilson/Cambridge_data/transit_metrics_exp_times.csv
+        # values: [
+        #     data/HarrisWilson/Cambridge_data/transit_metrics_exp_times.csv,
+        #     data/HarrisWilson/Cambridge_data/transit_metrics_exp_distances.csv]
+        # network: !sweep
+            # default: data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times.csv
+            # values: [
+            #     data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times.csv,
+            #     data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_distances.csv]
+        # network: !sweep
+        #   default: data/HarrisWilson/Cambridge_data/walking_metrics_exp_times.csv
+        #   values: [
+        #         data/HarrisWilson/Cambridge_data/walking_metrics_exp_times.csv,
+        #         data/HarrisWilson/Cambridge_data/walking_metrics_exp_distances.csv]
+          # name: metric
+        origin_zones: data/HarrisWilson/Cambridge_data/origin_sizes_max_normalised.csv
+        destination_zones: data/HarrisWilson/Cambridge_data/dest_sizes_max_normalised.csv
     NeuralNet:
       init_bias: [ 0, 4 ]
       num_layers: 1
@@ -23,6 +69,9 @@ parameter_space:
     Training:
       to_learn: [alpha, beta, kappa]
       true_parameters:
+        delta: 0.0
         sigma: !sweep
           default: 0
-          values: [0.0, 0.2]
+          values: [0.01414214, 0.14142136]
+      device: cpu
+      num_threads: 1

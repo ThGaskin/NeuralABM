@@ -121,45 +121,45 @@ alpha_beta:
     - getitem: [ !dag_prev , 0 ]
     - getitem: [ !dag_prev , !slice [ *path_start, *path_stop ] ]
       tag: path_z
-  helpers:
-    setup_figure:
-      subplot_kw:
-        elev: 22
-        azim: -313
-    set_labels:
-      x: '$\beta$'
-      y: '$\alpha$'
-    set_limits:
-      x: [0, 8]
-      y: [0, 5]
-      z: [0, ~]
-    call:
-      functions:
-        # Mark the non-trivial maximum
-        - function: [matplotlib, pyplot.plot]
-          args:
-            - [*beta, *beta]
-            - [*alpha, *alpha]
-            - [0, 19]
-          color: *red
-          linestyle: dotted
-        # Mark the trivial maximum
-        - function: [matplotlib, pyplot.plot]
-          args:
-            - [0, 0]
-            - [1, 1]
-            - [0, 19]
-          color: *green
-          linestyle: dotted
-        # Plot a sample trajectory
-        - function: [matplotlib, pyplot.plot]
-          args:
-            - !dag_result path_x
-            - !dag_result path_y
-            - !dag_result path_z
-          zorder: 10000
-          color: black
-          linestyle: dotted
-          linewidth: 0.5
-  style:
-    figure.figsize: [*half_width, *half_width]
+  # helpers:
+  #   setup_figure:
+  #     subplot_kw:
+  #       elev: 22
+  #       azim: -313
+  #   set_labels:
+  #     x: '$\beta$'
+  #     y: '$\alpha$'
+  #   set_limits:
+  #     x: [0, 8]
+  #     y: [0, 5]
+  #     z: [0, ~]
+  #   call:
+  #     functions:
+  #       # Mark the non-trivial maximum
+  #       - function: [matplotlib, pyplot.plot]
+  #         args:
+  #           - [*beta, *beta]
+  #           - [*alpha, *alpha]
+  #           - [0, 19]
+  #         color: *red
+  #         linestyle: dotted
+  #       # Mark the trivial maximum
+  #       - function: [matplotlib, pyplot.plot]
+  #         args:
+  #           - [0, 0]
+  #           - [1, 1]
+  #           - [0, 19]
+  #         color: *green
+  #         linestyle: dotted
+  #       # Plot a sample trajectory
+  #       - function: [matplotlib, pyplot.plot]
+  #         args:
+  #           - !dag_result path_x
+  #           - !dag_result path_y
+  #           - !dag_result path_z
+  #         zorder: 10000
+  #         color: black
+  #         linestyle: dotted
+  #         linewidth: 0.5
+  # style:
+  #   figure.figsize: [*half_width, *half_width]

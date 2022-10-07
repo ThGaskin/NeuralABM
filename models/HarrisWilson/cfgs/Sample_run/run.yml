@@ -3,7 +3,7 @@ paths:
   model_note: Sample_run
 parameter_space:
   seed: 0
-  num_epochs: 6000
+  num_epochs: 6
   write_start: 1
   write_every: 1
   HarrisWilson:
