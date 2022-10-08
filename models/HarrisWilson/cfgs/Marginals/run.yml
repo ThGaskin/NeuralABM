@@ -37,4 +37,3 @@ parameter_space:
     Training:
       batch_size: 1
       to_learn: [alpha, beta, kappa, sigma]
-

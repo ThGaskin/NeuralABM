@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
-from os.path import dirname as up
 import sys
+import time
+from os.path import dirname as up
 
+import coloredlogs
 import h5py as h5
 import numpy as np
 import ruamel.yaml as yaml
-import time
 import torch
-import coloredlogs
 from dantro import logging
-
 from dantro._import_tools import import_module_from_path
 
 sys.path.append(up(up(__file__)))
 sys.path.append(up(up(up(__file__))))
 
-HW = import_module_from_path(mod_path=up(up(__file__)), mod_str='HarrisWilson')
-base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include')
+HW = import_module_from_path(mod_path=up(up(__file__)), mod_str="HarrisWilson")
+base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include")
 
 log = logging.getLogger(__name__)
-coloredlogs.install(fmt='%(levelname)s %(message)s', level='INFO', logger=log)
+coloredlogs.install(fmt="%(levelname)s %(message)s", level="INFO", logger=log)
 
 # ----------------------------------------------------------------------------------------------------------------------
 # -- Model implementation ----------------------------------------------------------------------------------------------
@@ -27,7 +26,6 @@ coloredlogs.install(fmt='%(levelname)s %(message)s', level='INFO', logger=log)
 
 
 class HarrisWilson_NN:
-
     def __init__(
         self,
         name: str,
@@ -67,7 +65,9 @@ class HarrisWilson_NN:
         self._neural_net.optimizer.zero_grad()
 
         self._current_loss = torch.tensor(0.0, requires_grad=False)
-        self._current_predictions = torch.stack([torch.tensor(0.0, requires_grad=False)]*len(to_learn))
+        self._current_predictions = torch.stack(
+            [torch.tensor(0.0, requires_grad=False)] * len(to_learn)
+        )
 
         # Setup chunked dataset to store the state data in
         self._dset_loss = self._h5group.create_dataset(
@@ -77,7 +77,7 @@ class HarrisWilson_NN:
             chunks=True,
             compression=3,
         )
-        self._dset_loss.attrs['dim_names'] = ['time', 'training_loss']
+        self._dset_loss.attrs["dim_names"] = ["time", "training_loss"]
         self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
         self._dset_loss.attrs["coords__time"] = [write_start, write_every]
 
@@ -89,20 +89,16 @@ class HarrisWilson_NN:
                 chunks=True,
                 compression=3,
             )
-            self.dset_time.attrs['dim_names'] = ['epoch', 'training_time']
+            self.dset_time.attrs["dim_names"] = ["epoch", "training_time"]
             self.dset_time.attrs["coords_mode__epoch"] = "trivial"
             self.dset_time.attrs["coords_mode__training_time"] = "trivial"
 
         dset_predictions = []
         for p_name in to_learn:
             dset = self._h5group.create_dataset(
-                p_name,
-                (0, 1),
-                maxshape=(None, 1),
-                chunks=True,
-                compression=3
+                p_name, (0, 1), maxshape=(None, 1), chunks=True, compression=3
             )
-            dset.attrs['dim_names'] = ['time', 'parameter']
+            dset.attrs["dim_names"] = ["time", "parameter"]
             dset.attrs["coords_mode__time"] = "start_and_step"
             dset.attrs["coords__time"] = [write_start, write_every]
 
@@ -113,7 +109,14 @@ class HarrisWilson_NN:
         self._write_start = write_start
         self._write_time = write_time
 
-    def epoch(self, *, training_data, batch_size: int = 1, epsilon: float = 1, dt: float = 0.001):
+    def epoch(
+        self,
+        *,
+        training_data,
+        batch_size: int = 1,
+        epsilon: float = 1,
+        dt: float = 0.001,
+    ):
 
         """Trains the model for a single epoch.
 
@@ -131,20 +134,24 @@ class HarrisWilson_NN:
         for t, sample in enumerate(training_data):
 
             predicted_parameters = self._neural_net(torch.flatten(sample))
-            predicted_data = ABM.run_single(input_data=predicted_parameters,
-                                            curr_vals=sample,
-                                            epsilon=epsilon,
-                                            dt=dt,
-                                            requires_grad=True)
+            predicted_data = ABM.run_single(
+                input_data=predicted_parameters,
+                curr_vals=sample,
+                epsilon=epsilon,
+                dt=dt,
+                requires_grad=True,
+            )
 
-            loss = loss + torch.nn.functional.mse_loss(predicted_data, sample) / batch_size
+            loss = (
+                loss + torch.nn.functional.mse_loss(predicted_data, sample) / batch_size
+            )
 
             self._current_loss = loss.clone().detach().cpu().numpy().item()
             self._current_predictions = predicted_parameters.clone().detach().cpu()
             self.write_data()
 
             # Update the model parameters after every batch and clear the loss
-            if t % batch_size == 0 or t == len(training_data)-1:
+            if t % batch_size == 0 or t == len(training_data) - 1:
                 loss.backward()
                 self._neural_net.optimizer.step()
                 self._neural_net.optimizer.zero_grad()
@@ -192,42 +199,67 @@ if __name__ == "__main__":
     model_cfg = cfg[model_name]
 
     # Select the training device and number of threads to use
-    device = model_cfg['Training'].get('device', None)
+    device = model_cfg["Training"].get("device", None)
     if device is None:
-      device = 'mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu'
-    num_threads = model_cfg['Training'].get('num_threads', None)
+        device = (
+            "mps"
+            if torch.backends.mps.is_available()
+            else "cuda"
+            if torch.cuda.is_available()
+            else "cpu"
+        )
+    num_threads = model_cfg["Training"].get("num_threads", None)
     if num_threads is not None:
-      torch.set_num_threads(num_threads)
-    log.info(f"   Using '{device}' as training device. Number of threads: {torch.get_num_threads()}")
+        torch.set_num_threads(num_threads)
+    log.info(
+        f"   Using '{device}' as training device. Number of threads: {torch.get_num_threads()}"
+    )
 
     # Get the random number generator
     log.note("   Creating global RNG ...")
     rng = np.random.default_rng(cfg["seed"])
-    np.random.seed(cfg['seed'])
-    torch.random.manual_seed(cfg['seed'])
+    np.random.seed(cfg["seed"])
+    torch.random.manual_seed(cfg["seed"])
 
     log.note(f"   Creating output file at:\n        {cfg['output_path']}")
     h5file = h5.File(cfg["output_path"], mode="w")
     h5group = h5file.create_group(model_name)
 
     # Get the datasets
-    or_sizes, dest_sizes, network = HW.get_HW_data(model_cfg['Data'], h5file, h5group, device=device)
+    or_sizes, dest_sizes, network = HW.get_HW_data(
+        model_cfg["Data"], h5file, h5group, device=device
+    )
 
     # Set up the neural net
     log.info("   Initializing the neural net ...")
-    net = base.NeuralNet(input_size=dest_sizes.shape[1], output_size=len(model_cfg['Training']['to_learn']),
-                         **model_cfg['NeuralNet']).to(device)
+    net = base.NeuralNet(
+        input_size=dest_sizes.shape[1],
+        output_size=len(model_cfg["Training"]["to_learn"]),
+        **model_cfg["NeuralNet"],
+    ).to(device)
 
     # Set up the numerical solver
     log.info("   Initializing the numerical solver ...")
-    true_parameters = model_cfg['Training'].get('true_parameters', None)
-    ABM = HW.HarrisWilsonABM(origin_sizes=or_sizes, network=network, true_parameters=true_parameters,
-                             M=dest_sizes.shape[1], device=device)
-    write_time = model_cfg.get('write_time', False)
+    true_parameters = model_cfg["Training"].get("true_parameters", None)
+    ABM = HW.HarrisWilsonABM(
+        origin_sizes=or_sizes,
+        network=network,
+        true_parameters=true_parameters,
+        M=dest_sizes.shape[1],
+        device=device,
+    )
+    write_time = model_cfg.get("write_time", False)
 
     model = HarrisWilson_NN(
-        model_name, rng=rng, h5group=h5group, neural_net=net, ABM=ABM, to_learn=model_cfg['Training']['to_learn'],
-        write_every=cfg['write_every'], write_start=cfg['write_start'], write_time=write_time
+        model_name,
+        rng=rng,
+        h5group=h5group,
+        neural_net=net,
+        ABM=ABM,
+        to_learn=model_cfg["Training"]["to_learn"],
+        write_every=cfg["write_every"],
+        write_start=cfg["write_start"],
+        write_time=write_time,
     )
     log.info(f"   Initialized model '{model_name}'.")
 
@@ -237,7 +269,9 @@ if __name__ == "__main__":
 
     for _ in range(num_epochs):
 
-        model.epoch(training_data=dest_sizes, batch_size=model_cfg['Training']['batch_size'])
+        model.epoch(
+            training_data=dest_sizes, batch_size=model_cfg["Training"]["batch_size"]
+        )
 
         log.progress(f"   Completed epoch {_+1} / {num_epochs}.")
 

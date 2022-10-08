@@ -28,13 +28,13 @@
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[yellow]:}', 
-                              '{colors[darkblue]:}', 
-                              '{colors[red]:}', 
-                              '{colors[skyblue]:}', 
-                              '{colors[green]:}', 
-                              '{colors[lightbrown]:}', 
-                              '{colors[orange]:}', 
+      fstr: "cycler('color', ['{colors[yellow]:}',
+                              '{colors[darkblue]:}',
+                              '{colors[red]:}',
+                              '{colors[skyblue]:}',
+                              '{colors[green]:}',
+                              '{colors[lightbrown]:}',
+                              '{colors[orange]:}',
                               '{colors[lightgreen]:}',
                               '{colors[grey]:}'
                               ])"

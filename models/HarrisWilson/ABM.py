@@ -4,18 +4,19 @@ import torch
 
 
 class HarrisWilsonABM:
+    def __init__(
+        self,
+        *,
+        origin_sizes,
+        network,
+        M,
+        true_parameters: dict = None,
+        epsilon: float = 1.0,
+        dt: float = 0.001,
+        device: str
+    ):
 
-    def __init__(self,
-                 *,
-                 origin_sizes,
-                 network,
-                 M,
-                 true_parameters: dict = None,
-                 epsilon: float = 1.0,
-                 dt: float = 0.001,
-                 device: str):
-
-        """ The Harris and Wilson model of economic activity.
+        """The Harris and Wilson model of economic activity.
 
         :param origin_sizes: the origin sizes of the network
         :param network: the network adjacency matrix
@@ -36,10 +37,14 @@ class HarrisWilsonABM:
 
         # Model parameters
         self.true_parameters = true_parameters
-        params_to_learn = {} if true_parameters is not None else {'alpha': 0, 'beta': 1, 'kappa': 2, 'sigma': 3}
+        params_to_learn = (
+            {}
+            if true_parameters is not None
+            else {"alpha": 0, "beta": 1, "kappa": 2, "sigma": 3}
+        )
         if true_parameters is not None:
             idx = 0
-            for param in ['alpha', 'beta', 'kappa', 'sigma']:
+            for param in ["alpha", "beta", "kappa", "sigma"]:
                 if param not in true_parameters.keys():
                     params_to_learn[param] = idx
                     idx += 1
@@ -50,15 +55,17 @@ class HarrisWilsonABM:
 
     # ... Model run functions ..........................................................................................
 
-    def run_single(self,
-                   *,
-                   curr_vals,
-                   input_data=None,
-                   epsilon: float = None,
-                   dt: float = None,
-                   requires_grad: bool = True):
+    def run_single(
+        self,
+        *,
+        curr_vals,
+        input_data=None,
+        epsilon: float = None,
+        dt: float = None,
+        requires_grad: bool = True
+    ):
 
-        """ Runs the model for a single iteration.
+        """Runs the model for a single iteration.
 
         :param curr_vals: the current values which to take as initial data.
         :param input_data: the input parameters (to learn). Defaults to the model defaults.
@@ -70,14 +77,26 @@ class HarrisWilsonABM:
         """
 
         # Parameters to learn
-        alpha = self.true_parameters['alpha'] if 'alpha' not in self.parameters_to_learn.keys() \
-            else input_data[self.parameters_to_learn['alpha']]
-        beta = self.true_parameters['beta'] if 'beta' not in self.parameters_to_learn.keys() \
-            else input_data[self.parameters_to_learn['beta']]
-        kappa = self.true_parameters['kappa'] if 'kappa' not in self.parameters_to_learn.keys() \
-            else input_data[self.parameters_to_learn['kappa']]
-        sigma = self.true_parameters['sigma'] if 'sigma' not in self.parameters_to_learn.keys() \
-            else input_data[self.parameters_to_learn['sigma']]
+        alpha = (
+            self.true_parameters["alpha"]
+            if "alpha" not in self.parameters_to_learn.keys()
+            else input_data[self.parameters_to_learn["alpha"]]
+        )
+        beta = (
+            self.true_parameters["beta"]
+            if "beta" not in self.parameters_to_learn.keys()
+            else input_data[self.parameters_to_learn["beta"]]
+        )
+        kappa = (
+            self.true_parameters["kappa"]
+            if "kappa" not in self.parameters_to_learn.keys()
+            else input_data[self.parameters_to_learn["kappa"]]
+        )
+        sigma = (
+            self.true_parameters["sigma"]
+            if "sigma" not in self.parameters_to_learn.keys()
+            else input_data[self.parameters_to_learn["sigma"]]
+        )
 
         # Training parameters
         epsilon = self.epsilon if epsilon is None else epsilon
@@ -96,34 +115,54 @@ class HarrisWilsonABM:
         # necessary for this step)
         normalisations = torch.sum(
             torch.transpose(torch.mul(W_alpha, torch.transpose(weights, 0, 1)), 0, 1),
-            dim=1, keepdim=True)
+            dim=1,
+            keepdim=True,
+        )
 
         # Calculate the vector of demands
-        demand = torch.mul(W_alpha,
-                           torch.reshape(
-                               torch.sum(torch.div(torch.mul(self.or_sizes, weights), normalisations), dim=0,
-                                         keepdim=True), (self.M, 1)))
+        demand = torch.mul(
+            W_alpha,
+            torch.reshape(
+                torch.sum(
+                    torch.div(torch.mul(self.or_sizes, weights), normalisations),
+                    dim=0,
+                    keepdim=True,
+                ),
+                (self.M, 1),
+            ),
+        )
 
         # Update the current values
-        new_sizes = new_sizes + \
-                    + torch.mul(curr_vals, epsilon * (demand - kappa * curr_vals)
-                                + sigma * 1 / torch.sqrt(
-                        torch.tensor(2 * torch.pi * dt, dtype=torch.float)).to(self.device) * torch.normal(0, 1, size=(self.M, 1)).to(self.device)
-                                ) * dt
+        new_sizes = (
+            new_sizes
+            + +torch.mul(
+                curr_vals,
+                epsilon * (demand - kappa * curr_vals)
+                + sigma
+                * 1
+                / torch.sqrt(torch.tensor(2 * torch.pi * dt, dtype=torch.float)).to(
+                    self.device
+                )
+                * torch.normal(0, 1, size=(self.M, 1)).to(self.device),
+            )
+            * dt
+        )
 
         return new_sizes
 
-    def run(self,
-            *,
-            init_data,
-            input_data=None,
-            n_iterations: int,
-            epsilon: float = None,
-            dt: float = None,
-            requires_grad: bool = True,
-            generate_time_series: bool = False) -> torch.tensor:
+    def run(
+        self,
+        *,
+        init_data,
+        input_data=None,
+        n_iterations: int,
+        epsilon: float = None,
+        dt: float = None,
+        requires_grad: bool = True,
+        generate_time_series: bool = False
+    ) -> torch.tensor:
 
-        """ Runs the model for n_iterations.
+        """Runs the model for n_iterations.
 
         :param init_data: the initial destination zone size values
         :param input_data: (optional) the parameters to use during training. Defaults to the model defaults.
@@ -139,15 +178,26 @@ class HarrisWilsonABM:
         if not generate_time_series:
             sizes = init_data.clone()
             for _ in range(n_iterations):
-                sizes = self.run_single(curr_vals=sizes, input_data=input_data, epsilon=epsilon, dt=dt,
-                                        requires_grad=requires_grad)
+                sizes = self.run_single(
+                    curr_vals=sizes,
+                    input_data=input_data,
+                    epsilon=epsilon,
+                    dt=dt,
+                    requires_grad=requires_grad,
+                )
                 return torch.stack(sizes)
 
         else:
             sizes = [init_data.clone()]
             for _ in range(n_iterations):
                 sizes.append(
-                    self.run_single(curr_vals=sizes[-1], input_data=input_data, epsilon=epsilon,
-                                    dt=dt, requires_grad=requires_grad))
+                    self.run_single(
+                        curr_vals=sizes[-1],
+                        input_data=input_data,
+                        epsilon=epsilon,
+                        dt=dt,
+                        requires_grad=requires_grad,
+                    )
+                )
             sizes = torch.stack(sizes)
             return torch.reshape(sizes, (sizes.shape[0], sizes.shape[1], 1))

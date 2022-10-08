@@ -1,0 +1,51 @@
+# pre-commit configuration for NeuralABM repo
+#
+# NOTE See pyproject.toml for configuration options for some of these tools
+---
+repos:
+  # Manually run this every now and again .....................................
+  # Command:  pre-commit run --all-files --hook-stage manual
+
+  # Run if desiring to make use of newer language features
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.34.0
+    hooks:
+    - id: pyupgrade
+      name: upgrade python syntax
+      args:
+        - --py3-plus
+        - --py38-plus
+      stages: [manual]
+
+  # Default pre-commit hooks ..................................................
+  - repo: https://github.com/timothycrosley/isort
+    rev: 5.10.1
+    hooks:
+      - id: isort
+        name: sort imports
+        additional_dependencies: [toml]
+        files: \.py$
+        args: [--project=utopya]
+
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        name: black code formatting
+        args: [--safe]
+
+  - repo: https://github.com/pre-commit/pygrep-hooks
+    rev: v1.9.0
+    hooks:
+      - id: rst-backticks
+        name: check RST backticks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.2.0
+    hooks:
+      - id: end-of-file-fixer
+        name: fix end of files
+
+      - id: trailing-whitespace
+        name: fix trailing whitespace
+        args: [--markdown-linebreak-ext=md]

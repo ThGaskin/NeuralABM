@@ -1,2 +1,2 @@
 from .ABM import *
-from .DataGeneration import get_SIR_data, generate_smooth_data
+from .DataGeneration import generate_smooth_data, get_SIR_data
