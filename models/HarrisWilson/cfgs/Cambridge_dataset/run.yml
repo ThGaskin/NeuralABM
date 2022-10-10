@@ -8,7 +8,7 @@ parameter_space:
   seed: !sweep
     default: 2
     range: [20]
-  num_epochs: 10000
+  num_epochs: 20000
   write_start: 1
   write_every: 1
   HarrisWilson:
@@ -61,15 +61,14 @@ parameter_space:
         origin_zones: data/HarrisWilson/Cambridge_data/origin_sizes_max_normalised.csv
         destination_zones: data/HarrisWilson/Cambridge_data/dest_sizes_max_normalised.csv
     NeuralNet:
-      init_bias: [ 0, 4 ]
+      init_bias: [ 0, 10 ]
       num_layers: 1
       nodes_per_layer: 20
       optimizer: Adam
       learning_rate: 0.002
     Training:
-      to_learn: [alpha, beta, kappa]
+      to_learn: [alpha, beta, kappa, delta]
       true_parameters:
-        delta: 0.0
         sigma: !sweep
           default: 0
           values: [0.01414214, 0.14142136]

@@ -73,50 +73,50 @@ _:
 #  ╩═╝╚═╝╚╩╝  ╝╚╝╚═╝╩╚═╝╚═╝  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
 # ======================================================================================================================
 # -- Marginal density for alpha for the different metrics, including the MCMC density (low noise regime) ---------------
-low_noise/alpha:
-  based_on: .theta_defaults
-  select_and_combine:
-    fields:
-      param1: alpha
-    subspace:
-      sigma:
-        idx: 1
-  transform:
-    # Compute the model marginals
-    - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag param1
-          loss: !dag_tag loss
-    - operation: NeuralABM.compute_marginals
-      args: [!dag_prev ]
-      kwargs:
-        # along_dim: metric
-        bins: 1000
-        # labels: &labels ['temporal metric', 'spatial metric']
-        # clip: [0, 2]
-      tag: data
-  # hue: metric
-  helpers:
-    set_labels:
-      x: '$\alpha$'
-      y: ' '
-    set_legend:
-      use_legend: False
+# low_noise/alpha:
+#   based_on: .theta_defaults
+#   select_and_combine:
+#     fields:
+#       param1: alpha
+#     subspace:
+#       sigma:
+#         idx: 1
+#   transform:
+#     # Compute the model marginals
+#     - xr.Dataset:
+#       kwargs:
+#         data_vars:
+#           param1: !dag_tag param1
+#           loss: !dag_tag loss
+#     - operation: NeuralABM.compute_marginals
+#       args: [!dag_prev ]
+#       kwargs:
+#         # along_dim: metric
+#         bins: 1000
+#         # labels: &labels ['temporal metric', 'spatial metric']
+#         # clip: [0, 2]
+#       tag: data
+#   # hue: metric
+#   helpers:
+#     set_labels:
+#       x: '$\alpha$'
+#       y: ' '
+#     set_legend:
+#       use_legend: False
 
-# -- Marginal density for beta for the different metrics, including the MCMC density (low noise regime) ---------------
-low_noise/beta:
-  based_on: low_noise/alpha
-  select_and_combine:
-    fields:
-      param1: beta
-  helpers:
-    set_legend:
-      use_legend: False
-    set_labels:
-      x: '$\beta$'
-    set_limits:
-      x: [0.0, 2.0]
+# # -- Marginal density for beta for the different metrics, including the MCMC density (low noise regime) ---------------
+# low_noise/beta:
+#   based_on: low_noise/alpha
+#   select_and_combine:
+#     fields:
+#       param1: beta
+#   helpers:
+#     set_legend:
+#       use_legend: False
+#     set_labels:
+#       x: '$\beta$'
+#     set_limits:
+#       x: [0.0, 2.0]
 # -- Marginal density for sigma for the different metrics, including the MCMC density (low noise regime) ---------------
 # low_noise/sigma:
 #   based_on: low_noise/alpha
@@ -174,24 +174,24 @@ low_noise/delta:
 # ======================================================================================================================
 
 # -- Marginal density for alpha for the different metrics, including the MCMC density (high noise regime) --------------
-high_noise/alpha:
-  based_on: low_noise/alpha
-  select_and_combine:
-    subspace:
-      sigma:
-        idx: 2
-# -- Marginal density for beta for the different metrics, including the MCMC density (high noise regime) ---------------
-high_noise/beta:
-  based_on: low_noise/beta
-  select_and_combine:
-    subspace:
-      sigma:
-        idx: 2
-  smooth_kwargs:
-    sigma: 10
-  # helpers:
-    # set_limits:
-      # x: [0.0, 10]
+# high_noise/alpha:
+#   based_on: low_noise/alpha
+#   select_and_combine:
+#     subspace:
+#       sigma:
+#         idx: 2
+# # -- Marginal density for beta for the different metrics, including the MCMC density (high noise regime) ---------------
+# high_noise/beta:
+#   based_on: low_noise/beta
+#   select_and_combine:
+#     subspace:
+#       sigma:
+#         idx: 2
+#   smooth_kwargs:
+#     sigma: 10
+#   # helpers:
+#     # set_limits:
+#       # x: [0.0, 10]
 
   
 # high_noise/sigma:
@@ -224,3 +224,71 @@ high_noise/delta:
     sigma: 10
 # loss:
 #  based_on: loss
+
+# predictions:
+#   based_on: predictions
+#   helpers:
+#     set_legend:
+#       custom_labels: ['alpha','beta','$\kappa$','$\delta$'] 
+
+# Plot the density of the loss over delta
+loss_potential/kappa:
+  based_on: loss_potential
+  select_and_combine:
+    fields:
+      param1: kappa
+  helpers:
+    set_labels:
+      x: '$\kappa$'
+
+loss_potential/alpha:
+  based_on: loss_potential
+  select_and_combine:
+    fields:
+      param1: alpha
+  helpers:
+    set_labels:
+      x: '$\alpha$'
+
+loss_potential/beta:
+  based_on: loss_potential
+  select_and_combine:
+    fields:
+      param1: beta
+  helpers:
+    set_labels:
+      x: '$\beta$'
+
+beta_kappa:
+  based_on: loss_potential_3d
+  select_and_combine:
+    subspace:
+      sigma: 0.01414214
+    fields:
+      param1:
+        path: beta
+      param2:
+        path: kappa
+  transform:
+    - xr.Dataset:
+      - param1: !dag_tag param1
+        param2: !dag_tag param2
+        loss: !dag_tag loss
+    - .stack: [ !dag_prev , { ' ': [ 'seed', 'time' ] }, False ]
+      tag: data
+    - getitem: [ !dag_tag data, param1 ]
+    - getitem: [ !dag_prev , 0]
+    - getitem: [ !dag_prev , !slice [ &path_start 0, &path_stop 5000 ]]
+      tag: path_y
+    - getitem: [ !dag_tag data, param2 ]
+    - getitem: [ !dag_prev , 0 ]
+    - getitem: [ !dag_prev , !slice [ *path_start, *path_stop ] ]
+      tag: path_x
+    - getitem: [ !dag_tag data, loss ]
+    - getitem: [ !dag_prev , 0 ]
+    - getitem: [ !dag_prev , !slice [ *path_start, *path_stop ] ]
+      tag: path_z
+  helpers:
+    set_labels:
+      x: '$\beta$'
+      y: '$\kappa$'

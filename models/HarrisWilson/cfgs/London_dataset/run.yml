@@ -1,6 +1,7 @@
 perform_sweep: True
 paths:
   model_note: London_dataset
+  out_dir: outputs/
 parameter_space:
   seed: !sweep
     default: 2
@@ -25,8 +26,12 @@ parameter_space:
       optimizer: Adam
       learning_rate: 0.002
     Training:
-      to_learn: [alpha, beta, kappa]
+      to_learn: [alpha, beta, kappa, delta]
       true_parameters:
         sigma: !sweep
           default: 0
           values: [0.02, 0.2]
+      device: cpu
+      num_threads: 1
+
+      

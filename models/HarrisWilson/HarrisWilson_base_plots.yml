@@ -109,6 +109,10 @@ predictions:
       path: kappa
       transform:
         - .data: [ !dag_prev ]
+    delta:
+      path: delta
+      transform:
+        - .data: [ !dag_prev ]
   transform:
     - xr.concat: [[ !dag_tag alpha, !dag_tag beta, !dag_tag kappa, !dag_tag delta ] ]
       kwargs:
@@ -189,6 +193,7 @@ loss_potential_3d:
         label: *loss_label
         rotation: 90
       rotate_z_label: False
+  
 
 # Marginal probability densities
 marginals:
