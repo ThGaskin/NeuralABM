@@ -149,6 +149,21 @@ low_noise/kappa:
           linestyle: dotted
           linewidth: 1
 
+# -- Marginal density for delta for the different metrics, including the MCMC density (low noise regime) ---------------
+low_noise/delta:
+  based_on: low_noise/kappa
+  select_and_combine:
+    fields:
+      param1: delta
+  helpers:
+    set_legend:
+      use_legend: False
+    set_labels:
+      x: '$\delta$'
+    set_limits:
+      x: [0.0, 0.5]
+
+
 # ======================================================================================================================
 #  ╦ ╦╦╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
 #  ╠═╣║║ ╦╠═╣  ║║║║ ║║╚═╗║╣   ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
@@ -197,5 +212,15 @@ high_noise/kappa:
   helpers:
     set_limits:
       x: [ 1, 9 ]
+  smooth_kwargs:
+    sigma: 10
+  
+# -- Marginal density for delta for the different metrics (high noise regime) ------------------------------------------
+high_noise/delta:
+  based_on: low_noise/delta
+  select_and_combine:
+    subspace:
+      sigma:
+        idx: 2
   smooth_kwargs:
     sigma: 10

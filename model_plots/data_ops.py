@@ -53,25 +53,25 @@ def get_marginals(data: xr.Dataset, *, coords: dict = None, bins: int = 100,
     coords.update({'bin_idx': np.arange(0, bins, 1)})
 
     # Collect all points into a list of tuples and sort by their x value
-    zipped_pairs = sorted(
-        np.array(
-            [z for z in list(zip(data['param1'].values.flatten(), data['loss'].values.flatten()))
-             if not (np.isnan(z[0]) or np.isnan(z[1]) or z[0] < clip[0] or z[0] > clip[1])]
-        ), key=itemgetter(0))
+    # zipped_pairs = sorted(
+    #     np.array(
+    #         [z for z in list(zip(data['param1'].values.flatten(), data['loss'].values.flatten()))
+    #          if not (np.isnan(z[0]) or np.isnan(z[1]) or z[0] < clip[0] or z[0] > clip[1])]
+    #     ), key=itemgetter(0))
 
-    # Create bins
-    x, y = np.linspace(zipped_pairs[0][0], zipped_pairs[-1][0], bins), np.zeros(bins)
-    dx = (x[1] - x[0])
-    bin_no = 1
+    # # Create bins
+    # x, y = np.linspace(zipped_pairs[0][0], zipped_pairs[-1][0], bins), np.zeros(bins)
+    # dx = (x[1] - x[0])
+    # bin_no = 1
 
-    # Sort x into bins; cumulatively gather y-values
-    for point in zipped_pairs:
-        while point[0] > x[bin_no]:
-            bin_no += 1
-        y[bin_no - 1] += point[1]
+    # # Sort x into bins; cumulatively gather y-values
+    # for point in zipped_pairs:
+    #     while point[0] > x[bin_no]:
+    #         bin_no += 1
+    #     y[bin_no - 1] += point[1]
 
-    # Normalise y to 1
-    y /= (np.sum(y) * dx)
+    # # Normalise y to 1
+    # y /= (np.sum(y) * dx)
 
     # Combine into a xr.Dataset
     return xr.Dataset(data_vars=dict(prob=('bin_idx', y), param1=('bin_idx', x)),
