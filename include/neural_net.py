@@ -38,13 +38,7 @@ def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[An
         return [return_function(cfg)] * (n_layers + 1)
     elif isinstance(cfg, dict):
         for val in cfg.keys():
-            if val in [0]:
-                funcs[0] = return_function(cfg[0])
-            elif val in [-1]:
-                funcs[-1] = return_function(cfg[-1])
-            else:
-                funcs[val - 1] = return_function(cfg[val])
-
+            funcs[val] = return_function(cfg[val])
         return funcs
     else:
         raise ValueError(f"Unrecognised argument {cfg} for 'activation_funcs'!")
