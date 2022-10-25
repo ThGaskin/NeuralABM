@@ -41,4 +41,3 @@ Training:
 
 # Whether to write out the computation time for each epoch
 write_time: False
-

@@ -25,7 +25,7 @@ paths:
 metadata:
   description: SIR model with Neural core
   long_description: >
-    This model ... 
+    This model ...
 
   version: "0.1"
   author: Thomas Gaskin

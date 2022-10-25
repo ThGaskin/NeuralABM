@@ -13,7 +13,7 @@ paths:
 
   # Location of project-level default configurations
   mv_project_cfg: cfg/multiverse_project_cfg.yml
-  project_base_plots: cfg/project_base_plots.yml  
+  project_base_plots: cfg/project_base_plots.yml
 
   # Locations of python-based model plots and tests
   py_plots_dir: model_plots
