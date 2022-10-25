@@ -9,13 +9,13 @@ index 3ee967d..c7a6073 100644
 -
          self.epsilon = epsilon
          self.dt = dt
- 
+
 diff --git a/models/HarrisWilson/HarrisWilson_cfg.yml b/models/HarrisWilson/HarrisWilson_cfg.yml
 index 6077787..99a36b8 100644
 --- a/models/HarrisWilson/HarrisWilson_cfg.yml
 +++ b/models/HarrisWilson/HarrisWilson_cfg.yml
 @@ -25,7 +25,7 @@ Data:
- 
+
  # Settings for the neural net architecture
  NeuralNet:
 -  num_layers: !is-positive-int 6
@@ -24,7 +24,7 @@ index 6077787..99a36b8 100644
    activation_funcs:
      -1: abs
 @@ -35,10 +35,8 @@ NeuralNet:
- 
+
  # Settings for the neural net training
  Training:
 -  to_learn: [alpha, beta, kappa]
@@ -32,7 +32,7 @@ index 6077787..99a36b8 100644
    batch_size: !is-positive-int 1
 -  true_parameters:
 -    sigma: !is-positive-or-zero 0
- 
+
  # Whether to write out the computation time for each epoch
  write_time: False
 diff --git a/models/HarrisWilson/cfgs/London_dataset/run.yml b/models/HarrisWilson/cfgs/London_dataset/run.yml
@@ -53,7 +53,7 @@ index c827ba5..e05cccc 100644
 --- a/models/HarrisWilson/cfgs/Loss_landscape/run.yml
 +++ b/models/HarrisWilson/cfgs/Loss_landscape/run.yml
 @@ -17,7 +17,7 @@ parameter_space:
- 
+
      # Settings for the neural net architecture
      NeuralNet:
 -      num_layers: 10
@@ -67,12 +67,12 @@ index 172c7ec..ca2cd62 100644
 +++ b/models/HarrisWilson/cfgs/Marginals/eval.yml
 @@ -75,8 +75,7 @@ marginal_alpha:
    hue: sigma
- 
+
    smooth_kwargs:
 -    enabled: True
 -    sigma: 0.5
 +    enabled: False
- 
+
    helpers:
      set_legend:
 @@ -275,6 +274,7 @@ peak_widths:
@@ -82,7 +82,7 @@ index 172c7ec..ca2cd62 100644
 +        height: 10
          width: [~, ~]
        tag: peaks_kappa
- 
+
 @@ -290,6 +290,8 @@ peak_widths:
    y: mean
    yerr: std
@@ -111,7 +111,7 @@ index 188aad2..f39340d 100644
 --- a/models/HarrisWilson/cfgs/Performance_analysis/run.yml
 +++ b/models/HarrisWilson/cfgs/Performance_analysis/run.yml
 @@ -31,7 +31,7 @@ parameter_space:
- 
+
      # Settings for the neural net architecture
      NeuralNet:
 -      num_layers: 10
@@ -124,7 +124,7 @@ index fa7e5ff..fe5f3fe 100644
 --- a/models/HarrisWilson/cfgs/Sample_run/run.yml
 +++ b/models/HarrisWilson/cfgs/Sample_run/run.yml
 @@ -12,7 +12,7 @@ parameter_space:
- 
+
      # Settings for the neural net architecture
      NeuralNet:
 -      num_layers: 10
@@ -138,7 +138,7 @@ index aea506c..f27fec9 100644
 +++ b/models/SIR/SIR_cfg.yml
 @@ -13,8 +13,8 @@ Data:
      num_steps: 200
- 
+
  NeuralNet:
 -  num_layers: !is-positive-int 6
 -  nodes_per_layer: !is-positive-int 10

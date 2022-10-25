@@ -1,13 +1,14 @@
-from os.path import dirname as up
 import sys
 from enum import IntEnum
+from os.path import dirname as up
+from typing import Sequence, Union
+
 import numpy as np
 import torch
-from typing import Sequence, Union
 from dantro._import_tools import import_module_from_path
 
 sys.path.append(up(up(up(__file__))))
-base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include')
+base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include")
 
 Vector = base.Vector
 distance = base.distance
@@ -23,7 +24,6 @@ class kinds(IntEnum):
 
 # --- The agent class --------------------------------------------------------------------------------------------------
 class Agent:
-
     def __init__(self, *, id: int, kind: kinds, position: Vector):
         """
 
@@ -53,13 +53,13 @@ class Agent:
         if not (self.position + direction).within_space(space):
             new_pos = self.position + direction
             if new_pos.x < x_0:
-                direction.x = - (direction.x + 2 * (self.position.x - x_0))
+                direction.x = -(direction.x + 2 * (self.position.x - x_0))
             elif new_pos.x > x_1:
-                direction.x = - (direction.x - 2 * (x_1 - self.position.x))
+                direction.x = -(direction.x - 2 * (x_1 - self.position.x))
             if new_pos.y < y_0:
-                direction.y = - (direction.y + 2 * (self.position.y - y_0))
+                direction.y = -(direction.y + 2 * (self.position.y - y_0))
             elif new_pos.y > y_1:
-                direction.y = - (direction.y - 2 * (y_1 - self.position.y))
+                direction.y = -(direction.y - 2 * (y_1 - self.position.y))
         self.move(direction)
 
     def move_in_periodic_space(self, direction: Vector, space: Union[Vector, Sequence]):
@@ -68,7 +68,10 @@ class Agent:
             x_0, x_1 = 0, space.x
             y_0, y_1 = 0, space.y
         else:
-            x_0, x_1, = space[0]
+            (
+                x_0,
+                x_1,
+            ) = space[0]
             y_0, y_1 = space[1]
 
         new_position = self.position + direction
@@ -87,7 +90,13 @@ class Agent:
 
         self.position = new_position
 
-    def move_randomly_in_space(self, *, space: Union[Vector, Sequence], diffusion_radius: float, periodic: bool = False):
+    def move_randomly_in_space(
+        self,
+        *,
+        space: Union[Vector, Sequence],
+        diffusion_radius: float,
+        periodic: bool = False,
+    ):
         """Move an agent randomly within a space with a given diffusivity. If the boundaries are periodic,
         the agent moves through the boundaries
 
@@ -113,26 +122,25 @@ class Agent:
         self.kind = self.init_kind
 
     def __repr__(self):
-        return f'Agent {self.id}; ' \
-               f'kind: {self.kind}; ' \
-               f'position: {self.position}'
+        return f"Agent {self.id}; " f"kind: {self.kind}; " f"position: {self.position}"
 
 
 # --- The SIR ABM ------------------------------------------------------------------------------------------------------
 class SIR_ABM:
-
-    def __init__(self,
-                 *,
-                 N: int,
-                 space: tuple,
-                 sigma_s: float,
-                 sigma_i: float,
-                 sigma_r: float,
-                 r_infectious: float,
-                 p_infect: float,
-                 t_infectious: float,
-                 is_periodic: bool,
-                 **__):
+    def __init__(
+        self,
+        *,
+        N: int,
+        space: tuple,
+        sigma_s: float,
+        sigma_i: float,
+        sigma_r: float,
+        r_infectious: float,
+        p_infect: float,
+        t_infectious: float,
+        is_periodic: bool,
+        **__,
+    ):
         """
 
         :param r_infectious: the radius of contact within which infection occurs
@@ -156,11 +164,16 @@ class SIR_ABM:
         self.init_kinds = [kinds.INFECTED] + [kinds.SUSCEPTIBLE] * (self.N - 1)
 
         # Initialise the agent positions and kinds
-        self.agents = {i: Agent(id=i,
-                                kind=self.init_kinds[i],
-                                position=Vector(np.random.rand() * self.space.x,
-                                                np.random.rand() * self.space.y))
-                       for i in range(self.N)}
+        self.agents = {
+            i: Agent(
+                id=i,
+                kind=self.init_kinds[i],
+                position=Vector(
+                    np.random.rand() * self.space.x, np.random.rand() * self.space.y
+                ),
+            )
+            for i in range(self.N)
+        }
 
         # Track the ids of the susceptible, infected, and recovered cells
         self.kinds = None
@@ -185,16 +198,23 @@ class SIR_ABM:
     def initialise(self):
 
         # Initialise the ABM with one infected agent.
-        self.kinds = {kinds.SUSCEPTIBLE: {i: None for i in range(1, self.N)},
-                      kinds.INFECTED: {0: None},
-                      kinds.RECOVERED: {}}
+        self.kinds = {
+            kinds.SUSCEPTIBLE: {i: None for i in range(1, self.N)},
+            kinds.INFECTED: {0: None},
+            kinds.RECOVERED: {},
+        }
         self.current_kinds = [int(self.agents[i].kind) for i in range(self.N)]
-        self.current_counts = torch.tensor([[self.N - 1], [1.0], [0.0]], dtype=torch.float)
+        self.current_counts = torch.tensor(
+            [[self.N - 1], [1.0], [0.0]], dtype=torch.float
+        )
         self.susceptible = torch.tensor(self.N - 1, dtype=torch.float)
         self.infected = torch.tensor(1, dtype=torch.float)
         self.recovered = torch.tensor(0, dtype=torch.float)
 
-        self.current_positions = [(self.agents[i].position.x, self.agents[i].position.y) for i in range(self.N)]
+        self.current_positions = [
+            (self.agents[i].position.x, self.agents[i].position.y)
+            for i in range(self.N)
+        ]
 
         self.times_since_infection = [[0]]
 
@@ -211,29 +231,45 @@ class SIR_ABM:
     # Updates the kind counts
     def update_counts(self):
 
-        self.current_counts = torch.tensor([[len(self.kinds[kinds.SUSCEPTIBLE])],
-                                            [len(self.kinds[kinds.INFECTED])],
-                                            [len(self.kinds[kinds.RECOVERED])]]).float()
+        self.current_counts = torch.tensor(
+            [
+                [len(self.kinds[kinds.SUSCEPTIBLE])],
+                [len(self.kinds[kinds.INFECTED])],
+                [len(self.kinds[kinds.RECOVERED])],
+            ]
+        ).float()
 
     # Moves the agents randomly in space
     def move_agents_randomly(self):
 
         for agent_id in self.kinds[kinds.SUSCEPTIBLE].keys():
-            self.agents[agent_id].move_randomly_in_space(space=self.space, diffusion_radius=self.sigma_s,
-                                                        periodic=self.is_periodic)
+            self.agents[agent_id].move_randomly_in_space(
+                space=self.space,
+                diffusion_radius=self.sigma_s,
+                periodic=self.is_periodic,
+            )
 
         for agent_id in self.kinds[kinds.INFECTED].keys():
-            self.agents[agent_id].move_randomly_in_space(space=self.space, diffusion_radius=self.sigma_i,
-                                                        periodic=self.is_periodic)
+            self.agents[agent_id].move_randomly_in_space(
+                space=self.space,
+                diffusion_radius=self.sigma_i,
+                periodic=self.is_periodic,
+            )
 
         for agent_id in self.kinds[kinds.RECOVERED].keys():
-            self.agents[agent_id].move_randomly_in_space(space=self.space, diffusion_radius=self.sigma_r,
-                                                        periodic=self.is_periodic)
+            self.agents[agent_id].move_randomly_in_space(
+                space=self.space,
+                diffusion_radius=self.sigma_r,
+                periodic=self.is_periodic,
+            )
 
     # Updates the agent positions
     def update_positions(self):
 
-        self.current_positions = [(self.agents[i].position.x, self.agents[i].position.y) for i in range(self.N)]
+        self.current_positions = [
+            (self.agents[i].position.x, self.agents[i].position.y)
+            for i in range(self.N)
+        ]
 
     # Resets the ABM to the initial state
     def reset(self):
@@ -256,13 +292,31 @@ class SIR_ABM:
 
             # For each susceptible agent, calculate the number of contacts to an infected agent.
             # A contact occurs when the susceptible agent is within the infection radius of an infected agent.
-            num_contacts = torch.sum(torch.vstack([torch.hstack([
-                torch.ceil(
-                    torch.relu(1 - distance(self.agents[s].position, self.agents[i].position,
-                                            space=self.space, periodic=self.is_periodic) / self.r_infectious))
-
-                for i in self.kinds[kinds.INFECTED].keys()]) for s in self.kinds[kinds.SUSCEPTIBLE].keys()])
-                , dim=1).long()
+            num_contacts = torch.sum(
+                torch.vstack(
+                    [
+                        torch.hstack(
+                            [
+                                torch.ceil(
+                                    torch.relu(
+                                        1
+                                        - distance(
+                                            self.agents[s].position,
+                                            self.agents[i].position,
+                                            space=self.space,
+                                            periodic=self.is_periodic,
+                                        )
+                                        / self.r_infectious
+                                    )
+                                )
+                                for i in self.kinds[kinds.INFECTED].keys()
+                            ]
+                        )
+                        for s in self.kinds[kinds.SUSCEPTIBLE].keys()
+                    ]
+                ),
+                dim=1,
+            ).long()
 
             # Get the ids of susceptible agents that had a non-zero number of contacts with infected agents
             risk_contacts = torch.nonzero(num_contacts).long()
@@ -270,13 +324,19 @@ class SIR_ABM:
             if len(risk_contacts) != 0:
                 # Infect all susceptible agents that were in contact with an infected agent with probability
                 # 1 - (1- p_infect)^n, where n is the number of contacts.
-                infections = torch.flatten(torch.ceil(torch.relu(
-                    (1 - torch.pow((1 - p_infect), num_contacts[risk_contacts])) - torch.rand((len(risk_contacts), 1))
-                )))
+                infections = torch.flatten(
+                    torch.ceil(
+                        torch.relu(
+                            (1 - torch.pow((1 - p_infect), num_contacts[risk_contacts]))
+                            - torch.rand((len(risk_contacts), 1))
+                        )
+                    )
+                )
 
                 # Get the ids of the newly infected agents
                 infected_agent_ids = [
-                    list(self.kinds[kinds.SUSCEPTIBLE].keys())[_] for _ in torch.flatten(
+                    list(self.kinds[kinds.SUSCEPTIBLE].keys())[_]
+                    for _ in torch.flatten(
                         risk_contacts[torch.nonzero(infections != 0.0, as_tuple=True)]
                     )
                 ]
