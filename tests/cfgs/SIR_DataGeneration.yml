@@ -1,0 +1,36 @@
+Periodic_space:
+  synthetic_data:
+    type: from_ABM
+    N: 50
+    space: [10, 10]
+    is_periodic: false
+    r_infectious: 3.0
+    p_infect: 0.4
+    t_infectious: 10
+    sigma_s: 0.15
+    sigma_i: 0.03
+    sigma_r: 0.15
+    num_steps: 200
+
+Non_periodic_space:
+  synthetic_data:
+    type: from_ABM
+    N: 50
+    space: [ 10, 10 ]
+    is_periodic: false
+    r_infectious: 5.0
+    p_infect: 0.4
+    t_infectious: 10
+    sigma_s: 0.15
+    sigma_i: 0.03
+    sigma_r: 0.15
+    num_steps: 200
+
+smooth_data:
+  synthetic_data:
+    type: smooth
+    p_infect: 0.5
+    t_infectious: 10
+    sigma: 0.
+    N: 30
+    num_steps: 200

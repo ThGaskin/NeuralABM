@@ -7,7 +7,7 @@ import pytest
 import torch
 from dantro._import_tools import import_module_from_path
 
-sys.path.append(up(up(up(__file__))))
+sys.path.insert(0, up(up(up(__file__))))
 
 vec = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include.vector")
 Vector = vec.Vector

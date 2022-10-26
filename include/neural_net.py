@@ -3,41 +3,45 @@ from typing import Any, List, Union
 import torch
 from torch import nn
 
+# Pairs of activation functions and whether they are part of the torch.nn module, in which case they must be called
+# via func(*args, **kwargs)(x).
+
 ACTIVATION_FUNCS = {
-    "abs": torch.abs,
-    "celu": torch.nn.CELU,
-    "cos": torch.cos,
-    "cosine": torch.cos,
-    "elu": torch.nn.ELU,
-    "gelu": torch.nn.GELU,
-    "hardshrink": torch.nn.Hardshrink,
-    "hardsigmoid": torch.nn.Hardsigmoid,
-    "hardswish": torch.nn.Hardswish,
-    "hardtanh": torch.nn.Hardtanh,
-    "leakyrelu": torch.nn.LeakyReLU,
-    "linear": None,
-    "logsigmoid": torch.nn.LogSigmoid,
-    "mish": torch.nn.Mish,
-    "None": None,
-    "prelu": torch.nn.PReLU,
-    "relu": torch.nn.ReLU,
-    "rrelu": torch.nn.RReLU,
-    "selu": torch.nn.SELU,
-    "sigmoid": torch.nn.Sigmoid,
-    "silu": torch.nn.SiLU,
-    "sin": torch.sin,
-    "sine": torch.sin,
-    "softplus": torch.nn.Softplus,
-    "softshrink": torch.nn.Softshrink,
-    "swish": torch.nn.SiLU,
-    "tanh": torch.nn.Tanh,
-    "tanhshrink": torch.nn.Tanhshrink,
-    "threshold": torch.nn.Threshold,
+    "abs": [torch.abs, False],
+    "celu": [torch.nn.CELU, True],
+    "cos": [torch.cos, False],
+    "cosine": [torch.cos, False],
+    "elu": [torch.nn.ELU, True],
+    "gelu": [torch.nn.GELU, True],
+    "hardshrink": [torch.nn.Hardshrink, True],
+    "hardsigmoid": [torch.nn.Hardsigmoid, True],
+    "hardswish": [torch.nn.Hardswish, True],
+    "hardtanh": [torch.nn.Hardtanh, True],
+    "leakyrelu": [torch.nn.LeakyReLU, True],
+    "linear": [None, False],
+    "logsigmoid": [torch.nn.LogSigmoid, True],
+    "mish": [torch.nn.Mish, True],
+    "none": [None, False],
+    "prelu": [torch.nn.PReLU, True],
+    "relu": [torch.nn.ReLU, True],
+    "rrelu": [torch.nn.RReLU, True],
+    "selu": [torch.nn.SELU, True],
+    "sigmoid": [torch.nn.Sigmoid, True],
+    "silu": [torch.nn.SiLU, True],
+    "sin": [torch.sin, False],
+    "sine": [torch.sin, False],
+    "softplus": [torch.nn.Softplus, True],
+    "softshrink": [torch.nn.Softshrink, True],
+    "swish": [torch.nn.SiLU, True],
+    "tanh": [torch.nn.Tanh, True],
+    "tanhshrink": [torch.nn.Tanhshrink, True],
+    "threshold": [torch.nn.Threshold, True],
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
 # -- NN utility function -----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
+
 
 def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[Any]:
     """Extracts the activation functions from the config. The config is a dictionary, with the keys representing
@@ -65,26 +69,39 @@ def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[An
         return funcs
 
     elif isinstance(cfg, str):
-        return [ACTIVATION_FUNCS[cfg.lower()]] * (n_layers + 1)
+        _f = ACTIVATION_FUNCS[cfg.lower()]
+        if _f[1]:
+            return [_f[0]()] * (n_layers + 1)
+        else:
+            return [_f[0]] * (n_layers + 1)
 
     elif isinstance(cfg, dict):
-        if 'name' in cfg.keys():
-            return [ACTIVATION_FUNCS[cfg.pop('name').lower()](
-                *cfg.pop('args', ()), **cfg.pop('kwargs', {})
-            )] * (n_layers + 1)
+        if "name" in cfg.keys():
+            _f = ACTIVATION_FUNCS[cfg.get("name").lower()]
+            if _f[1]:
+                return [_f[0](*cfg.get("args", ()), **cfg.get("kwargs", {}))] * (
+                    n_layers + 1
+                )
+            else:
+                return [_f[0]] * (n_layers + 1)
         else:
             for idx, entry in cfg.items():
 
                 if isinstance(entry, str):
-                    funcs[idx] = ACTIVATION_FUNCS[entry.lower()]
-
+                    _f = ACTIVATION_FUNCS[entry.lower()]
+                    if _f[1]:
+                        funcs[idx] = _f[0]()
+                    else:
+                        funcs[idx] = _f[0]
                 elif isinstance(entry, dict):
-                    funcs[idx] = ACTIVATION_FUNCS[entry.pop('name').lower()](
-                        *entry.pop('args', ()), **entry.pop('kwargs', {})
+                    funcs[idx] = ACTIVATION_FUNCS[entry.get("name").lower()][0](
+                        *entry.get("args", ()), **entry.get("kwargs", {})
                     )
 
                 else:
-                    raise ValueError(f"Unrecognised argument {entry} in 'activation_funcs' dictionary!")
+                    raise ValueError(
+                        f"Unrecognised argument {entry} in 'activation_funcs' dictionary!"
+                    )
             return funcs
     else:
         raise ValueError(f"Unrecognised argument {cfg} for 'activation_funcs'!")
@@ -112,18 +129,18 @@ class NeuralNet(nn.Module):
     }
 
     def __init__(
-            self,
-            *,
-            input_size: int,
-            output_size: int,
-            num_layers: int,
-            nodes_per_layer: int,
-            activation_funcs: dict = None,
-            optimizer: str = "Adam",
-            learning_rate: float = 0.001,
-            bias: bool = False,
-            init_bias: tuple = None,
-            **__,
+        self,
+        *,
+        input_size: int,
+        output_size: int,
+        num_layers: int,
+        nodes_per_layer: int,
+        activation_funcs: dict = None,
+        optimizer: str = "Adam",
+        learning_rate: float = 0.001,
+        bias: bool = False,
+        init_bias: tuple = None,
+        **__,
     ):
         """
 
@@ -138,7 +155,7 @@ class NeuralNet(nn.Module):
         :param __: Additional model parameters (ignored)
         """
 
-        super(NeuralNet, self).__init__()
+        super().__init__()
         self.flatten = nn.Flatten()
 
         self.input_dim = input_size

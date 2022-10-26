@@ -6,9 +6,7 @@ import torch
 from dantro._import_tools import import_module_from_path
 from pkg_resources import resource_filename
 
-from utopya.yaml import load_yml
-
-sys.path.append(up(up(up(__file__))))
+sys.path.insert(0, up(up(up(__file__))))
 
 SIR = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="models.SIR")
 vec = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include.vector")
@@ -17,7 +15,7 @@ Agent = SIR.ABM.Agent
 Vector = vec.Vector
 
 # Load the test config
-CFG_FILENAME = resource_filename("tests", "cfgs/SIR.yml")
+CFG_FILENAME = resource_filename("tests", "cfgs/SIR_Dynamics.yml")
 test_cfg = load_yml(CFG_FILENAME)
 
 
