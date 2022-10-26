@@ -12,14 +12,9 @@ parameter_space:
 
     # Settings for the neural net architecture
     NeuralNet:
-      num_layers: 4
+      num_layers: 1
       nodes_per_layer: 20
-      activation_funcs:
-        name: sigmoid
-#        name: HardTanh
-#        args:
-#          - -2
-#          - +2
+      activation_funcs: abs
       bias: True
       init_bias: [ 0, 4 ]
       learning_rate: 0.002
