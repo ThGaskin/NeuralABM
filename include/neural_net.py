@@ -3,77 +3,91 @@ from typing import Any, List, Union
 import torch
 from torch import nn
 
-# -----------------------------------------------------------------------------
-# -- NN utility functions -----------------------------------------------------
-# -----------------------------------------------------------------------------
+ACTIVATION_FUNCS = {
+    "abs": torch.abs,
+    "celu": torch.nn.CELU,
+    "cos": torch.cos,
+    "cosine": torch.cos,
+    "elu": torch.nn.ELU,
+    "gelu": torch.nn.GELU,
+    "hardshrink": torch.nn.Hardshrink,
+    "hardsigmoid": torch.nn.Hardsigmoid,
+    "hardswish": torch.nn.Hardswish,
+    "hardtanh": torch.nn.Hardtanh,
+    "leakyrelu": torch.nn.LeakyReLU,
+    "linear": None,
+    "logsigmoid": torch.nn.LogSigmoid,
+    "mish": torch.nn.Mish,
+    "None": None,
+    "prelu": torch.nn.PReLU,
+    "relu": torch.nn.ReLU,
+    "rrelu": torch.nn.RReLU,
+    "selu": torch.nn.SELU,
+    "sigmoid": torch.nn.Sigmoid,
+    "silu": torch.nn.SiLU,
+    "sin": torch.sin,
+    "sine": torch.sin,
+    "softplus": torch.nn.Softplus,
+    "softshrink": torch.nn.Softshrink,
+    "swish": torch.nn.SiLU,
+    "tanh": torch.nn.Tanh,
+    "tanhshrink": torch.nn.Tanhshrink,
+    "threshold": torch.nn.Threshold,
+}
 
+# ----------------------------------------------------------------------------------------------------------------------
+# -- NN utility function -----------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[Any]:
+    """Extracts the activation functions from the config. The config is a dictionary, with the keys representing
+    the layer number, and the entry the activation function to use. Alternatively, the config can also be a single
+    string, which is then applied to the entire neural net.
 
-    """Extracts the activation functions from the config"""
-
-    def return_function(name: str):
-        if name in ["Linear", "linear", "lin", "None"]:
-            return None
-        elif name in ["sigmoid", "Sigmoid"]:
-            return torch.sigmoid
-        elif name in ["relu", "ReLU"]:
-            return torch.relu
-        elif name in ["sin", "sine"]:
-            return torch.sin
-        elif name in ["cos", "cosine"]:
-            return torch.cos
-        elif name in ["tanh"]:
-            return torch.tanh
-        elif name in ["abs"]:
-            return torch.abs
-        else:
-            raise ValueError(f"Unrecognised activation function {name}!")
+    Example:
+        activation_funcs: abs    # applies the absolute value to the entire neural net
+    Example:
+        activation_funcs:        # applies the nn.Hardtanh activation function to the entire neural net
+          name: HardTanh
+          args:
+            - -2
+            - 2
+    Example:
+        activation_funcs:
+          0: abs
+          1: relu
+          2: tanh
+    """
 
     funcs = [None] * (n_layers + 1)
 
     if cfg is None:
         return funcs
+
     elif isinstance(cfg, str):
-        return [return_function(cfg)] * (n_layers + 1)
+        return [ACTIVATION_FUNCS[cfg.lower()]] * (n_layers + 1)
+
     elif isinstance(cfg, dict):
-        for val in cfg.keys():
-            funcs[val] = return_function(cfg[val])
-        return funcs
+        if 'name' in cfg.keys():
+            return [ACTIVATION_FUNCS[cfg.pop('name').lower()](
+                *cfg.pop('args', ()), **cfg.pop('kwargs', {})
+            )] * (n_layers + 1)
+        else:
+            for idx, entry in cfg.items():
+
+                if isinstance(entry, str):
+                    funcs[idx] = ACTIVATION_FUNCS[entry.lower()]
+
+                elif isinstance(entry, dict):
+                    funcs[idx] = ACTIVATION_FUNCS[entry.pop('name').lower()](
+                        *entry.pop('args', ()), **entry.pop('kwargs', {})
+                    )
+
+                else:
+                    raise ValueError(f"Unrecognised argument {entry} in 'activation_funcs' dictionary!")
+            return funcs
     else:
         raise ValueError(f"Unrecognised argument {cfg} for 'activation_funcs'!")
-
-
-def get_optimizer(name):
-
-    """Returns the optimizer from the config"""
-
-    if name == "Adagrad":
-        return torch.optim.Adagrad
-    elif name == "Adam":
-        return torch.optim.Adam
-    elif name == "AdamW":
-        return torch.optim.AdamW
-    elif name == "SparseAdam":
-        return torch.optim.SparseAdam
-    elif name == "Adamax":
-        return torch.optim.Adamax
-    elif name == "ASGD":
-        return torch.optim.ASGD
-    elif name == "LBFGS":
-        return torch.optim.LBFGS
-    elif name == "NAdam":
-        return torch.optim.NAdam
-    elif name == "RAdam":
-        return torch.optim.RAdam
-    elif name == "RMSprop":
-        return torch.optim.RMSprop
-    elif name == "Rprop":
-        return torch.optim.Rprop
-    elif name == "SGD":
-        return torch.optim.SGD
-    else:
-        raise ValueError(f"Unrecognized opimiser {name}!")
 
 
 # -----------------------------------------------------------------------------
@@ -82,19 +96,34 @@ def get_optimizer(name):
 
 
 class NeuralNet(nn.Module):
+    OPTIMIZERS = {
+        "Adagrad": torch.optim.Adagrad,
+        "Adam": torch.optim.Adam,
+        "AdamW": torch.optim.AdamW,
+        "SparseAdam": torch.optim.SparseAdam,
+        "Adamax": torch.optim.Adamax,
+        "ASGD": torch.optim.ASGD,
+        "LBFGS": torch.optim.LBFGS,
+        "NAdam": torch.optim.NAdam,
+        "RAdam": torch.optim.RAdam,
+        "RMSprop": torch.optim.RMSprop,
+        "Rprop": torch.optim.Rprop,
+        "SGD": torch.optim.SGD,
+    }
+
     def __init__(
-        self,
-        *,
-        input_size: int,
-        output_size: int,
-        num_layers: int,
-        nodes_per_layer: int,
-        activation_funcs: dict = None,
-        optimizer: str = "Adam",
-        learning_rate: float = 0.001,
-        bias: bool = False,
-        init_bias: tuple = None,
-        **__,
+            self,
+            *,
+            input_size: int,
+            output_size: int,
+            num_layers: int,
+            nodes_per_layer: int,
+            activation_funcs: dict = None,
+            optimizer: str = "Adam",
+            learning_rate: float = 0.001,
+            bias: bool = False,
+            init_bias: tuple = None,
+            **__,
     ):
         """
 
@@ -129,31 +158,7 @@ class NeuralNet(nn.Module):
             self.layers.append(layer)
 
         # Get the optimizer
-        self.optimizer = get_optimizer(optimizer)(self.parameters(), lr=learning_rate)
-
-        # Initialize the loss tracker dictionary, which can be used to evaluate the training progress
-        self._loss_tracker: dict = {
-            "iteration": [],
-            "training_loss": [],
-            "parameter_loss": [],
-        }
-
-    @property
-    def loss_tracker(self) -> dict:
-        return self._loss_tracker
-
-    # Updates the loss tracker with a time value and the loss values
-    def update_loss_tracker(self, it, *, training_loss, parameter_loss):
-        self._loss_tracker["iteration"].append(it)
-        self._loss_tracker["training_loss"].append(training_loss)
-        self._loss_tracker["parameter_loss"].append(parameter_loss)
-
-    def reset_loss_tracker(self):
-        self._loss_tracker = {
-            "iteration": [],
-            "training_loss": [],
-            "parameter_loss": [],
-        }
+        self.optimizer = self.OPTIMIZERS[optimizer](self.parameters(), lr=learning_rate)
 
     # ... Evaluation functions .........................................................................................
 
