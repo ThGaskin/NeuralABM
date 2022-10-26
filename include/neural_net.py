@@ -35,12 +35,13 @@ ACTIVATION_FUNCS = {
     "swish": [torch.nn.SiLU, True],
     "tanh": [torch.nn.Tanh, True],
     "tanhshrink": [torch.nn.Tanhshrink, True],
-    "threshold": [torch.nn.Threshold, True]
+    "threshold": [torch.nn.Threshold, True],
 }
 
 # ----------------------------------------------------------------------------------------------------------------------
 # -- NN utility function -----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
+
 
 def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[Any]:
     """Extracts the activation functions from the config. The config is a dictionary, with the keys representing
@@ -75,12 +76,12 @@ def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[An
             return [_f[0]] * (n_layers + 1)
 
     elif isinstance(cfg, dict):
-        if 'name' in cfg.keys():
-            _f = ACTIVATION_FUNCS[cfg.get('name').lower()]
+        if "name" in cfg.keys():
+            _f = ACTIVATION_FUNCS[cfg.get("name").lower()]
             if _f[1]:
-                return [_f[0](
-                    *cfg.get('args', ()), **cfg.get('kwargs', {})
-                )] * (n_layers + 1)
+                return [_f[0](*cfg.get("args", ()), **cfg.get("kwargs", {}))] * (
+                    n_layers + 1
+                )
             else:
                 return [_f[0]] * (n_layers + 1)
         else:
@@ -93,12 +94,14 @@ def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[An
                     else:
                         funcs[idx] = _f[0]
                 elif isinstance(entry, dict):
-                    funcs[idx] = ACTIVATION_FUNCS[entry.get('name').lower()][0](
-                        *entry.get('args', ()), **entry.get('kwargs', {})
+                    funcs[idx] = ACTIVATION_FUNCS[entry.get("name").lower()][0](
+                        *entry.get("args", ()), **entry.get("kwargs", {})
                     )
 
                 else:
-                    raise ValueError(f"Unrecognised argument {entry} in 'activation_funcs' dictionary!")
+                    raise ValueError(
+                        f"Unrecognised argument {entry} in 'activation_funcs' dictionary!"
+                    )
             return funcs
     else:
         raise ValueError(f"Unrecognised argument {cfg} for 'activation_funcs'!")
@@ -126,18 +129,18 @@ class NeuralNet(nn.Module):
     }
 
     def __init__(
-            self,
-            *,
-            input_size: int,
-            output_size: int,
-            num_layers: int,
-            nodes_per_layer: int,
-            activation_funcs: dict = None,
-            optimizer: str = "Adam",
-            learning_rate: float = 0.001,
-            bias: bool = False,
-            init_bias: tuple = None,
-            **__,
+        self,
+        *,
+        input_size: int,
+        output_size: int,
+        num_layers: int,
+        nodes_per_layer: int,
+        activation_funcs: dict = None,
+        optimizer: str = "Adam",
+        learning_rate: float = 0.001,
+        bias: bool = False,
+        init_bias: tuple = None,
+        **__,
     ):
         """
 
@@ -152,7 +155,7 @@ class NeuralNet(nn.Module):
         :param __: Additional model parameters (ignored)
         """
 
-        super(NeuralNet, self).__init__()
+        super().__init__()
         self.flatten = nn.Flatten()
 
         self.input_dim = input_size

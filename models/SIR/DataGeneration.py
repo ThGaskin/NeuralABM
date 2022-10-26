@@ -9,13 +9,15 @@ from .ABM import SIR_ABM
 log = logging.getLogger(__name__)
 
 # --- Data generation functions ------------------------------------------------------------------------------------
-def generate_data_from_ABM(*,
-                           cfg: dict,
-                           parameters=None,
-                           positions=None,
-                           kinds=None,
-                           counts=None,
-                           write_init_state: bool = True):
+def generate_data_from_ABM(
+    *,
+    cfg: dict,
+    parameters=None,
+    positions=None,
+    kinds=None,
+    counts=None,
+    write_init_state: bool = True,
+):
     """
     Runs the ABM for n iterations and writes out the data, if datasets are passed.
 
@@ -26,16 +28,24 @@ def generate_data_from_ABM(*,
     :counts: (optional) the dataset to write the ABM counts to
     """
 
-    log.info('   Initialising the ABM ... ')
+    log.info("   Initialising the ABM ... ")
 
     ABM = SIR_ABM(**cfg)
-    num_steps: int = cfg['num_steps']
-    data = torch.empty((num_steps + 1, 3, 1), dtype=torch.float) if write_init_state else torch.empty((num_steps, 3, 1))
+    num_steps: int = cfg["num_steps"]
+    data = (
+        torch.empty((num_steps + 1, 3, 1), dtype=torch.float)
+        if write_init_state
+        else torch.empty((num_steps, 3, 1))
+    )
 
     if write_init_state:
-      data[0, :, :] = ABM.current_counts.float() / ABM.N
+        data[0, :, :] = ABM.current_counts.float() / ABM.N
 
-    parameters = torch.tensor([ABM.p_infect, ABM.t_infectious]) if parameters is None else parameters
+    parameters = (
+        torch.tensor([ABM.p_infect, ABM.t_infectious])
+        if parameters is None
+        else parameters
+    )
 
     log.info("   Generating synthetic data ... ")
     for _ in range(num_steps):
@@ -64,29 +74,40 @@ def generate_data_from_ABM(*,
         # Append the new counts to training dataset
         data[_] = densities
 
-        log.debug(f'   Completed run {_} of {num_steps} ... ')
+        log.debug(f"   Completed run {_} of {num_steps} ... ")
 
     return data
 
 
-def generate_smooth_data(*,
-                         cfg: dict = None,
-                         num_steps: int = None,
-                         parameters=None,
-                         init_state: torch.tensor,
-                         counts=None,
-                         write_init_state: bool = True,
-                         requires_grad: bool = False):
+def generate_smooth_data(
+    *,
+    cfg: dict = None,
+    num_steps: int = None,
+    parameters=None,
+    init_state: torch.tensor,
+    counts=None,
+    write_init_state: bool = True,
+    requires_grad: bool = False,
+):
 
     """
     Generates a dataset of SIR-counts by iteratively solving the system of differential equations.
     """
 
-    num_steps: int = cfg['num_steps'] if num_steps is None else num_steps
-    data = torch.empty((num_steps, 3, 1), dtype=torch.float) if not write_init_state else torch.empty(
-        (num_steps + 1, 3, 1), dtype=torch.float)
+    num_steps: int = cfg["num_steps"] if num_steps is None else num_steps
+    data = (
+        torch.empty((num_steps, 3, 1), dtype=torch.float)
+        if not write_init_state
+        else torch.empty((num_steps + 1, 3, 1), dtype=torch.float)
+    )
 
-    parameters = torch.tensor([cfg['p_infect'], cfg['t_infectious'], cfg['sigma']], dtype=torch.float) if parameters is None else parameters
+    parameters = (
+        torch.tensor(
+            [cfg["p_infect"], cfg["t_infectious"], cfg["sigma"]], dtype=torch.float
+        )
+        if parameters is None
+        else parameters
+    )
 
     # Write out the initial state if required
     if write_init_state and counts:
@@ -132,9 +153,9 @@ def generate_smooth_data(*,
 
 
 def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = True):
-    """ Returns the training data for the SIR model. If a directory is passed, the
-        data is loaded from that directory. Otherwise, synthetic training data is generated, either from an ABM,
-        or by iteratively solving the temporal ODE system.
+    """Returns the training data for the SIR model. If a directory is passed, the
+    data is loaded from that directory. Otherwise, synthetic training data is generated, either from an ABM,
+    or by iteratively solving the temporal ODE system.
     """
     if "load_from_dir" in data_cfg.keys():
 
@@ -190,13 +211,17 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
         dset_true_counts.attrs["coords__kinds"] = ["kind"]
 
         # --- Generate the data ----------------------------------------------------------------------------------------
-        type = data_cfg['synthetic_data']['type']
+        type = data_cfg["synthetic_data"]["type"]
 
         if type == "smooth":
             N = data_cfg["synthetic_data"]["N"]
             init_state = torch.tensor([[N - 1], [1], [0]], dtype=torch.float) / N
-            training_data = generate_smooth_data(cfg=data_cfg['synthetic_data'], init_state=init_state,
-                                                 counts=dset_true_counts, write_init_state=write_init_state)
+            training_data = generate_smooth_data(
+                cfg=data_cfg["synthetic_data"],
+                init_state=init_state,
+                counts=dset_true_counts,
+                write_init_state=write_init_state,
+            )
 
         elif type == "from_ABM":
 
@@ -228,11 +253,13 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
             dset_kinds.attrs["coords_mode__time"] = "trivial"
             dset_kinds.attrs["coords_mode__agent_id"] = "trivial"
 
-            training_data = generate_data_from_ABM(cfg=data_cfg['synthetic_data'],
-                                                   positions=dset_position,
-                                                   kinds=dset_kinds,
-                                                   counts=dset_true_counts,
-                                                   write_init_state=write_init_state)
+            training_data = generate_data_from_ABM(
+                cfg=data_cfg["synthetic_data"],
+                positions=dset_position,
+                kinds=dset_kinds,
+                counts=dset_true_counts,
+                write_init_state=write_init_state,
+            )
         else:
             raise ValueError(
                 f"Unrecognised arugment {type}! 'Type' must be one of 'smooth' or 'from_ABM'!"

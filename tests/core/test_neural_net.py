@@ -1,21 +1,26 @@
-from os.path import dirname as up
 import sys
-import torch
+from os.path import dirname as up
 
-from utopya.yaml import load_yml
+import torch
 from dantro._import_tools import import_module_from_path
 from pkg_resources import resource_filename
 
+from utopya.yaml import load_yml
+
 sys.path.insert(0, up(up(up(__file__))))
 
-nn = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include.neural_net')
+nn = import_module_from_path(
+    mod_path=up(up(up(__file__))), mod_str="include.neural_net"
+)
 
 # Load the test config
 CFG_FILENAME = resource_filename("tests", "cfgs/neural_net.yml")
 test_cfg = load_yml(CFG_FILENAME)
 
 # Generate some training data
-test_data, train_data = torch.rand((10, 10), dtype=torch.float), torch.rand((3, 10), dtype=torch.float)
+test_data, train_data = torch.rand((10, 10), dtype=torch.float), torch.rand(
+    (3, 10), dtype=torch.float
+)
 input_size = output_size = test_data.shape[1]
 num_epochs = 10
 
@@ -26,11 +31,13 @@ def test_initialisation():
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
         assert net
-        assert len(net.layers) == config['num_layers'] + 1  # input layer + number of hidden layers
+        assert (
+            len(net.layers) == config["num_layers"] + 1
+        )  # input layer + number of hidden layers
         assert net.layers[0].in_features == input_size
         assert net.layers[-1].out_features == output_size
 
-        bias = config.pop('bias', False)
+        bias = config.pop("bias", False)
 
         for idx, layer in enumerate(net.layers):
 
@@ -38,7 +45,10 @@ def test_initialisation():
             if not bias:
                 assert layer.bias == None
             else:
-                assert [config['init_bias'][0] <= b <= config['init_bias'][1] for b in layer.bias]
+                assert [
+                    config["init_bias"][0] <= b <= config["init_bias"][1]
+                    for b in layer.bias
+                ]
 
             # Check the layers have correct dimensions
             if idx == 0:
@@ -46,7 +56,9 @@ def test_initialisation():
             elif idx == len(net.layers) - 1:
                 assert layer.out_features == output_size
             else:
-                assert layer.in_features == layer.out_features == config['nodes_per_layer']
+                assert (
+                    layer.in_features == layer.out_features == config["nodes_per_layer"]
+                )
 
 
 # Test the model forward pass
@@ -55,18 +67,18 @@ def test_forward_pass():
 
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
-        activation_funcs = config.pop('activation_funcs', None)
+        activation_funcs = config.pop("activation_funcs", None)
 
         for x in train_data:
             y = net(x)
             assert len(y) == output_size
 
             if activation_funcs and isinstance(activation_funcs, str):
-                if activation_funcs in ['abs', 'sigmoid']:
+                if activation_funcs in ["abs", "sigmoid"]:
                     assert (y >= 0).all()
 
             elif activation_funcs and isinstance(activation_funcs, dict):
-                if list(activation_funcs.values())[-1] in ['sigmoid', 'tanh']:
+                if list(activation_funcs.values())[-1] in ["sigmoid", "tanh"]:
                     assert (torch.abs(y) <= 1).all()
 
 
@@ -81,7 +93,7 @@ def test_training():
             for idx, x in enumerate(train_data):
 
                 # Perform a single training step
-                loss = torch.tensor(0.0, requires_grad = True)
+                loss = torch.tensor(0.0, requires_grad=True)
                 net.optimizer.zero_grad()
                 y = net(x)
                 loss = torch.nn.functional.mse_loss(y, test_data[idx])
@@ -95,7 +107,7 @@ def test_training():
 
                 # Repeat the training step on the same batch and assert that the loss has changed, meaning
                 # the internal parameters have changed
-                loss = torch.tensor(0.0, requires_grad = True)
+                loss = torch.tensor(0.0, requires_grad=True)
                 net.optimizer.zero_grad()
                 y = net(x)
                 loss = torch.nn.functional.mse_loss(y, test_data[idx])

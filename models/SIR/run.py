@@ -256,7 +256,7 @@ if __name__ == "__main__":
 
     log.note("   Preparing model run ...")
     log.note(f"   Loading config file:\n        {cfg_file_path}")
-    with open(cfg_file_path, "r") as cfg_file:
+    with open(cfg_file_path) as cfg_file:
         cfg = yaml.load(cfg_file, Loader=yaml.Loader)
     model_name = cfg.get("root_model_name", "SIR")
     log.note(f"   Model name:  {model_name}")
