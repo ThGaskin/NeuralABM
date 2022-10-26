@@ -24,6 +24,27 @@ NN_deep3:
   init_bias: [-3, -2]
   bias: True
 
+NN_deep4:
+  num_layers: 5
+  nodes_per_layer: 5
+  activation_funcs:
+    name: HardTanh
+    args:
+      - -2
+      - +2
+  bias: False
+
+NN_deep5:
+  num_layers: 5
+  nodes_per_layer: 5
+  activation_funcs:
+    0:
+      name: HardTanh
+      args:
+        - -2
+        - +2
+    1: abs
+
 # Shallow case with no activation function
 NN_shallow1:
   num_layers: 1
@@ -49,4 +70,3 @@ NN_SGD:
   nodes_per_layer: 10
   optimiser: SGD
   learning_rate: 0.1
-
