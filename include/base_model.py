@@ -18,7 +18,7 @@ class BaseModel:
             cfg_file_path (str): The path to the config file.
         """
         print(f"Loading config file:\n  {cfg_file_path}")
-        with open(cfg_file_path, "r") as cfg_file:
+        with open(cfg_file_path) as cfg_file:
             self._cfg = yaml.load(cfg_file, Loader=yaml.Loader)
 
         self._name = self._cfg.get("root_model_name", "ExtendedModel")

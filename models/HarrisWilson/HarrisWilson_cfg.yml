@@ -21,14 +21,13 @@ Data:
         default: 1.2
         limits: [0, ~]
         dtype: float
-
+  training_data_size: 1
 
 # Settings for the neural net architecture
 NeuralNet:
-  num_layers: !is-positive-int 2
+  num_layers: !is-positive-int 1
   nodes_per_layer: !is-positive-int 20
-  activation_funcs:
-    -1: abs
+  activation_funcs: abs
   bias: !is-bool True
   init_bias: [0, 4]
   learning_rate: !is-positive 0.002

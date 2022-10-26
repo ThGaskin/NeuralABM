@@ -10,17 +10,37 @@ log = logging.getLogger(__name__)
 
 # --- Data generation functions ------------------------------------------------------------------------------------
 def generate_data_from_ABM(
-    *, cfg: dict, parameters=None, positions=None, kinds=None, counts=None
+    *,
+    cfg: dict,
+    parameters=None,
+    positions=None,
+    kinds=None,
+    counts=None,
+    write_init_state: bool = True,
 ):
     """
-    Runs the ABM for n iterations and writes out the data. If the 'type' is 'training',
-    the kinds, positions, and counts are written out and stored. If the 'type' is 'prediction',
-    only the predicted counts are written out.
+    Runs the ABM for n iterations and writes out the data, if datasets are passed.
+
+    :param cfg: the data generation configuration settings
+    :param parameters: (optional) the parameters to use to run the model. Defaults to the ABM defaults
+    :param positions: (optional) the dataset to write the agent positions to
+    :kinds: (optional) the dataset to write the ABM kinds to
+    :counts: (optional) the dataset to write the ABM counts to
     """
+
     log.info("   Initialising the ABM ... ")
+
     ABM = SIR_ABM(**cfg)
     num_steps: int = cfg["num_steps"]
-    data = torch.empty((num_steps, 3, 1), dtype=torch.float)
+    data = (
+        torch.empty((num_steps + 1, 3, 1), dtype=torch.float)
+        if write_init_state
+        else torch.empty((num_steps, 3, 1))
+    )
+
+    if write_init_state:
+        data[0, :, :] = ABM.current_counts.float() / ABM.N
+
     parameters = (
         torch.tensor([ABM.p_infect, ABM.t_infectious])
         if parameters is None
@@ -54,7 +74,7 @@ def generate_data_from_ABM(
         # Append the new counts to training dataset
         data[_] = densities
 
-        log.debug("   Completed run {_} of {num_steps} ... ")
+        log.debug(f"   Completed run {_} of {num_steps} ... ")
 
     return data
 
@@ -64,20 +84,23 @@ def generate_smooth_data(
     cfg: dict = None,
     num_steps: int = None,
     parameters=None,
-    init_state,
+    init_state: torch.tensor,
     counts=None,
     write_init_state: bool = True,
     requires_grad: bool = False,
 ):
+
     """
     Generates a dataset of SIR-counts by iteratively solving the system of differential equations.
     """
+
     num_steps: int = cfg["num_steps"] if num_steps is None else num_steps
     data = (
         torch.empty((num_steps, 3, 1), dtype=torch.float)
         if not write_init_state
         else torch.empty((num_steps + 1, 3, 1), dtype=torch.float)
     )
+
     parameters = (
         torch.tensor(
             [cfg["p_infect"], cfg["t_infectious"], cfg["sigma"]], dtype=torch.float
@@ -129,7 +152,7 @@ def generate_smooth_data(
     return data
 
 
-def get_SIR_data(*, data_cfg: dict, h5group: h5.Group):
+def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = True):
     """Returns the training data for the SIR model. If a directory is passed, the
     data is loaded from that directory. Otherwise, synthetic training data is generated, either from an ABM,
     or by iteratively solving the temporal ODE system.
@@ -188,7 +211,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group):
         dset_true_counts.attrs["coords__kinds"] = ["kind"]
 
         # --- Generate the data ----------------------------------------------------------------------------------------
-        type = data_cfg["synthetic_data"].pop("type")
+        type = data_cfg["synthetic_data"]["type"]
 
         if type == "smooth":
             N = data_cfg["synthetic_data"]["N"]
@@ -197,6 +220,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group):
                 cfg=data_cfg["synthetic_data"],
                 init_state=init_state,
                 counts=dset_true_counts,
+                write_init_state=write_init_state,
             )
 
         elif type == "from_ABM":
@@ -234,6 +258,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group):
                 positions=dset_position,
                 kinds=dset_kinds,
                 counts=dset_true_counts,
+                write_init_state=write_init_state,
             )
         else:
             raise ValueError(

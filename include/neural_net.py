@@ -3,77 +3,108 @@ from typing import Any, List, Union
 import torch
 from torch import nn
 
-# -----------------------------------------------------------------------------
-# -- NN utility functions -----------------------------------------------------
-# -----------------------------------------------------------------------------
+# Pairs of activation functions and whether they are part of the torch.nn module, in which case they must be called
+# via func(*args, **kwargs)(x).
+
+ACTIVATION_FUNCS = {
+    "abs": [torch.abs, False],
+    "celu": [torch.nn.CELU, True],
+    "cos": [torch.cos, False],
+    "cosine": [torch.cos, False],
+    "elu": [torch.nn.ELU, True],
+    "gelu": [torch.nn.GELU, True],
+    "hardshrink": [torch.nn.Hardshrink, True],
+    "hardsigmoid": [torch.nn.Hardsigmoid, True],
+    "hardswish": [torch.nn.Hardswish, True],
+    "hardtanh": [torch.nn.Hardtanh, True],
+    "leakyrelu": [torch.nn.LeakyReLU, True],
+    "linear": [None, False],
+    "logsigmoid": [torch.nn.LogSigmoid, True],
+    "mish": [torch.nn.Mish, True],
+    "none": [None, False],
+    "prelu": [torch.nn.PReLU, True],
+    "relu": [torch.nn.ReLU, True],
+    "rrelu": [torch.nn.RReLU, True],
+    "selu": [torch.nn.SELU, True],
+    "sigmoid": [torch.nn.Sigmoid, True],
+    "silu": [torch.nn.SiLU, True],
+    "sin": [torch.sin, False],
+    "sine": [torch.sin, False],
+    "softplus": [torch.nn.Softplus, True],
+    "softshrink": [torch.nn.Softshrink, True],
+    "swish": [torch.nn.SiLU, True],
+    "tanh": [torch.nn.Tanh, True],
+    "tanhshrink": [torch.nn.Tanhshrink, True],
+    "threshold": [torch.nn.Threshold, True],
+}
+
+# ----------------------------------------------------------------------------------------------------------------------
+# -- NN utility function -----------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[Any]:
+    """Extracts the activation functions from the config. The config is a dictionary, with the keys representing
+    the layer number, and the entry the activation function to use. Alternatively, the config can also be a single
+    string, which is then applied to the entire neural net.
 
-    """Extracts the activation functions from the config"""
-
-    def return_function(name: str):
-        if name in ["Linear", "linear", "lin", "None"]:
-            return None
-        elif name in ["sigmoid", "Sigmoid"]:
-            return torch.sigmoid
-        elif name in ["relu", "ReLU"]:
-            return torch.relu
-        elif name in ["sin", "sine"]:
-            return torch.sin
-        elif name in ["cos", "cosine"]:
-            return torch.cos
-        elif name in ["tanh"]:
-            return torch.tanh
-        elif name in ["abs"]:
-            return torch.abs
-        else:
-            raise ValueError(f"Unrecognised activation function {name}!")
+    Example:
+        activation_funcs: abs    # applies the absolute value to the entire neural net
+    Example:
+        activation_funcs:        # applies the nn.Hardtanh activation function to the entire neural net
+          name: HardTanh
+          args:
+            - -2
+            - 2
+    Example:
+        activation_funcs:
+          0: abs
+          1: relu
+          2: tanh
+    """
 
     funcs = [None] * (n_layers + 1)
 
     if cfg is None:
         return funcs
+
     elif isinstance(cfg, str):
-        return [return_function(cfg)] * (n_layers + 1)
+        _f = ACTIVATION_FUNCS[cfg.lower()]
+        if _f[1]:
+            return [_f[0]()] * (n_layers + 1)
+        else:
+            return [_f[0]] * (n_layers + 1)
+
     elif isinstance(cfg, dict):
-        for val in cfg.keys():
-            funcs[val] = return_function(cfg[val])
-        return funcs
+        if "name" in cfg.keys():
+            _f = ACTIVATION_FUNCS[cfg.get("name").lower()]
+            if _f[1]:
+                return [_f[0](*cfg.get("args", ()), **cfg.get("kwargs", {}))] * (
+                    n_layers + 1
+                )
+            else:
+                return [_f[0]] * (n_layers + 1)
+        else:
+            for idx, entry in cfg.items():
+
+                if isinstance(entry, str):
+                    _f = ACTIVATION_FUNCS[entry.lower()]
+                    if _f[1]:
+                        funcs[idx] = _f[0]()
+                    else:
+                        funcs[idx] = _f[0]
+                elif isinstance(entry, dict):
+                    funcs[idx] = ACTIVATION_FUNCS[entry.get("name").lower()][0](
+                        *entry.get("args", ()), **entry.get("kwargs", {})
+                    )
+
+                else:
+                    raise ValueError(
+                        f"Unrecognised argument {entry} in 'activation_funcs' dictionary!"
+                    )
+            return funcs
     else:
         raise ValueError(f"Unrecognised argument {cfg} for 'activation_funcs'!")
-
-
-def get_optimizer(name):
-
-    """Returns the optimizer from the config"""
-
-    if name == "Adagrad":
-        return torch.optim.Adagrad
-    elif name == "Adam":
-        return torch.optim.Adam
-    elif name == "AdamW":
-        return torch.optim.AdamW
-    elif name == "SparseAdam":
-        return torch.optim.SparseAdam
-    elif name == "Adamax":
-        return torch.optim.Adamax
-    elif name == "ASGD":
-        return torch.optim.ASGD
-    elif name == "LBFGS":
-        return torch.optim.LBFGS
-    elif name == "NAdam":
-        return torch.optim.NAdam
-    elif name == "RAdam":
-        return torch.optim.RAdam
-    elif name == "RMSprop":
-        return torch.optim.RMSprop
-    elif name == "Rprop":
-        return torch.optim.Rprop
-    elif name == "SGD":
-        return torch.optim.SGD
-    else:
-        raise ValueError(f"Unrecognized opimiser {name}!")
 
 
 # -----------------------------------------------------------------------------
@@ -82,6 +113,21 @@ def get_optimizer(name):
 
 
 class NeuralNet(nn.Module):
+    OPTIMIZERS = {
+        "Adagrad": torch.optim.Adagrad,
+        "Adam": torch.optim.Adam,
+        "AdamW": torch.optim.AdamW,
+        "SparseAdam": torch.optim.SparseAdam,
+        "Adamax": torch.optim.Adamax,
+        "ASGD": torch.optim.ASGD,
+        "LBFGS": torch.optim.LBFGS,
+        "NAdam": torch.optim.NAdam,
+        "RAdam": torch.optim.RAdam,
+        "RMSprop": torch.optim.RMSprop,
+        "Rprop": torch.optim.Rprop,
+        "SGD": torch.optim.SGD,
+    }
+
     def __init__(
         self,
         *,
@@ -109,7 +155,7 @@ class NeuralNet(nn.Module):
         :param __: Additional model parameters (ignored)
         """
 
-        super(NeuralNet, self).__init__()
+        super().__init__()
         self.flatten = nn.Flatten()
 
         self.input_dim = input_size
@@ -129,31 +175,7 @@ class NeuralNet(nn.Module):
             self.layers.append(layer)
 
         # Get the optimizer
-        self.optimizer = get_optimizer(optimizer)(self.parameters(), lr=learning_rate)
-
-        # Initialize the loss tracker dictionary, which can be used to evaluate the training progress
-        self._loss_tracker: dict = {
-            "iteration": [],
-            "training_loss": [],
-            "parameter_loss": [],
-        }
-
-    @property
-    def loss_tracker(self) -> dict:
-        return self._loss_tracker
-
-    # Updates the loss tracker with a time value and the loss values
-    def update_loss_tracker(self, it, *, training_loss, parameter_loss):
-        self._loss_tracker["iteration"].append(it)
-        self._loss_tracker["training_loss"].append(training_loss)
-        self._loss_tracker["parameter_loss"].append(parameter_loss)
-
-    def reset_loss_tracker(self):
-        self._loss_tracker = {
-            "iteration": [],
-            "training_loss": [],
-            "parameter_loss": [],
-        }
+        self.optimizer = self.OPTIMIZERS[optimizer](self.parameters(), lr=learning_rate)
 
     # ... Evaluation functions .........................................................................................
 
