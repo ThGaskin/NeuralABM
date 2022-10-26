@@ -34,10 +34,10 @@ _:
   style:
     figure.figsize: [ *half_width, *fifth_width ]
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[darkblue]:}', 
-                              '{colors[green]:}', 
-                              '{colors[yellow]:}', 
-                              '{colors[skyblue]:}', 
+      fstr: "cycler('color', ['{colors[darkblue]:}',
+                              '{colors[green]:}',
+                              '{colors[yellow]:}',
+                              '{colors[skyblue]:}',
                               '{colors[lightbrown]:}',
                               '{colors[red]:}'
                               ])"
@@ -297,8 +297,8 @@ peak_widths:
       title: ''
   style:
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[green]:}', 
-                              '{colors[darkblue]:}', 
-                              '{colors[red]:}', 
+      fstr: "cycler('color', ['{colors[green]:}',
+                              '{colors[darkblue]:}',
+                              '{colors[red]:}',
                               '{colors[skyblue]:}'])"
       colors: *colors

@@ -1,15 +1,15 @@
-from os.path import dirname as up
-import sys
 import math
-import pytest
-import numpy as np
-import torch
+import sys
+from os.path import dirname as up
 
+import numpy as np
+import pytest
+import torch
 from dantro._import_tools import import_module_from_path
 
 sys.path.insert(0, up(up(up(__file__))))
 
-vec = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include.vector')
+vec = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include.vector")
 Vector = vec.Vector
 distance = vec.distance
 
@@ -23,7 +23,7 @@ unit_vector = Vector(1, 1)
 
 
 def test_vector():
-    """ Tests the Vector class"""
+    """Tests the Vector class"""
 
     for v in vectors:
 
@@ -43,11 +43,11 @@ def test_vector():
     assert vectors[0] + vectors[1] == Vector(1, -1)
     assert vectors[0] - vectors[1] == Vector(3, 7)
 
-    q = Vector(0., 0.)
+    q = Vector(0.0, 0.0)
     q.scalar_mul(2.3)
     assert q == zero_vector
 
-    q = Vector(1., 1.)
+    q = Vector(1.0, 1.0)
     q.scalar_mul(-math.pi)
     assert q == Vector(-math.pi, -math.pi)
 
@@ -75,7 +75,7 @@ def test_vector():
 
 
 def test_distances():
-    """ Tests the distance function """
+    """Tests the distance function"""
 
     # Non-periodic case
     for v in vectors:
@@ -97,11 +97,10 @@ def test_distances():
     for v in [p, q, r, t]:
         for w in [p, q, r, t]:
             assert distance(v, w, periodic=True, space=small_space) == 0
-            assert distance(v, zero_vector, periodic=True, space=small_space) == distance(v, zero_vector)
+            assert distance(
+                v, zero_vector, periodic=True, space=small_space
+            ) == distance(v, zero_vector)
 
     # Test specific value on torus
     v, w = Vector(-1.5, -1.5), Vector(1.5, 1.5)
     assert distance(v, w, periodic=True, space=small_space) == math.sqrt(2)
-
-
-

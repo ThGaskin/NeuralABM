@@ -1,7 +1,8 @@
+import logging
+
 import h5py as h5
 import numpy as np
 import torch
-import logging
 
 from .ABM import SIR_ABM
 
@@ -36,7 +37,7 @@ def generate_data_from_ABM(*,
 
     parameters = torch.tensor([ABM.p_infect, ABM.t_infectious]) if parameters is None else parameters
 
-    log.info('   Generating synthetic data ... ')
+    log.info("   Generating synthetic data ... ")
     for _ in range(num_steps):
 
         # Run the ABM for a single step
@@ -102,17 +103,24 @@ def generate_smooth_data(*,
         # Patients only start recovering after a certain time
         w = torch.normal(torch.tensor(0.0), torch.tensor(1.0))
         tau = 1 / parameters[1] * torch.sigmoid(1000 * (_ / parameters[1] - 1))
-        matrix = torch.vstack([torch.tensor([-parameters[0], -parameters[2] * w]),
-                               torch.tensor([parameters[0], -tau + parameters[2] * w]),
-                               torch.tensor([0, tau])])
+        matrix = torch.vstack(
+            [
+                torch.tensor([-parameters[0], -parameters[2] * w]),
+                torch.tensor([parameters[0], -tau + parameters[2] * w]),
+                torch.tensor([0, tau]),
+            ]
+        )
 
-        current_state = torch.relu(current_state + torch.matmul(
-            matrix,
-            torch.vstack([current_state[0] * current_state[1], current_state[1]])
-        ))
+        current_state = torch.relu(
+            current_state
+            + torch.matmul(
+                matrix,
+                torch.vstack([current_state[0] * current_state[1], current_state[1]]),
+            )
+        )
 
         if write_init_state:
-            data[_+1] = current_state
+            data[_ + 1] = current_state
         else:
             data[_] = current_state
 
@@ -128,11 +136,11 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
         data is loaded from that directory. Otherwise, synthetic training data is generated, either from an ABM,
         or by iteratively solving the temporal ODE system.
     """
-    if 'load_from_dir' in data_cfg.keys():
+    if "load_from_dir" in data_cfg.keys():
 
-        with h5.File(data_cfg['load_from_dir'], "r") as f:
+        with h5.File(data_cfg["load_from_dir"], "r") as f:
 
-            data = np.array(f['SIR']['true_counts'])
+            data = np.array(f["SIR"]["true_counts"])
 
             dset_true_counts = h5group.create_dataset(
                 "true_counts",
@@ -140,21 +148,25 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
                 maxshape=(None, 3, 1),
                 chunks=True,
                 compression=3,
-                dtype=float
+                dtype=float,
             )
 
-            dset_true_counts.attrs['dim_names'] = ['time', 'kind', 'kinds']
-            dset_true_counts.attrs['coords_mode__time'] = "trivial"
-            dset_true_counts.attrs['coords_mode__kind'] = 'values'
-            dset_true_counts.attrs['coords__kind'] = ['susceptible', 'infected', 'recovered']
-            dset_true_counts.attrs['coords_mode__kinds'] = 'values'
-            dset_true_counts.attrs['coords__kinds'] = ['kind']
+            dset_true_counts.attrs["dim_names"] = ["time", "kind", "kinds"]
+            dset_true_counts.attrs["coords_mode__time"] = "trivial"
+            dset_true_counts.attrs["coords_mode__kind"] = "values"
+            dset_true_counts.attrs["coords__kind"] = [
+                "susceptible",
+                "infected",
+                "recovered",
+            ]
+            dset_true_counts.attrs["coords_mode__kinds"] = "values"
+            dset_true_counts.attrs["coords__kinds"] = ["kind"]
 
             dset_true_counts[:, :, :] = data
 
             return torch.from_numpy(data).float()
 
-    elif 'synthetic_data' in data_cfg.keys():
+    elif "synthetic_data" in data_cfg.keys():
 
         # True counts
         dset_true_counts = h5group.create_dataset(
@@ -163,28 +175,32 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
             maxshape=(None, 3, 1),
             chunks=True,
             compression=3,
-            dtype=float
+            dtype=float,
         )
 
-        dset_true_counts.attrs['dim_names'] = ['time', 'kind', 'kinds']
-        dset_true_counts.attrs['coords_mode__time'] = "trivial"
-        dset_true_counts.attrs['coords_mode__kind'] = 'values'
-        dset_true_counts.attrs['coords__kind'] = ['susceptible', 'infected', 'recovered']
-        dset_true_counts.attrs['coords_mode__kinds'] = 'values'
-        dset_true_counts.attrs['coords__kinds'] = ['kind']
+        dset_true_counts.attrs["dim_names"] = ["time", "kind", "kinds"]
+        dset_true_counts.attrs["coords_mode__time"] = "trivial"
+        dset_true_counts.attrs["coords_mode__kind"] = "values"
+        dset_true_counts.attrs["coords__kind"] = [
+            "susceptible",
+            "infected",
+            "recovered",
+        ]
+        dset_true_counts.attrs["coords_mode__kinds"] = "values"
+        dset_true_counts.attrs["coords__kinds"] = ["kind"]
 
         # --- Generate the data ----------------------------------------------------------------------------------------
         type = data_cfg['synthetic_data']['type']
 
-        if type == 'smooth':
-            N = data_cfg['synthetic_data']['N']
+        if type == "smooth":
+            N = data_cfg["synthetic_data"]["N"]
             init_state = torch.tensor([[N - 1], [1], [0]], dtype=torch.float) / N
             training_data = generate_smooth_data(cfg=data_cfg['synthetic_data'], init_state=init_state,
                                                  counts=dset_true_counts, write_init_state=write_init_state)
 
-        elif type == 'from_ABM':
+        elif type == "from_ABM":
 
-            N = data_cfg['synthetic_data']['N']
+            N = data_cfg["synthetic_data"]["N"]
 
             # Initialise agent position dataset
             dset_position = h5group.create_dataset(
@@ -194,7 +210,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
                 chunks=True,
                 compression=3,
             )
-            dset_position.attrs['dim_names'] = ['time', 'agent_id', 'coords']
+            dset_position.attrs["dim_names"] = ["time", "agent_id", "coords"]
             dset_position.attrs["coords_mode__time"] = "trivial"
             dset_position.attrs["coords_mode__agent_id"] = "trivial"
             dset_position.attrs["coords_mode__coords"] = "values"
@@ -208,7 +224,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
                 chunks=True,
                 compression=3,
             )
-            dset_kinds.attrs['dim_names'] = ['time', 'agent_id']
+            dset_kinds.attrs["dim_names"] = ["time", "agent_id"]
             dset_kinds.attrs["coords_mode__time"] = "trivial"
             dset_kinds.attrs["coords_mode__agent_id"] = "trivial"
 
@@ -218,9 +234,13 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
                                                    counts=dset_true_counts,
                                                    write_init_state=write_init_state)
         else:
-            raise ValueError(f"Unrecognised arugment {type}! 'Type' must be one of 'smooth' or 'from_ABM'!")
+            raise ValueError(
+                f"Unrecognised arugment {type}! 'Type' must be one of 'smooth' or 'from_ABM'!"
+            )
 
         return training_data
 
     else:
-        raise ValueError(f"You must supply one of 'load_from_dir' or 'synthetic data' keys!")
+        raise ValueError(
+            f"You must supply one of 'load_from_dir' or 'synthetic data' keys!"
+        )

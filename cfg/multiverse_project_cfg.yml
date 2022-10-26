@@ -33,4 +33,3 @@ data_manager:
         # numbers, loading will *not* be in parallel.
         min_files: 5
         min_total_size: 104857600  # 100 MiB
-

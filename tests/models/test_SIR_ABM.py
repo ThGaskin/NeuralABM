@@ -1,16 +1,15 @@
-from os.path import dirname as up
 import sys
+from os.path import dirname as up
+
 import pytest
 import torch
-
-from utopya.yaml import load_yml
 from dantro._import_tools import import_module_from_path
 from pkg_resources import resource_filename
 
 sys.path.insert(0, up(up(up(__file__))))
 
-SIR = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='models.SIR')
-vec = import_module_from_path(mod_path=up(up(up(__file__))), mod_str='include.vector')
+SIR = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="models.SIR")
+vec = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include.vector")
 
 Agent = SIR.ABM.Agent
 Vector = vec.Vector
@@ -22,9 +21,9 @@ test_cfg = load_yml(CFG_FILENAME)
 
 def test_agent():
 
-    """ Test agent creation and movement """
+    """Test agent creation and movement"""
 
-    agent = Agent(id=0, kind='some_kind', position=Vector(0, 0))
+    agent = Agent(id=0, kind="some_kind", position=Vector(0, 0))
 
     agent.move(Vector(1, 1))
     assert agent.position == Vector(1, 1)
@@ -72,18 +71,18 @@ def test_agent():
     assert agent.position != Vector(0, 0)
 
     # Test reset
-    agent.kind = 'some_other_kind'
+    agent.kind = "some_other_kind"
     agent.reset()
     assert agent.position == Vector(0, 0)
-    assert agent.kind == 'some_kind'
+    assert agent.kind == "some_kind"
 
     # Test representation
-    assert str(agent) == 'Agent 0; kind: some_kind; position: (0, 0)'
+    assert str(agent) == "Agent 0; kind: some_kind; position: (0, 0)"
 
 
 def test_ABM():
 
-    """Test ABM initialisation """
+    """Test ABM initialisation"""
 
     for entry in test_cfg:
 
@@ -91,16 +90,19 @@ def test_ABM():
         ABM = SIR.SIR_ABM(**ABM_cfg)
 
         assert ABM
-        assert ABM.N == ABM_cfg['N']
-        assert ABM.p_infect == ABM_cfg['p_infect']
-        assert ABM.t_infectious == ABM_cfg['t_infectious']
-        assert ABM.space == Vector(ABM_cfg['space'][0], ABM_cfg['space'][1])
+        assert ABM.N == ABM_cfg["N"]
+        assert ABM.p_infect == ABM_cfg["p_infect"]
+        assert ABM.t_infectious == ABM_cfg["t_infectious"]
+        assert ABM.space == Vector(ABM_cfg["space"][0], ABM_cfg["space"][1])
 
         assert len(ABM.current_kinds) == ABM.N
-        assert (ABM.current_counts == torch.tensor([[ABM.N -1], [1], [0]], dtype=torch.float)).all()
+        assert (
+            ABM.current_counts
+            == torch.tensor([[ABM.N - 1], [1], [0]], dtype=torch.float)
+        ).all()
 
         # Test the ABM runs and obeys basic properties
-        for n in range(ABM_cfg['num_steps']):
+        for n in range(ABM_cfg["num_steps"]):
             ABM.run_single()
 
             # Test the agent count stays constant
@@ -114,45 +116,49 @@ def test_ABM():
 
 def test_dynamics():
 
-    """Test basic dynamics work """
-    cfg = test_cfg['dynamics']
+    """Test basic dynamics work"""
+    cfg = test_cfg["dynamics"]
     ABM = SIR.SIR_ABM(**cfg)
-    for n in range(cfg['num_steps']):
+    for n in range(cfg["num_steps"]):
         ABM.run_single()
         assert torch.sum(ABM.current_counts) == ABM.N
 
     assert len(ABM.current_kinds) == ABM.N
-    assert (ABM.current_counts != torch.tensor([[ABM.N -1], [1], [0]], dtype=torch.float)).all()
+    assert (
+        ABM.current_counts != torch.tensor([[ABM.N - 1], [1], [0]], dtype=torch.float)
+    ).all()
 
     ABM.reset()
-    assert (ABM.current_counts == torch.tensor([[ABM.N - 1], [1], [0]], dtype=torch.float)).all()
+    assert (
+        ABM.current_counts == torch.tensor([[ABM.N - 1], [1], [0]], dtype=torch.float)
+    ).all()
 
 
 def test_no_dynamics():
 
     """Test nothing happens when p_infect is 0 and t_infectious > num_steps"""
 
-    cfg = test_cfg['no_dynamics']
+    cfg = test_cfg["no_dynamics"]
     ABM = SIR.SIR_ABM(**cfg)
-    for n in range(cfg['num_steps']):
+    for n in range(cfg["num_steps"]):
         ABM.run_single()
         assert torch.sum(ABM.current_counts) == ABM.N
 
     assert len(ABM.current_kinds) == ABM.N
-    assert (ABM.current_counts == torch.tensor([[ABM.N -1], [1], [0]], dtype=torch.float)).all()
+    assert (
+        ABM.current_counts == torch.tensor([[ABM.N - 1], [1], [0]], dtype=torch.float)
+    ).all()
 
     ABM.reset()
 
 
 def test_full_recovery():
 
-    """Test all agents make a full recovery """
+    """Test all agents make a full recovery"""
 
-    cfg = test_cfg['full_recovery']
+    cfg = test_cfg["full_recovery"]
     ABM = SIR.SIR_ABM(**cfg)
-    for n in range(cfg['num_steps']):
+    for n in range(cfg["num_steps"]):
         ABM.run_single()
 
     assert (ABM.current_counts[1] == 0).all()
-
-

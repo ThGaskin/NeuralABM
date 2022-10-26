@@ -1,15 +1,18 @@
-import numpy as np
 from operator import itemgetter
+
+import numpy as np
 import scipy.signal
 import xarray as xr
 
 from utopya.eval import is_operation
 
-
 # --- Custom DAG operations for the NeuralABM model --------------------------------------------------------------------
 
+
 def apply_along_dim(func):
-    def _apply_along_axis(data: xr.Dataset, along_dim: str = None, labels: list = None, *args, **kwargs):
+    def _apply_along_axis(
+        data: xr.Dataset, along_dim: str = None, labels: list = None, *args, **kwargs
+    ):
         """Decorator which allows for applying a function, which acts on an array-like, along a dimension of a
         xarray.Dataset.
 
@@ -23,11 +26,18 @@ def apply_along_dim(func):
         if along_dim is not None:
             dsets = []
             for idx, val in enumerate(data[along_dim]):
-                dsets.append(func(data.sel({along_dim: val}),
-                                  coords={along_dim: val} if labels is None else {along_dim: labels[idx]},
-                                  *args, **kwargs))
+                dsets.append(
+                    func(
+                        data.sel({along_dim: val}),
+                        coords={along_dim: val}
+                        if labels is None
+                        else {along_dim: labels[idx]},
+                        *args,
+                        **kwargs
+                    )
+                )
 
-            return xr.concat(dsets, dim=along_dim, coords='all')
+            return xr.concat(dsets, dim=along_dim, coords="all")
 
         else:
             return func(data, *args, **kwargs)
@@ -35,11 +45,16 @@ def apply_along_dim(func):
     return _apply_along_axis
 
 
-@is_operation('NeuralABM.compute_marginals')
+@is_operation("NeuralABM.compute_marginals")
 @apply_along_dim
-def get_marginals(data: xr.Dataset, *, coords: dict = None, bins: int = 100,
-                  clip: tuple = [-np.inf, +np.inf]) -> xr.Dataset:
-    """ Sorts the data into bins and calculates marginal densities by summing over each bin entry.
+def get_marginals(
+    data: xr.Dataset,
+    *,
+    coords: dict = None,
+    bins: int = 100,
+    clip: tuple = [-np.inf, +np.inf]
+) -> xr.Dataset:
+    """Sorts the data into bins and calculates marginal densities by summing over each bin entry.
 
     :param data: the data
     :param coords: (optional) the coordinates to give the new dataset
@@ -49,18 +64,27 @@ def get_marginals(data: xr.Dataset, *, coords: dict = None, bins: int = 100,
     """
 
     coords = data.coords if coords is None else coords
-    coords.update({'bin_idx': np.arange(0, bins, 1)})
+    coords.update({"bin_idx": np.arange(0, bins, 1)})
 
     # Collect all points into a list of tuples and sort by their x value
     zipped_pairs = sorted(
         np.array(
-            [z for z in list(zip(data['param1'].values.flatten(), data['loss'].values.flatten()))
-             if not (np.isnan(z[0]) or np.isnan(z[1]) or z[0] < clip[0] or z[0] > clip[1])]
-        ), key=itemgetter(0))
+            [
+                z
+                for z in list(
+                    zip(data["param1"].values.flatten(), data["loss"].values.flatten())
+                )
+                if not (
+                    np.isnan(z[0]) or np.isnan(z[1]) or z[0] < clip[0] or z[0] > clip[1]
+                )
+            ]
+        ),
+        key=itemgetter(0),
+    )
 
     # Create bins
     x, y = np.linspace(zipped_pairs[0][0], zipped_pairs[-1][0], bins), np.zeros(bins)
-    dx = (x[1] - x[0])
+    dx = x[1] - x[0]
     bin_no = 1
 
     # Sort x into bins; cumulatively gather y-values
@@ -70,20 +94,23 @@ def get_marginals(data: xr.Dataset, *, coords: dict = None, bins: int = 100,
         y[bin_no - 1] += point[1]
 
     # Normalise y to 1
-    y /= (np.sum(y) * dx)
+    y /= np.sum(y) * dx
 
     # Combine into a xr.Dataset
-    return xr.Dataset(data_vars=dict(prob=('bin_idx', y), param1=('bin_idx', x)),
-                      coords=coords)
+    return xr.Dataset(
+        data_vars=dict(prob=("bin_idx", y), param1=("bin_idx", x)), coords=coords
+    )
 
 
-@is_operation('NeuralABM.compute_joint_density')
+@is_operation("NeuralABM.compute_joint_density")
 @apply_along_dim
-def joint_density(data: xr.Dataset,
-                  *,
-                  coords: dict = None,
-                  bins: tuple = [100, 100],
-                  clip: tuple = [[-np.inf, +np.inf], [-np.inf, +np.inf]]) -> xr.Dataset:
+def joint_density(
+    data: xr.Dataset,
+    *,
+    coords: dict = None,
+    bins: tuple = [100, 100],
+    clip: tuple = [[-np.inf, +np.inf], [-np.inf, +np.inf]]
+) -> xr.Dataset:
     """Computes the 2d joint probability density function
 
     :param data: the data
@@ -99,17 +126,40 @@ def joint_density(data: xr.Dataset,
     # filtering out nans and clipping to the specified interval, if passed.
     zipped_pairs = sorted(
         np.array(
-            [z for z in list(zip(data['param1'].values.flatten(),
-                                 data['param2'].values.flatten(),
-                                 data['loss'].values.flatten()))
-             if not (np.isnan(z[0]) or np.isnan(z[1]) or np.isnan(z[2])
-                     or z[0] < clip[0][0] or z[0] > clip[0][1] or z[1] < clip[1][0] or z[1] > clip[1][1])
-             ]
-        ), key=itemgetter(0, 1, 2))
+            [
+                z
+                for z in list(
+                    zip(
+                        data["param1"].values.flatten(),
+                        data["param2"].values.flatten(),
+                        data["loss"].values.flatten(),
+                    )
+                )
+                if not (
+                    np.isnan(z[0])
+                    or np.isnan(z[1])
+                    or np.isnan(z[2])
+                    or z[0] < clip[0][0]
+                    or z[0] > clip[0][1]
+                    or z[1] < clip[1][0]
+                    or z[1] > clip[1][1]
+                )
+            ]
+        ),
+        key=itemgetter(0, 1, 2),
+    )
 
     # Create bins
-    x = np.linspace(min(data['param1'].values.flatten()), max(data['param1'].values.flatten()), bins[0])
-    y = np.linspace(min(data['param2'].values.flatten()), max(data['param2'].values.flatten()), bins[1])
+    x = np.linspace(
+        min(data["param1"].values.flatten()),
+        max(data["param1"].values.flatten()),
+        bins[0],
+    )
+    y = np.linspace(
+        min(data["param2"].values.flatten()),
+        max(data["param2"].values.flatten()),
+        bins[1],
+    )
     z = np.zeros(bins)
     dx, dy = (x[1] - x[0]), (y[1] - y[0])
     bin_no_x = 1
@@ -129,18 +179,25 @@ def joint_density(data: xr.Dataset,
         z[bin_no_x - 1][bin_no_y - 1] += point[2]
 
     # Normalise z to 1
-    z /= (np.sum(z) * dx * dy)
+    z /= np.sum(z) * dx * dy
 
-    coords.update({'x': x, 'y': y})
+    coords.update({"x": x, "y": y})
 
     # Combine into a xr.Dataset
-    return xr.Dataset(data_vars=dict(prob=(['x', 'y'], z)), coords=coords)
+    return xr.Dataset(data_vars=dict(prob=(["x", "y"], z)), coords=coords)
 
 
-@is_operation('NeuralABM.compute_mode')
+@is_operation("NeuralABM.compute_mode")
 @apply_along_dim
-def compute_mode(data: xr.Dataset, *, coords: dict = None, x: str = 'param1', p: str = 'prob', dim: str = 'bin_idx'):
-    """ Computes the x-coordinate of the mode of a one-dimensional dataset consisting of x-values and probabilities"""
+def compute_mode(
+    data: xr.Dataset,
+    *,
+    coords: dict = None,
+    x: str = "param1",
+    p: str = "prob",
+    dim: str = "bin_idx"
+):
+    """Computes the x-coordinate of the mode of a one-dimensional dataset consisting of x-values and probabilities"""
     coords = data.coords if coords is None else coords
 
     idx_max = data[p].idxmax(dim=dim)
@@ -149,10 +206,12 @@ def compute_mode(data: xr.Dataset, *, coords: dict = None, x: str = 'param1', p:
     return xr.Dataset(data_vars=dict(mode=mode), coords=coords)
 
 
-@is_operation('NeuralABM.compute_mean')
+@is_operation("NeuralABM.compute_mean")
 @apply_along_dim
-def compute_mean(data: xr.Dataset, *, coords: dict = None, x: str = 'param1', p: str = 'prob'):
-    """ Computes the mean of a one-dimensional dataset consisting of x-values and probabilities"""
+def compute_mean(
+    data: xr.Dataset, *, coords: dict = None, x: str = "param1", p: str = "prob"
+):
+    """Computes the mean of a one-dimensional dataset consisting of x-values and probabilities"""
     coords = data.coords if coords is None else coords
 
     dx = data[x].values[1] - data[x].values[0]
@@ -161,10 +220,12 @@ def compute_mean(data: xr.Dataset, *, coords: dict = None, x: str = 'param1', p:
     return xr.Dataset(data_vars=dict(mean=mean), coords=coords)
 
 
-@is_operation('NeuralABM.compute_std')
+@is_operation("NeuralABM.compute_std")
 @apply_along_dim
-def compute_std(data: xr.Dataset, *, coords: dict = None, x: str = 'param1', p: str = 'prob'):
-    """ Computes the standard deviation of a one-dimensional dataset consisting of x-values and probabilities"""
+def compute_std(
+    data: xr.Dataset, *, coords: dict = None, x: str = "param1", p: str = "prob"
+):
+    """Computes the standard deviation of a one-dimensional dataset consisting of x-values and probabilities"""
     coords = data.coords if coords is None else coords
 
     dx = data[x].values[1] - data[x].values[0]
@@ -174,9 +235,11 @@ def compute_std(data: xr.Dataset, *, coords: dict = None, x: str = 'param1', p: 
     return xr.Dataset(data_vars=dict(std=std), coords=coords)
 
 
-@is_operation('NeuralABM.compute_avg_peak_widths')
+@is_operation("NeuralABM.compute_avg_peak_widths")
 @apply_along_dim
-def compute_avg_peak_widths(data: xr.Dataset, *, coords: dict = None, dim: str = 'prob', **kwargs) -> xr.Dataset:
+def compute_avg_peak_widths(
+    data: xr.Dataset, *, coords: dict = None, dim: str = "prob", **kwargs
+) -> xr.Dataset:
     """Computes the average peak width using the scipy.signal.peaks function
 
     :param data: the dataset
@@ -187,7 +250,6 @@ def compute_avg_peak_widths(data: xr.Dataset, *, coords: dict = None, dim: str =
     """
 
     peaks = scipy.signal.find_peaks(data[dim], **kwargs)
-    mean, std = np.mean(peaks[1]['widths']), np.std(peaks[1]['widths'])
+    mean, std = np.mean(peaks[1]["widths"]), np.std(peaks[1]["widths"])
 
     return xr.Dataset(data_vars=dict(mean=mean, std=std), coords=coords)
-
