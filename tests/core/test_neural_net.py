@@ -1,5 +1,6 @@
 import sys
 from os.path import dirname as up
+from typing import Sequence
 
 import torch
 from dantro._import_tools import import_module_from_path
@@ -37,18 +38,30 @@ def test_initialisation():
         assert net.layers[0].in_features == input_size
         assert net.layers[-1].out_features == output_size
 
-        bias = config.pop("bias", False)
+        biases = config.pop("biases", None)
 
         for idx, layer in enumerate(net.layers):
 
             # Check whether layer has bias. If bias, check that bias values are within given interval
-            if not bias:
-                assert layer.bias == None
-            else:
+            if biases is None:
+                assert layer.bias is None
+
+            elif isinstance(biases, Sequence):
                 assert [
-                    config["init_bias"][0] <= b <= config["init_bias"][1]
+                    biases[0] <= b <= biases[1]
                     for b in layer.bias
                 ]
+            else:
+                if idx in biases.keys():
+                    if biases[idx] is None:
+                        assert layer.bias is None
+                    else:
+                        assert [
+                            biases[idx][0] <= b <= biases[idx][1]
+                            for b in layer.bias
+                        ]
+                else:
+                    assert layer.bias is None
 
             # Check the layers have correct dimensions
             if idx == 0:

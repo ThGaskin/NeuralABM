@@ -17,8 +17,6 @@ NeuralNet:
   nodes_per_layer: !is-positive-int 20
   activation_funcs:
     -1: abs
-  bias: !is-bool False
-  init_bias: [0, 1]
   learning_rate: !is-positive 0.002
 
 Training:

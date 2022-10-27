@@ -1,8 +1,13 @@
-from typing import Any, List, Union
+from typing import Any, List, Sequence, Union
 
 import torch
 from torch import nn
 
+# ----------------------------------------------------------------------------------------------------------------------
+# -- NN utility functions ----------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+
+# Pytorch activation functions.
 # Pairs of activation functions and whether they are part of the torch.nn module, in which case they must be called
 # via func(*args, **kwargs)(x).
 
@@ -38,36 +43,34 @@ ACTIVATION_FUNCS = {
     "threshold": [torch.nn.Threshold, True],
 }
 
-# ----------------------------------------------------------------------------------------------------------------------
-# -- NN utility function -----------------------------------------------------------------------------------------------
-# ----------------------------------------------------------------------------------------------------------------------
-
 
 def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[Any]:
+
     """Extracts the activation functions from the config. The config is a dictionary, with the keys representing
     the layer number, and the entry the activation function to use. Alternatively, the config can also be a single
-    string, which is then applied to the entire neural net.
+    string, which is then applied to the entire neural net. Empty or missing entries are interpreted as linear layers.
 
-    Example:
+    .. Example 1:
         activation_funcs: abs    # applies the absolute value to the entire neural net
-    Example:
+    .. Example 2:
         activation_funcs:        # applies the nn.Hardtanh activation function to the entire neural net
           name: HardTanh
           args:
             - -2
             - 2
-    Example:
-        activation_funcs:
+    .. Example 3:
+        activation_funcs:       # applies different activation functions without kwargs to individual layers
           0: abs
           1: relu
           2: tanh
     """
 
+    # Return linear activation functions by default
     funcs = [None] * (n_layers + 1)
-
     if cfg is None:
         return funcs
 
+    # If entry is a single activation, apply to all layers using default args and kwargs (if required)
     elif isinstance(cfg, str):
         _f = ACTIVATION_FUNCS[cfg.lower()]
         if _f[1]:
@@ -107,6 +110,39 @@ def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[An
         raise ValueError(f"Unrecognised argument {cfg} for 'activation_funcs'!")
 
 
+def get_bias(n_layers: int, cfg: Union[Sequence, dict] = None) -> List[Any]:
+
+    """Extracts the bias initialisations from the config. The config is a dictionary, with the keys representing
+    the layer number, and the entry the interval on which to uniformly initialise the bias.
+    Alternatively, the config can also be a single interval, which is then applied to the entire neural net.
+    Empty or missing entries are interpreted as unbiased layers.
+
+    .. Example 1:
+        bias: [0, 1]             # initialises all biases on [0, 1]
+    .. Example 2:
+        activation_funcs:       # applies different bias initialisations to individual layers
+          0: [-1, 1]
+          1: [1, 2]
+          2: None
+    """
+
+    # Return unbiased layers by default
+    biases = [None] * (n_layers + 1)
+    if cfg is None:
+        return biases
+
+    # If entry is a single interval, apply to all layers
+    elif isinstance(cfg, Sequence):
+        return [cfg] * (n_layers + 1)
+
+    elif isinstance(cfg, dict):
+        for idx, entry in cfg.items():
+            biases[idx] = entry
+        return biases
+    else:
+        raise ValueError(f"Unrecognised argument {cfg} for 'bias'!")
+
+
 # -----------------------------------------------------------------------------
 # -- Neural net class ---------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -136,10 +172,9 @@ class NeuralNet(nn.Module):
         num_layers: int,
         nodes_per_layer: int,
         activation_funcs: dict = None,
+        biases: Union[Sequence, dict] = None,
         optimizer: str = "Adam",
         learning_rate: float = 0.001,
-        bias: bool = False,
-        init_bias: tuple = None,
         **__,
     ):
         """
@@ -149,9 +184,8 @@ class NeuralNet(nn.Module):
         :param num_layers: the number of hidden layers
         :param nodes_per_layer: the number of neurons in the hidden layers
         :param activation_funcs: a dictionary specifying the activation functions to use
+        :param biases: (optional) a dictionary containing the initialisation parameters for the bias
         :param learning_rate: the learning rate of the optimizer
-        :param bias: whether to initialise the layers with a bias
-        :param init_bias: the interval from which to uniformly initialise the bias
         :param __: Additional model parameters (ignored)
         """
 
@@ -161,19 +195,21 @@ class NeuralNet(nn.Module):
         self.input_dim = input_size
         self.output_dim = output_size
         self.hidden_dim = num_layers
+
+        # Get architecture, inc
+        self.architecture = [input_size] + [nodes_per_layer] * num_layers + [output_size]
         self.activation_funcs = get_activation_funcs(num_layers, activation_funcs)
-        architecture = [input_size] + [nodes_per_layer] * num_layers + [output_size]
+        self.bias = get_bias(num_layers, biases)
 
         # Add the neural net layers
         self.layers = nn.ModuleList()
-        for i in range(len(architecture) - 1):
-            layer = nn.Linear(architecture[i], architecture[i + 1], bias=bias)
+        for i in range(len(self.architecture) - 1):
+            layer = nn.Linear(self.architecture[i], self.architecture[i + 1], bias=self.bias[i] is not None)
 
-            # Initialise the biases of the layers with a uniform distribution on init_bias
-            if bias and init_bias is not None:
-                torch.nn.init.uniform_(layer.bias, init_bias[0], init_bias[1])
+            # Initialise the biases of the layers with a uniform distribution
+            if self.bias[i] is not None:
+                torch.nn.init.uniform_(layer.bias, self.bias[i][0], self.bias[i][1])
             self.layers.append(layer)
-
         # Get the optimizer
         self.optimizer = self.OPTIMIZERS[optimizer](self.parameters(), lr=learning_rate)
 
