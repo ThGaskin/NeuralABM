@@ -14,8 +14,7 @@ parameter_space:
     NeuralNet:
       num_layers: 1
       nodes_per_layer: 20
-      bias: True
-      init_bias: [0, 1]
+      biases: [0, 1]
       activation_funcs:
         -1: abs
       learning_rate: 0.002

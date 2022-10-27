@@ -4,6 +4,7 @@ from os.path import dirname as up
 import pytest
 import torch
 from dantro._import_tools import import_module_from_path
+from dantro._yaml import load_yml
 from pkg_resources import resource_filename
 
 sys.path.insert(0, up(up(up(__file__))))
