@@ -21,8 +21,7 @@ parameter_space:
       nodes_per_layer: 20
       activation_funcs:
         -1: abs
-      bias: True
-      init_bias: [ 0, 4 ]
+      biases: [ 0, 4 ]
       learning_rate: 0.002
       optimizer: Adam
 
