@@ -1,17 +1,49 @@
 loss:
   based_on: loss
+  helpers:
+    set_scales:
+      y: log
 
 true_graph:
   based_on: graph
   graph_creation:
-    at_time_idx: 0
+    at_time_idx: -1
+    edge_props: [ _edge_weights, _interaction ]
+  graph_drawing:
+    edges:
+      edge_color:
+        from_property: _interaction
+      edge_cmap: !cmap
+        from_values:
+          0: red
+          1: black
+      width: 0.5
 
 predicted_graph:
   based_on: graph
   select:
     graph_group: data/predicted_network
     opinions: data/opinion_data/predicted_opinions
+  graph_creation:
+    node_props: [opinions, _in_degree_weighted]
+  graph_drawing:
+    nodes:
+      node_size:
+        from_property: _in_degree_weighted
+    edges:
+      arrows: False
+      width: 0.5
 
+adjacency_matrix:
+  based_on: adjacency_matrix
+
+network_size:
+  based_on: loss
+  select:
+    data: data/training_data/network_size
+  helpers:
+    set_labels:
+      x: iteration
 
 opinion_comparison:
   based_on: opinion_comparison
@@ -29,14 +61,14 @@ properties:
             drop: True
         - .data: [!dag_prev ]
     predicted_out_degree:
-      path: data/predicted_network/_out_degree_weighted
+      path: data/predicted_network/_out_degree
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
           kwargs:
             drop: True
         - .data: [ !dag_prev ]
     predicted_in_degree:
-      path: data/predicted_network/_in_degree_weighted
+      path: data/predicted_network/_in_degree
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
           kwargs:
@@ -50,7 +82,7 @@ properties:
             drop: True
         - .data: [ !dag_prev ]
     predicted_clustering:
-      path: data/predicted_network/_clustering_weighted
+      path: data/predicted_network/_clustering
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
           kwargs:

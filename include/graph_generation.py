@@ -19,18 +19,24 @@ def connect_isolates(G: nx.Graph) -> nx.Graph:
     return G
 
 
-def generate_graph(*, N: int, mean_degree: int, type: str, seed: int = None, graph_props: dict = None):
+def generate_graph(
+    *, N: int, mean_degree: int, type: str, seed: int = None, graph_props: dict = None
+):
     # Random graphs
-    if type == 'random':
+    if type == "random":
 
-        is_directed: bool = graph_props['is_directed']
+        is_directed: bool = graph_props["is_directed"]
 
-        return connect_isolates(nx.fast_gnp_random_graph(N, mean_degree / (N - 1), directed=is_directed, seed=seed))
+        return connect_isolates(
+            nx.fast_gnp_random_graph(
+                N, mean_degree / (N - 1), directed=is_directed, seed=seed
+            )
+        )
 
     # Small-world (Watts-Strogatz) graph
-    elif type == 'WattsStrogatz':
+    elif type == "WattsStrogatz":
 
-        p: float = graph_props['WattsStrogatz']['p_rewire']
+        p: float = graph_props["WattsStrogatz"]["p_rewire"]
 
         return connect_isolates(nx.watts_strogatz_graph(N, mean_degree, p, seed))
 

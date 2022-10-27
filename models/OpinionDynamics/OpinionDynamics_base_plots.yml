@@ -31,12 +31,12 @@
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[yellow]:}', 
-                              '{colors[darkblue]:}', 
-                              '{colors[red]:}', 
-                              '{colors[skyblue]:}', 
-                              '{colors[green]:}', 
-                              '{colors[lightbrown]:}', 
+      fstr: "cycler('color', ['{colors[yellow]:}',
+                              '{colors[darkblue]:}',
+                              '{colors[red]:}',
+                              '{colors[skyblue]:}',
+                              '{colors[green]:}',
+                              '{colors[lightbrown]:}',
                               ])"
       colors: *colors
     axes.grid:          True
@@ -89,6 +89,9 @@ graph:
     edge_props: [_edge_weights]
 
   graph_drawing:
+    positions:
+      model: spring
+      k: 20
     nodes:
       node_size:
         from_property: degree
@@ -114,6 +117,44 @@ graph:
       width:
         from_property: _edge_weights
         scale_to_interval: [0, 1]
+
+adjacency_matrix:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.scatter
+  select:
+    edges_i:
+      path: data/predicted_network/_edges
+      transform:
+        - .isel: [!dag_prev , {time: -1, vertex_idx: 0}]
+          kwargs:
+            drop: true
+    edges_j:
+      path: data/predicted_network/_edges
+      transform:
+        - .isel: [!dag_prev , {time: -1, vertex_idx: 1} ]
+          kwargs:
+            drop: true
+    edge_weights:
+      path: data/predicted_network/_edge_weights
+      transform:
+        - .isel: [!dag_prev , { time: -1 } ]
+  transform:
+    - xr.Dataset:
+      - i: !dag_tag edges_i
+        j: !dag_tag edges_j
+        weight: !dag_tag edge_weights
+      tag: data
+  x: i
+  y: j
+  hue: weight
+  s: 1
+  marker: s
+  cmap:
+    from_values:
+      0: white
+      1: black
+    continuous: true
 
 # -- Opinion plot ------------------------------------------------------------------------------------------------------
 opinions:
@@ -166,8 +207,3 @@ loss:
   helpers:
     set_labels:
       x: iteration
-      y: Training loss
-    set_scales:
-      y: log
-
-

@@ -23,8 +23,9 @@ NeuralNet:
   nodes_per_layer: !is-positive-int 20
   activation_funcs:
     -1: sigmoid
-  bias: !is-bool True
-  init_bias: [0, 1]
+  bias:
+    0: [0, 1]
+    1: [0, 1]
   learning_rate: !is-positive 0.002
 
 Training:
@@ -38,4 +39,3 @@ Training:
 
 # Whether to write out the training time
 write_time: False
-
