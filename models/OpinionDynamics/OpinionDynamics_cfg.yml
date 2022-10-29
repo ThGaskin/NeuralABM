@@ -13,6 +13,7 @@ Data:
           p_rewire: !is-probability 0.2
 
     epsilon: !is-in-unit-interval &epsilon 0.3
+    smoothing: !is-positive &smoothing 1000
     mu: !is-in-unit-interval &mu 0.3
     sigma: !is-positive-or-zero &sigma 0.5
     num_steps: !is-positive-int 60
@@ -20,21 +21,24 @@ Data:
 # Neural net configuration
 NeuralNet:
   num_layers: !is-positive-int 1
-  nodes_per_layer: !is-positive-int 20
+  nodes_per_layer:
+    default: !is-positive-int 20
   activation_funcs:
-    -1: sigmoid
+    default: linear
   bias:
-    0: [0, 1]
-    1: [0, 1]
+    default: None
   learning_rate: !is-positive 0.002
 
 Training:
   batch_size: !is-positive-int 1
+  loss_function:
+    name: MSELoss
   to_learn: [ network ]
   true_parameters:
     epsilon: *epsilon
     mu: *mu
     sigma: *sigma
+    smoothing: *smoothing
   device: cpu
 
 # Whether to write out the training time

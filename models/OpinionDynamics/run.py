@@ -30,6 +30,31 @@ coloredlogs.install(fmt="%(levelname)s %(message)s", level="INFO", logger=log)
 
 
 class OpinionDynamics_NN:
+
+    LOSS_FUNCTIONS = {
+        "l1loss": torch.nn.L1Loss,
+        "mseloss": torch.nn.MSELoss,
+        "crossentropyloss": torch.nn.CrossEntropyLoss,
+        "ctcloss": torch.nn.CTCLoss,
+        "nllloss": torch.nn.NLLLoss,
+        "poissonnllloss": torch.nn.PoissonNLLLoss,
+        "gaussiannllloss": torch.nn.GaussianNLLLoss,
+        "kldivloss": torch.nn.KLDivLoss,
+        "bceloss": torch.nn.BCELoss,
+        "bcewithlogitsloss": torch.nn.BCEWithLogitsLoss,
+        "marginrankingloss": torch.nn.MarginRankingLoss,
+        "hingeembeddingloss": torch.nn.HingeEmbeddingLoss,
+        "multilabelmarginloss": torch.nn.MultiLabelMarginLoss,
+        "huberloss": torch.nn.HuberLoss,
+        "smoothl1loss": torch.nn.SmoothL1Loss,
+        "softmarginloss": torch.nn.SoftMarginLoss,
+        "multilabelsoftmarginloss": torch.nn.MultiLabelSoftMarginLoss,
+        "cosineembeddingloss": torch.nn.CosineEmbeddingLoss,
+        "multimarginloss": torch.nn.MultiMarginLoss,
+        "tripletmarginloss": torch.nn.TripletMarginLoss,
+        "tripletmarginwithdistanceloss": torch.nn.TripletMarginWithDistanceLoss
+    }
+
     def __init__(
         self,
         name: str,
@@ -38,6 +63,7 @@ class OpinionDynamics_NN:
         training_data_group: h5.Group,
         pred_nw_group: h5.Group = None,
         neural_net: base.NeuralNet,
+        loss_function: dict,
         ABM: OpinionDynamics.OpinionDynamics_ABM,
         to_learn: list,
         num_agents: int,
@@ -77,6 +103,8 @@ class OpinionDynamics_NN:
         self.ABM = ABM
         self.neural_net = neural_net
         self.neural_net.optimizer.zero_grad()
+        self.loss_function = self.LOSS_FUNCTIONS[loss_function.get("name").lower()](loss_function.get("args", None),
+                                                                                    **loss_function.get("kwargs", {}))
 
         self.n_params = n_params
         self.num_agents = num_agents
@@ -305,20 +333,19 @@ class OpinionDynamics_NN:
                 # Calculate loss
                 loss = (
                     loss
-                    + torch.nn.functional.l1_loss(current_values, training_data[ele])
+                    + self.loss_function(current_values, training_data[ele])
                     / batch_size
                 )
 
-                # Penalise the trace (cannot be learned)
-                loss = (
-                    loss
-                    + torch.trace(
-                        torch.reshape(
-                            predicted_parameters, (self.num_agents, self.num_agents)
-                        )
+            # Penalise the trace (cannot be learned)
+            loss = (
+                loss
+                + torch.trace(
+                    torch.reshape(
+                        predicted_parameters, (self.num_agents, self.num_agents)
                     )
-                    / batch_size
                 )
+            )
 
             loss.backward()
             self.neural_net.optimizer.step()
@@ -533,6 +560,7 @@ if __name__ == "__main__":
         num_agents=num_agents,
         n_params=output_size,
         neural_net=net,
+        loss_function=model_cfg["Training"]["loss_function"],
         ABM=ABM,
         to_learn=model_cfg["Training"]["to_learn"],
         num_steps=len(training_data),
@@ -551,8 +579,7 @@ if __name__ == "__main__":
         model.epoch(
             training_data=training_data, batch_size=batch_size
         )
-
-        log.progress(f"   Completed epoch {i + 1} / {num_epochs}.")
+        log.progress(f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}")
 
     log.progress("   Generating predicted dataset ...")
 

@@ -13,6 +13,7 @@ class OpinionDynamics_ABM:
         N: int,
         network: nx.Graph = None,
         epsilon: float = None,
+        smoothing: float = None,
         mu: float = None,
         sigma: float = None,
         init_values: torch.Tensor = None
@@ -31,6 +32,7 @@ class OpinionDynamics_ABM:
 
         # Scalar parameters
         self.epsilon = epsilon
+        self.smoothing = smoothing
         self.mu = mu
         self.sigma = sigma
 
@@ -42,6 +44,7 @@ class OpinionDynamics_ABM:
             "epsilon": epsilon,
             "mu": mu,
             "sigma": sigma,
+            "smoothing": smoothing,
             "network": network,
         }.items():
             if p is None:
@@ -145,6 +148,11 @@ class OpinionDynamics_ABM:
             if "mu" not in self.to_learn.keys()
             else input_data[self.to_learn["mu"]]
         )
+        smoothing = (
+            self.smoothing
+            if "smoothing" not in self.to_learn.keys()
+            else input_data[self.to_learn["smoothing"]]
+        )
 
         # Neural net output overrides passed noise level, which in turn overrides model default
         # TODO: add noise
@@ -163,12 +171,12 @@ class OpinionDynamics_ABM:
         diffs = current_values - torch.reshape(current_values, (self.N,))
 
         # Get the interaction kernel, replacing the step function with a smooth sigmoid approximation
-        kernel = torch.sigmoid(1000 * (epsilon - torch.abs(diffs)))
+        kernel = torch.sigmoid(smoothing * (epsilon - torch.abs(diffs)))
 
         # Normalisation values
         norms = torch.maximum(
             torch.reshape(
-                torch.matmul(torch.ceil(adj_matrix), kernel).diag(), (self.N, 1)
+                torch.matmul(adj_matrix, kernel).diag(), (self.N, 1)
             ),
             torch.ones_like(current_values),
         )
