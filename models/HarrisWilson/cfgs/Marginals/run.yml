@@ -27,12 +27,17 @@ parameter_space:
         name: sigma
     NeuralNet:
       num_layers: 1
-      nodes_per_layer: 20
+      nodes_per_layer:
+        default: 20
       activation_funcs:
-        -1: abs
-      biases: [0, 4]
+        default: linear
+        layer_specific:
+          -1: abs
+      biases:
+        default: [0, 4]
       learning_rate: 0.002
       optimizer: Adam
     Training:
+      loss_function: MSELoss
       batch_size: 1
       to_learn: [alpha, beta, kappa, sigma]

@@ -1,6 +1,5 @@
 import sys
 from os.path import dirname as up
-from typing import Sequence
 
 import torch
 from dantro._import_tools import import_module_from_path
@@ -25,6 +24,7 @@ test_data, train_data = torch.rand((10, 10), dtype=torch.float), torch.rand(
 input_size = output_size = test_data.shape[1]
 num_epochs = 10
 
+
 # Test initialisation of the layers with activation functions and bias
 def test_initialisation():
     for _, config in test_cfg.items():
@@ -32,46 +32,49 @@ def test_initialisation():
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
         assert net
+
+        # Assert correct number of layers
         assert (
-            len(net.layers) == config["num_layers"] + 1
-        )  # input layer + number of hidden layers
+            len(net.layers) == config["num_layers"] + 1  # input layer + number of hidden layers
+        )
+
+        # Assert correct input size
         assert net.layers[0].in_features == input_size
+
+        # Assert correct output size
         assert net.layers[-1].out_features == output_size
 
-        biases = config.pop("biases", None)
+        # Assert correct dimensions of hidden layers
+        layer_cfg: dict = config["nodes_per_layer"]
+        layer_specific_cfg: dict = layer_cfg.get("layer_specific", {})
+        hidden_layers = net.layers[1:-1]
+        for idx, layer in enumerate(hidden_layers):
 
+            if idx in layer_specific_cfg.keys():
+                assert layer.in_features == layer_specific_cfg[idx]
+            else:
+                assert layer.in_features == layer_cfg["default"]
+
+            assert layer.out_features == net.layers[idx + 2].in_features
+
+        # Assert correct bias on each layer
+        bias_default: dict = config.get("biases").get("default")
+        bias_layer_specific: dict = config.get("biases").get("layer_specific", {})
+        if -1 in bias_layer_specific.keys():
+            bias_layer_specific[len(net.layers)-1] = bias_layer_specific.pop(-1)
         for idx, layer in enumerate(net.layers):
 
-            # Check whether layer has bias. If bias, check that bias values are within given interval
-            if biases is None:
-                assert layer.bias is None
-
-            elif isinstance(biases, Sequence):
+            if idx in bias_layer_specific.keys():
                 assert [
-                    biases[0] <= b <= biases[1]
+                    bias_layer_specific[idx][0] <= b <= bias_layer_specific[idx][1]
                     for b in layer.bias
                 ]
-            else:
-                if idx in biases.keys():
-                    if biases[idx] is None:
-                        assert layer.bias is None
-                    else:
-                        assert [
-                            biases[idx][0] <= b <= biases[idx][1]
-                            for b in layer.bias
-                        ]
-                else:
-                    assert layer.bias is None
 
-            # Check the layers have correct dimensions
-            if idx == 0:
-                assert layer.in_features == input_size
-            elif idx == len(net.layers) - 1:
-                assert layer.out_features == output_size
             else:
-                assert (
-                    layer.in_features == layer.out_features == config["nodes_per_layer"]
-                )
+                if bias_default is None:
+                    assert layer.bias is None
+                else:
+                    assert [bias_default[0] <= b <= bias_default[1] for b in layer.bias]
 
 
 # Test the model forward pass
@@ -80,19 +83,17 @@ def test_forward_pass():
 
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
-        activation_funcs = config.pop("activation_funcs", None)
+        activation_funcs: dict = config.get("activation_funcs")
 
         for x in train_data:
             y = net(x)
+
             assert len(y) == output_size
 
-            if activation_funcs and isinstance(activation_funcs, str):
-                if activation_funcs in ["abs", "sigmoid"]:
-                    assert (y >= 0).all()
-
-            elif activation_funcs and isinstance(activation_funcs, dict):
-                if list(activation_funcs.values())[-1] in ["sigmoid", "tanh"]:
-                    assert (torch.abs(y) <= 1).all()
+            if list(activation_funcs.values())[-1] in ["sigmoid", "tanh"]:
+                assert (torch.abs(y) <= 1).all()
+            elif activation_funcs in ["abs", "sigmoid"]:
+                assert (y >= 0).all()
 
 
 # Test the model trains using the optimizer
