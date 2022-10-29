@@ -19,9 +19,11 @@ parameter_space:
         origin_zones: data/HarrisWilson/London_data/origin_sizes.csv
         destination_zones: data/HarrisWilson/London_data/dest_sizes.csv
     NeuralNet:
-      biases: [ 0, 4 ]
+      biases:
+        default: [ 0, 4 ]
       num_layers: 1
-      nodes_per_layer: 20
+      nodes_per_layer:
+        default: 20
       optimizer: Adam
       learning_rate: 0.002
     Training:

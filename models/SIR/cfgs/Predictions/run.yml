@@ -13,12 +13,17 @@ parameter_space:
       load_from_dir: data/SIR/ABM_data/data/uni0/data.h5
     NeuralNet:
       num_layers: 1
-      nodes_per_layer: 20
-      biases: [0, 1]
+      nodes_per_layer:
+        default: 20
+      biases:
+        default: [0, 1]
       activation_funcs:
-        -1: abs
+        default: linear
+        layer_specific:
+          -1: abs
       learning_rate: 0.002
       optimizer: Adam
     Training:
+      loss_function: MSELoss
       batch_size: 90
       to_learn: [p_infect, t_infectious, sigma]
