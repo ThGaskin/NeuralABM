@@ -35,7 +35,7 @@ def test_initialisation():
 
         # Assert correct number of layers
         assert (
-            len(net.layers) == config["num_layers"] + 1  # input layer + number of hidden layers
+                len(net.layers) == config["num_layers"] + 1  # input layer + number of hidden layers
         )
 
         # Assert correct input size
@@ -47,21 +47,40 @@ def test_initialisation():
         # Assert correct dimensions of hidden layers
         layer_cfg: dict = config["nodes_per_layer"]
         layer_specific_cfg: dict = layer_cfg.get("layer_specific", {})
-        hidden_layers = net.layers[1:-1]
+        if -1 in layer_specific_cfg.keys():
+            layer_specific_cfg[len(net.layers) - 2] = layer_specific_cfg.pop(-1)
+        hidden_layers = net.layers[1:]
+
+        # Assert all settings have been checked
+        checked = {key: False for key in layer_specific_cfg.keys()}
+
+        # Check layers have correct number of nodes
         for idx, layer in enumerate(hidden_layers):
 
             if idx in layer_specific_cfg.keys():
                 assert layer.in_features == layer_specific_cfg[idx]
+                checked[idx] = True
             else:
                 assert layer.in_features == layer_cfg["default"]
 
-            assert layer.out_features == net.layers[idx + 2].in_features
+            if idx != len(net.layers) - 2:
+                assert layer.out_features == net.layers[idx + 2].in_features
+            elif idx == len(net.layers) - 2:
+                assert layer.out_features == output_size
+
+        if checked:
+            assert all(item for item in list(checked.values()))
+        del checked
 
         # Assert correct bias on each layer
         bias_default: dict = config.get("biases").get("default")
         bias_layer_specific: dict = config.get("biases").get("layer_specific", {})
         if -1 in bias_layer_specific.keys():
-            bias_layer_specific[len(net.layers)-1] = bias_layer_specific.pop(-1)
+            bias_layer_specific[len(net.layers) - 1] = bias_layer_specific.pop(-1)
+
+        # Assert all settings have been checked
+        checked = {key: False for key in bias_layer_specific.keys()}
+
         for idx, layer in enumerate(net.layers):
 
             if idx in bias_layer_specific.keys():
@@ -69,12 +88,16 @@ def test_initialisation():
                     bias_layer_specific[idx][0] <= b <= bias_layer_specific[idx][1]
                     for b in layer.bias
                 ]
+                checked[idx] = True
 
             else:
                 if bias_default is None:
                     assert layer.bias is None
                 else:
                     assert [bias_default[0] <= b <= bias_default[1] for b in layer.bias]
+
+        if checked:
+            assert all(item for item in list(checked.values()))
 
 
 # Test the model forward pass
@@ -105,7 +128,6 @@ def test_training():
         for it in range(num_epochs):
 
             for idx, x in enumerate(train_data):
-
                 # Perform a single training step
                 loss = torch.tensor(0.0, requires_grad=True)
                 net.optimizer.zero_grad()
