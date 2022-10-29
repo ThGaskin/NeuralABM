@@ -13,7 +13,20 @@ and plotting.
 
 > **_Note_**: See 'Configuration sets' below for guidance on how to reproduce the plots from the
 > publication, once you have completed installation.
+
+> **_Hint_**: If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
 >
+### Contents of this README
+* [How to install](#how-to-install)
+* [How to run a model](#how-to-run-a-model)
+* [Parameter sweeps](#parameter-sweeps)
+* [Running a model using configuration sets](#running-a-model-using-configuration-sets)
+* [How to adjust the neural net configuration](#how-to-adjust-the-neural-net-configuration)
+* [Training settings](#training-settings)
+  * [Changing the loss function](#changing-the-loss-function)
+* [Loading data](#loading-data)
+* [Tests (WIP)](#-tests-wip)
+
 ## How to install
 #### 1. Clone this repository
 Clone this repository using a link obtained from 'Code' button (for non-developers, use HTTPS):
@@ -183,7 +196,7 @@ providing the path to that dataset, like so:
 ```console
 utopya eval HarrisWilson path/to/output/folder --cfg-set <name_of_cfg_set>
 ```
-## How to adjust the neural net configurations
+## How to adjust the neural net configuration
 You can vary the size of the neural net and the activation functions
 right from the config. The size of the input layer is inferred from
 the data passed to it, and the size of the output layer is
@@ -194,42 +207,46 @@ config:
 ```yaml
 NeuralNet:
   num_layers: 6
-  nodes_per_layer: 20
+  nodes_per_layer: 
+    default: 20
+    layer_specific:
+      0: 10
   activation_funcs:
-    0: sine
-    1: cosine
-    2: tanh
-    -1: abs
-  bias: True
-  init_bias: [0, 4]
+    default: sigmoid
+    layer_specific:
+      0: sine
+      1: cosine
+      2: tanh
+      -1: abs
+  bias: 
+    default: [0, 4]
+    layer_specific:
+      1: [-1, 1]
   learning_rate: 0.002
 ```
-``num_layers`` and ``nodes_per_layer`` give the structure of the hidden layers (hidden layers
-with different numbers of nodes is not yet supported).
-``bias`` controls use of the bias, and the ``init_bias`` sets the initialisation interval for the
-bias. The ``activation_funcs`` dictionary
-allows specifying the activation function on each layer: just add the number of the layer together
-with the name of a
-[pytorch activation function](https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity),
-such as ``relu``, ``linear``, ``tanh``, ``sigmoid``, etc. You can also provide a single activation function
-for all layers:
-```yaml
-NeuralNet:
-  activation_funcs: sigmoid
-```
-Some activation functions take arguments and keyword arguments; these can be provided like this:
+``num_layers`` sets the number of hidden layers. ``nodes_per_layer``, ``activation_funcs``, and ``biases`` are 
+dictionaries controlling the structure of the hidden layers. Each requires a ``default`` key
+giving the default value, applied to all layers. An optional ``layer_specific`` entry
+controls any deviations from the default on specific layers; in the above example, 
+all layers have 20 nodes by default, use a sigmoid activation function, and have a bias
+which is initialised uniformly at random on [0, 4]. Layer-specific settings are then provided.
+
+Any [pytorch activation function](https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity)
+is supported, such as ``relu``, ``linear``, ``tanh``, ``sigmoid``, etc. Some activation functions take arguments and 
+keyword arguments; these can be provided like this:
 
 ```yaml
 NeuralNet:
   num_layers: 6
   nodes_per_layer: 20
   activation_funcs:
-    name: Hardtanh
-    args:
-      - -2 #min_value
-      - +2 #max_value
-    kwargs:
-      # kwargs here ...
+    default:
+        name: Hardtanh
+        args:
+          - -2 # min_value
+          - +2 # max_value
+        kwargs:
+          # any kwargs here ...
 ```
 
 ## Training settings
@@ -239,6 +256,8 @@ You can modify the training settings, such as the batch size or the training dev
 ```yaml
 Training:
   batch_size: 1
+  loss_function:
+    name: MSELoss
   to_learn: [ param1, param2, param3 ]
   true_parameters:
     param4: 0.5
@@ -259,6 +278,18 @@ can be specified under `worker_managers/num_workers` on the root-level configura
 `parameter_space`). The `Training/num_threads` entry controls the number of threads *per model run* to be used during training.
 If you thus set `num_workers` to 4 and `num_threads` to 3, you will in total be able to use 12 threads.
 
+### Changing the loss function
+You can set the ``loss_function/name`` argument to point to any supported
+[Pytorch loss function](https://pytorch.org/docs/stable/nn.html#loss-functions). Additional arguments to
+the loss function can be passed via an optional ``args`` and ``kwargs`` entry:
+
+```yaml
+loss_function:
+  name: CTCLoss
+  args:
+    - 1  # blank
+    - 'sum' # reduction to use
+```
 ## Loading data
 See the model-specific README files to see how to load different types of data. Data is stored in the `data/`
 folder.
