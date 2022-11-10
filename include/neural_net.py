@@ -7,8 +7,9 @@ from torch import nn
 # -- NN utility functions ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
 
+
 def sigmoid(beta=torch.tensor(1.0)):
-    """ Extends the torch.nn.sigmoid activation function by allowing for a slope parameter. """
+    """Extends the torch.nn.sigmoid activation function by allowing for a slope parameter."""
 
     return lambda x: torch.sigmoid(beta * x)
 
@@ -50,7 +51,9 @@ ACTIVATION_FUNCS = {
 }
 
 
-def get_architecture(input_size: int, output_size: int, n_layers: int, cfg: dict) -> List[int]:
+def get_architecture(
+    input_size: int, output_size: int, n_layers: int, cfg: dict
+) -> List[int]:
 
     # Apply default to all hidden layers
     _nodes = [cfg.get("default")] * n_layers
@@ -84,7 +87,7 @@ def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
 
     def _single_layer_func(layer_cfg: Union[str, dict]) -> callable:
 
-        """ Return the activation function from an entry for a single layer"""
+        """Return the activation function from an entry for a single layer"""
 
         # Entry is a single string
         if isinstance(layer_cfg, str):
@@ -199,14 +202,20 @@ class NeuralNet(nn.Module):
         self.hidden_dim = num_layers
 
         # Get architecture, activation functions, and layer bias
-        self.architecture = get_architecture(input_size, output_size, num_layers, nodes_per_layer)
+        self.architecture = get_architecture(
+            input_size, output_size, num_layers, nodes_per_layer
+        )
         self.activation_funcs = get_activation_funcs(num_layers, activation_funcs)
         self.bias = get_bias(num_layers, biases)
 
         # Add the neural net layers
         self.layers = nn.ModuleList()
         for i in range(len(self.architecture) - 1):
-            layer = nn.Linear(self.architecture[i], self.architecture[i + 1], bias=self.bias[i] is not None)
+            layer = nn.Linear(
+                self.architecture[i],
+                self.architecture[i + 1],
+                bias=self.bias[i] is not None,
+            )
 
             # Initialise the biases of the layers with a uniform distribution
             if self.bias[i] is not None:

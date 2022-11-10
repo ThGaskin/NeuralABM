@@ -35,7 +35,8 @@ def test_initialisation():
 
         # Assert correct number of layers
         assert (
-                len(net.layers) == config["num_layers"] + 1  # input layer + number of hidden layers
+            len(net.layers)
+            == config["num_layers"] + 1  # input layer + number of hidden layers
         )
 
         # Assert correct input size

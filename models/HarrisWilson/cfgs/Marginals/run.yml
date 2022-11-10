@@ -38,6 +38,5 @@ parameter_space:
       learning_rate: 0.002
       optimizer: Adam
     Training:
-      loss_function: MSELoss
       batch_size: 1
       to_learn: [alpha, beta, kappa, sigma]
