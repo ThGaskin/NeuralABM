@@ -9,6 +9,10 @@ scipy
 setuptools
 torch
 utopya>=1.1.3
+<<<<<<< Updated upstream
 xarray
 coloredlogs
 pre-commit
+=======
+xarray
+>>>>>>> Stashed changes

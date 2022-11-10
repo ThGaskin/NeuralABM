@@ -1,0 +1,42 @@
+---
+loss:
+  based_on: loss
+
+frobenius_loss:
+  based_on: loss
+  select:
+    data: data/output_data/frobenius_error
+
+properties/network_size:
+  based_on: network_size
+
+properties/degree:
+  based_on: degree
+
+properties/clustering:
+  based_on: clustering
+
+graphs/true_graph:
+  based_on: graph
+
+graphs/prediction:
+  based_on: graph
+  select:
+    graph_group: data/predicted_network
+
+matrices/true_adjacency_matrix:
+  based_on: adjacency_matrix
+
+matrices/prediction:
+  based_on: adjacency_matrix
+  select:
+    data: data/output_data/predictions
+
+matrices/accuracy:
+  based_on: accuracy
+
+matrices/accuracy_on_true_edges:
+  based_on: accuracy_on_true_edges
+
+matrices/accuracy_on_false_edges:
+  based_on: accuracy_on_false_edges

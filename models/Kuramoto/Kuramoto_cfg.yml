@@ -1,0 +1,40 @@
+Data:
+  synthetic_data:
+    N: !is-positive-int 100
+    network:
+      mean_degree: !is-positive-int 5
+      type: !param
+        default: random
+        dtype: str
+        is_any_of: [random, ErdosRenyi, WattsStrogatz, scale-free]
+      graph_props:
+        is_directed: !is-bool false
+        is_weighted: !is-bool true
+        WattsStrogatz:
+          p_rewire: !is-probability 0.2
+    sigma: !is-positive-or-zero &sigma 0.0
+    dt: !is-positive 0.01
+    num_steps: !is-positive-int 60
+    training_set_size: !is-positive-int 1
+
+# Neural net configuration
+NeuralNet:
+  num_layers: !is-positive-int 1
+  nodes_per_layer:
+    default: !is-positive-int 20
+  activation_funcs:
+    default: linear
+  biases:
+    default: ~
+  learning_rate: !is-positive 0.002
+
+Training:
+  batch_size: !is-positive-int 1
+  loss_function:
+    name: MSELoss
+  true_parameters:
+    sigma: *sigma
+  device: cpu
+
+# Whether to write out the training time
+write_time: False

@@ -1,0 +1,130 @@
+.variables:
+  colors: &colors
+    yellow: &yellow       '#F5DDA9'
+    darkblue: &darkblue     '#2F7194'
+    red: &red          '#ec7070'
+    skyblue: &skyblue      '#97c3d0'
+    green: &green        '#48675A'
+    lightbrown: &lightbrown   '#C6BFA2'
+    orange: &orange       '#EC9F7E'
+    lightgreen: &lightgreen   '#AFD8BC'
+    grey: &grey         '#3D4244'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:     &full_width         7.5
+    half_width:     &half_width         !expr 7.5 / 2
+    third_width:    &third_width        !expr 7.5 / 3
+    quarter_width:  &quarter_width      !expr 7.5 / 4
+    fifth_width:    &fifth_width        !expr 7.5 / 5
+    eighth_width:    &eighth_width      !expr 7.5 / 8
+
+# ======================================================================================================================
+
+# Training loss
+loss:
+  based_on: loss_stacked
+  transform:
+    - .mean: [!dag_tag values]
+      kwargs:
+        dim: seed
+    - .assign_coords: [!dag_prev , {training_data: [200, 100, 50, 40, 20, 10, 5]}]
+      tag: data
+  x: time
+  hue: training_data
+  helpers:
+    set_scales:
+      y: log
+    set_legend:
+      custom_labels: [$1 \times 200$, $2 \times 100$, $4 \times 50$, $5 \times 40$, $10 \times 20$, $20 \times 10$, $40 \times 5$]
+  style:
+    figure.figsize: [*half_width, *half_width]
+
+# Frobenius error
+frobenius_loss:
+  based_on: loss
+  select_and_combine:
+    fields:
+      values: data/output_data/frobenius_error
+  helpers:
+    set_labels:
+      y: Frobenius error $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_\mathrm{Fr}$
+
+# Network size comparison
+network_size:
+  based_on: .errorbands
+  select_and_combine:
+    fields:
+      sizes:
+        path: data/output_data/network_size
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+      true_size:
+        path: data/true_network/_edge_weights
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: { drop: true }
+          - len: [ !dag_node -1 ]
+          - mul: [ !dag_node -1, 2 ]
+  transform:
+    - .assign_coords: [!dag_tag sizes , {training_data: [ 200, 100, 50, 40, 20, 10, 5 ]}]
+      tag: sizes_reassigned
+    - .mean: [ !dag_prev ]
+      kwargs: { dim: seed }
+      tag: means
+    - .std: [ !dag_tag sizes_reassigned ]
+      kwargs: { dim: seed }
+    - xr.Dataset:
+      - y: !dag_tag means
+        yerr: !dag_prev
+      tag: data
+    - .isel: [!dag_tag true_size , { seed: -1, training_data: -1 }]
+      tag: nw_size
+  helpers:
+    set_hv_lines:
+      hlines:
+        - pos: !dag_result nw_size
+          color: gray
+          label: $\vert E \vert$
+          linestyle: dashed
+    set_labels:
+      x: Training data size
+      y: '$\vert \hat{E} \vert$'
+  x: training_data
+  style:
+    figure.figsize: [ *half_width, *half_width ]
+
+# Plot the average predicted weight on false edges
+accuracy_on_false_edges:
+  based_on: .errorbands
+  select_and_combine:
+    fields:
+      prediction:
+        path: data/output_data/predictions
+        transform: [ .data ]
+      true_values:
+        path: data/true_network/_adjacency_matrix
+        transform: [ .data ]
+  transform:
+    - sub: [ !dag_tag prediction, !dag_tag true_values ]
+    - np.abs: [ !dag_prev ]
+      tag: l1_accuracy
+    - ==: [!dag_tag true_values, 0]
+    - xr.where: [!dag_prev , 1, 0]
+    - mul: [!dag_tag prediction, !dag_prev ]
+    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
+    - .assign_coords: [!dag_prev , {training_data: [ 200, 100, 50, 40, 20, 10, 5 ]}]
+      tag: accuracies_reassigned
+    - .mean: [!dag_prev ]
+      kwargs: {dim: ['seed', 'i', 'j']}
+      tag: means
+    - .std: [!dag_tag accuracies_reassigned ]
+      kwargs: {dim: ['seed', 'i', 'j']}
+    - xr.Dataset:
+      - y: !dag_tag means
+        yerr: !dag_prev
+    - print: [!dag_prev ]
+      tag: data
+  x: training_data
+  style:
+    figure.figsize: [ *half_width, *half_width ]
