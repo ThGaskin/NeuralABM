@@ -33,6 +33,7 @@ class HarrisWilson_NN:
         rng: np.random.Generator,
         h5group: h5.Group,
         neural_net: base.NeuralNet,
+        loss_function: dict,
         ABM: HW.HarrisWilsonABM,
         to_learn: list,
         write_every: int = 1,
@@ -48,6 +49,7 @@ class HarrisWilson_NN:
             rng (np.random.Generator): The shared RNG
             h5group (h5.Group): The output file group to write data to
             neural_net: The neural network
+            loss_function (dict): the loss function to use
             ABM: The numerical solver
             to_learn: the list of parameter names to learn
             write_every: write every iteration
@@ -63,6 +65,9 @@ class HarrisWilson_NN:
         self._ABM = ABM
         self._neural_net = neural_net
         self._neural_net.optimizer.zero_grad()
+        self.loss_function = base.LOSS_FUNCTIONS[loss_function.get("name").lower()](
+            loss_function.get("args", None), **loss_function.get("kwargs", {})
+        )
 
         self._current_loss = torch.tensor(0.0, requires_grad=False)
         self._current_predictions = torch.stack(
@@ -142,9 +147,7 @@ class HarrisWilson_NN:
                 requires_grad=True,
             )
 
-            loss = (
-                loss + torch.nn.functional.mse_loss(predicted_data, sample) / batch_size
-            )
+            loss = loss + self.loss_function(predicted_data, sample) / batch_size
 
             self._current_loss = loss.clone().detach().cpu().numpy().item()
             self._current_predictions = predicted_parameters.clone().detach().cpu()
@@ -255,6 +258,7 @@ if __name__ == "__main__":
         rng=rng,
         h5group=h5group,
         neural_net=net,
+        loss_function=model_cfg["Training"]["loss_function"],
         ABM=ABM,
         to_learn=model_cfg["Training"]["to_learn"],
         write_every=cfg["write_every"],

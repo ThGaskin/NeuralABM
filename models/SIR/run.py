@@ -31,6 +31,7 @@ class SIR_NN:
         rng: np.random.Generator,
         h5group: h5.Group,
         neural_net: base.NeuralNet,
+        loss_function: dict,
         to_learn: list,
         true_parameters: dict,
         write_every: int = 1,
@@ -47,6 +48,7 @@ class SIR_NN:
             rng (np.random.Generator): The shared RNG
             h5group (h5.Group): The output file group to write data to
             neural_net: The neural network
+            loss_function (dict): the loss function to use
             to_learn: the list of parameter names to learn
             true_parameters: the dictionary of true parameters
             write_every: write every iteration
@@ -61,6 +63,10 @@ class SIR_NN:
 
         self.neural_net = neural_net
         self.neural_net.optimizer.zero_grad()
+        self.loss_function = base.LOSS_FUNCTIONS[loss_function.get("name").lower()](
+            loss_function.get("args", None), **loss_function.get("kwargs", {})
+        )
+
         self.current_loss = torch.tensor(0.0)
 
         self.to_learn = {key: idx for idx, key in enumerate(to_learn)}
@@ -214,9 +220,7 @@ class SIR_NN:
                 # Calculate loss
                 loss = (
                     loss
-                    + torch.nn.functional.mse_loss(
-                        current_densities, training_data[ele]
-                    )
+                    + self.loss_function(current_densities, training_data[ele])
                     / batch_size
                 )
 
@@ -310,6 +314,7 @@ if __name__ == "__main__":
         rng=rng,
         h5group=h5group,
         neural_net=net,
+        loss_function=model_cfg["Training"]["loss_function"],
         to_learn=model_cfg["Training"]["to_learn"],
         true_parameters=model_cfg["Training"].get("true_parameters", {}),
         write_every=cfg["write_every"],

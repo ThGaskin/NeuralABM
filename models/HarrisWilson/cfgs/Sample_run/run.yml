@@ -26,7 +26,6 @@ parameter_space:
     # Settings for the neural net training
     Training:
       to_learn: [ alpha, beta, kappa ]
-      loss_function: MSELoss
       batch_size: 1
       true_parameters:
         sigma: 0
