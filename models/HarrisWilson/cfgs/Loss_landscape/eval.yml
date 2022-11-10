@@ -24,7 +24,7 @@ _:
     third_width:    &third_width        !expr 7.00787402 / 3
     quarter_width:  &quarter_width      !expr 7.00787402 / 4
     fifth_width:    &fifth_width        !expr 7.00787402 / 5
-    eigth_width:    &eighth_width        !expr 7.00787402 / 8
+    eighth_width:   &eighth_width       !expr 7.00787402 / 8
 
 .defaults:
   style:

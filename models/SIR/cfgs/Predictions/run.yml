@@ -24,6 +24,5 @@ parameter_space:
       learning_rate: 0.002
       optimizer: Adam
     Training:
-      loss_function: MSELoss
       batch_size: 90
       to_learn: [p_infect, t_infectious, sigma]
