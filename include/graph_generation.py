@@ -47,6 +47,6 @@ def generate_graph(
 
     if graph_props["is_weighted"]:
         for e in G.edges():
-            G[e[0]][e[1]]['weight'] = np.random.rand()
+            G[e[0]][e[1]]["weight"] = np.random.rand()
 
     return G

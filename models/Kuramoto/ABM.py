@@ -4,7 +4,6 @@ import torch
 
 # --- The Kuramoto ABM ------------------------------------------------------------------------------------------
 class Kuramoto_ABM:
-
     def __init__(
         self,
         *,
@@ -14,7 +13,7 @@ class Kuramoto_ABM:
         eigen_frequencies: torch.Tensor,
     ):
 
-        """ The Kuramoto model numerical solver.
+        """The Kuramoto model numerical solver.
 
         :param N: the number of nodes in the network
         :param sigma: the default noise variance
@@ -38,7 +37,7 @@ class Kuramoto_ABM:
         current_phases,
         adjacency_matrix: torch.tensor,
         sigma: float = None,
-        requires_grad: bool = True
+        requires_grad: bool = True,
     ):
 
         """Runs the model for a single iteration.
@@ -57,7 +56,16 @@ class Kuramoto_ABM:
 
         diffs = torch.sin(current_phases - torch.reshape(current_phases, (self.N,)))
 
-        new_phases = new_phases + (self.eigen_frequencies +
-                     torch.reshape(torch.matmul(adjacency_matrix, diffs).diag(), (self.N, 1))) * self.dt + torch.normal(0.0, sigma, (self.N, 1))
+        new_phases = (
+            new_phases
+            + (
+                self.eigen_frequencies
+                + torch.reshape(
+                    torch.matmul(adjacency_matrix, diffs).diag(), (self.N, 1)
+                )
+            )
+            * self.dt
+            + torch.normal(0.0, sigma, (self.N, 1))
+        )
 
         return new_phases

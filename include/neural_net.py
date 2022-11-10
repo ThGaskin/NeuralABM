@@ -57,17 +57,17 @@ class NeuralNet(nn.Module):
     }
 
     def __init__(
-            self,
-            *,
-            input_size: int,
-            output_size: int,
-            num_layers: int,
-            nodes_per_layer: dict,
-            activation_funcs: dict,
-            biases: dict,
-            optimizer: str = "Adam",
-            learning_rate: float = 0.001,
-            **__,
+        self,
+        *,
+        input_size: int,
+        output_size: int,
+        num_layers: int,
+        nodes_per_layer: dict,
+        activation_funcs: dict,
+        biases: dict,
+        optimizer: str = "Adam",
+        learning_rate: float = 0.001,
+        **__,
     ):
         """
 
@@ -90,14 +90,20 @@ class NeuralNet(nn.Module):
         self.hidden_dim = num_layers
 
         # Get architecture, activation functions, and layer bias
-        self.architecture = self._get_architecture(input_size, output_size, num_layers, nodes_per_layer)
+        self.architecture = self._get_architecture(
+            input_size, output_size, num_layers, nodes_per_layer
+        )
         self.activation_funcs = self._get_activation_funcs(num_layers, activation_funcs)
         self.bias = self._get_bias(num_layers, biases)
 
         # Add the neural net layers
         self.layers = nn.ModuleList()
         for i in range(len(self.architecture) - 1):
-            layer = nn.Linear(self.architecture[i], self.architecture[i + 1], bias=self.bias[i] is not None)
+            layer = nn.Linear(
+                self.architecture[i],
+                self.architecture[i + 1],
+                bias=self.bias[i] is not None,
+            )
 
             # Initialise the biases of the layers with a uniform distribution
             if self.bias[i] is not None:
@@ -108,7 +114,9 @@ class NeuralNet(nn.Module):
         # Get the optimizer
         self.optimizer = self.OPTIMIZERS[optimizer](self.parameters(), lr=learning_rate)
 
-    def _get_architecture(self, input_size: int, output_size: int, n_layers: int, cfg: dict) -> List[int]:
+    def _get_architecture(
+        self, input_size: int, output_size: int, n_layers: int, cfg: dict
+    ) -> List[int]:
 
         # Apply default to all hidden layers
         _nodes = [cfg.get("default")] * n_layers
@@ -141,7 +149,7 @@ class NeuralNet(nn.Module):
 
         def _single_layer_func(layer_cfg: Union[str, dict]) -> callable:
 
-            """ Return the activation function from an entry for a single layer"""
+            """Return the activation function from an entry for a single layer"""
 
             # Entry is a single string
             if isinstance(layer_cfg, str):
@@ -155,7 +163,9 @@ class NeuralNet(nn.Module):
             elif isinstance(layer_cfg, dict):
                 _f = self.ACTIVATION_FUNCS[layer_cfg.get("name").lower()]
                 if _f[1]:
-                    return _f[0](*layer_cfg.get("args", ()), **layer_cfg.get("kwargs", {}))
+                    return _f[0](
+                        *layer_cfg.get("args", ()), **layer_cfg.get("kwargs", {})
+                    )
                 else:
                     return _f[0]
 

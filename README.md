@@ -207,7 +207,7 @@ config:
 ```yaml
 NeuralNet:
   num_layers: 6
-  nodes_per_layer: 
+  nodes_per_layer:
     default: 20
     layer_specific:
       0: 10
@@ -218,21 +218,21 @@ NeuralNet:
       1: cosine
       2: tanh
       -1: abs
-  bias: 
+  bias:
     default: [0, 4]
     layer_specific:
       1: [-1, 1]
   learning_rate: 0.002
 ```
-``num_layers`` sets the number of hidden layers. ``nodes_per_layer``, ``activation_funcs``, and ``biases`` are 
+``num_layers`` sets the number of hidden layers. ``nodes_per_layer``, ``activation_funcs``, and ``biases`` are
 dictionaries controlling the structure of the hidden layers. Each requires a ``default`` key
 giving the default value, applied to all layers. An optional ``layer_specific`` entry
-controls any deviations from the default on specific layers; in the above example, 
+controls any deviations from the default on specific layers; in the above example,
 all layers have 20 nodes by default, use a sigmoid activation function, and have a bias
 which is initialised uniformly at random on [0, 4]. Layer-specific settings are then provided.
 
 Any [pytorch activation function](https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity)
-is supported, such as ``relu``, ``linear``, ``tanh``, ``sigmoid``, etc. Some activation functions take arguments and 
+is supported, such as ``relu``, ``linear``, ``tanh``, ``sigmoid``, etc. Some activation functions take arguments and
 keyword arguments; these can be provided like this:
 
 ```yaml

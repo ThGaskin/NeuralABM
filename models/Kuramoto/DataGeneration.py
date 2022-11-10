@@ -3,13 +3,14 @@ import sys
 from os.path import dirname as up
 from typing import Union
 
-import numpy as np
+import dantro.groups.graph
 import h5py as h5
 import networkx as nx
+import numpy as np
 import torch
 from dantro._import_tools import import_module_from_path
-import dantro.groups.graph
 from dantro.containers import XrDataContainer
+
 sys.path.append(up(up(up(__file__))))
 
 base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include")
@@ -19,9 +20,11 @@ from .ABM import Kuramoto_ABM
 log = logging.getLogger(__name__)
 
 
-def save_nw(network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool = False):
+def save_nw(
+    network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool = False
+):
 
-    """ Saves a network to a h5.Group
+    """Saves a network to a h5.Group
 
     :param network: the network to save
     :param nw_group: the h5.Group
@@ -30,14 +33,22 @@ def save_nw(network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool 
 
     # Vertices
     vertices = nw_group.create_dataset(
-        "_vertices", (1, network.number_of_nodes()), chunks=True, compression=3, dtype=int
+        "_vertices",
+        (1, network.number_of_nodes()),
+        chunks=True,
+        compression=3,
+        dtype=int,
     )
     vertices.attrs["dim_names"] = ["time", "vertex_idx"]
     vertices.attrs["coords_mode__vertex_idx"] = "trivial"
 
     # Vertex properties
     eigen_frequencies = nw_group.create_dataset(
-        "_eigen_frequencies", (1, network.number_of_nodes()), chunks=True, compression=3, dtype=float
+        "_eigen_frequencies",
+        (1, network.number_of_nodes()),
+        chunks=True,
+        compression=3,
+        dtype=float,
     )
     eigen_frequencies.attrs["dim_names"] = ["time", "vertex_idx"]
     eigen_frequencies.attrs["coords_mode__vertex_idx"] = "trivial"
@@ -70,7 +81,7 @@ def save_nw(network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool 
         maxshape=(1, network.number_of_nodes()),
         chunks=True,
         compression=3,
-        dtype=int
+        dtype=int,
     )
     degree.attrs["dim_names"] = ["time", "vertex_idx"]
     degree.attrs["coords_mode__vertex_idx"] = "trivial"
@@ -81,7 +92,7 @@ def save_nw(network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool 
         maxshape=(1, network.number_of_nodes()),
         chunks=True,
         compression=3,
-        dtype=float
+        dtype=float,
     )
     degree_w.attrs["dim_names"] = ["time", "vertex_idx"]
     degree_w.attrs["coords_mode__vertex_idx"] = "trivial"
@@ -110,13 +121,19 @@ def save_nw(network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool 
 
     # Write network properties
     vertices[0, :] = network.nodes()
-    eigen_frequencies[0, :] = torch.stack(list(nx.get_node_attributes(network, "eigen_frequency").values())).numpy().flatten()
+    eigen_frequencies[0, :] = (
+        torch.stack(list(nx.get_node_attributes(network, "eigen_frequency").values()))
+        .numpy()
+        .flatten()
+    )
     edges[0, :, :] = network.edges()
     edge_weights[:, :] = list(nx.get_edge_attributes(network, "weight").values())
     degree[0, :] = [network.degree(i) for i in network.nodes()]
     degree_w[0, :] = [deg[1] for deg in network.degree(weight="weight")]
     clustering[0, :] = [val for val in nx.clustering(network).values()]
-    clustering_w[0, :] = [val for val in nx.clustering(network, weight="weight").values()]
+    clustering_w[0, :] = [
+        val for val in nx.clustering(network, weight="weight").values()
+    ]
 
     if write_adjacency_matrix:
 
@@ -133,6 +150,7 @@ def save_nw(network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool 
         adjacency_matrix.attrs["coords_mode__i"] = "trivial"
         adjacency_matrix.attrs["coords_mode__j"] = "trivial"
         adjacency_matrix[-1, :] = adj_matrix
+
 
 # --- Data generation functions ------------------------------------------------------------------------------------
 
@@ -152,7 +170,9 @@ def get_data(
         with h5.File(load_from_dir["training_data"], "r") as f:
 
             # Load the training data
-            training_data = torch.from_numpy(np.array(f["training_data"]["training_data"])).float()
+            training_data = torch.from_numpy(
+                np.array(f["training_data"]["training_data"])
+            ).float()
 
     if load_from_dir.get("network", None) is not None:
 
@@ -160,22 +180,24 @@ def get_data(
         with h5.File(load_from_dir["network"], "r") as f:
 
             # Load the network
-            GG = dantro.groups.GraphGroup(name="true_network",
-                                          attrs=dict(directed=f["true_network"].attrs['is_directed'],
-                                                     parallel=f["true_network"].attrs['allows_parallel'])) #(f["true_network"])
+            GG = dantro.groups.GraphGroup(
+                name="true_network",
+                attrs=dict(
+                    directed=f["true_network"].attrs["is_directed"],
+                    parallel=f["true_network"].attrs["allows_parallel"],
+                ),
+            )  # (f["true_network"])
             GG.new_container(
                 "nodes",
                 Cls=XrDataContainer,
-                data=np.array(f["true_network"]["_vertices"])
+                data=np.array(f["true_network"]["_vertices"]),
             )
-            GG.new_container(
-                "edges",
-                Cls=XrDataContainer,
-                data=[]
-            )
+            GG.new_container("edges", Cls=XrDataContainer, data=[])
 
             edges = np.array(f["true_network"]["_edges"])
-            edge_weights = np.expand_dims(np.array(f["true_network"]["_edge_weights"]), -1)
+            edge_weights = np.expand_dims(
+                np.array(f["true_network"]["_edge_weights"]), -1
+            )
             weighted_edges = np.squeeze(np.concatenate((edges, edge_weights), axis=-1))
 
             network = GG.create_graph()
@@ -187,7 +209,9 @@ def get_data(
         with h5.File(load_from_dir["eigen_frequencies"], "r") as f:
 
             # Load the network
-            eigen_frequencies = torch.from_numpy(np.array(f["true_network"]["_eigen_frequencies"])).float()
+            eigen_frequencies = torch.from_numpy(
+                np.array(f["true_network"]["_eigen_frequencies"])
+            ).float()
             eigen_frequencies = torch.reshape(eigen_frequencies, (-1, 1))
 
     # Get the config and number of agents
@@ -207,7 +231,11 @@ def get_data(
         log.info("   Generating eigenfrequencies  ...")
         eigen_frequencies = 2 * torch.rand((N, 1), dtype=torch.float) + 1
 
-    nx.set_node_attributes(network, {idx: val for idx, val in enumerate(eigen_frequencies)}, "eigen_frequency")
+    nx.set_node_attributes(
+        network,
+        {idx: val for idx, val in enumerate(eigen_frequencies)},
+        "eigen_frequency",
+    )
 
     # If training data was not loaded, generate
     if training_data is None:
@@ -231,7 +259,7 @@ def get_data(
                 training_data[idx, i + 1] = ABM.run_single(
                     current_phases=training_data[idx, i],
                     adjacency_matrix=adj_matrix,
-                    requires_grad=False
+                    requires_grad=False,
                 )
 
         log.info("   Training data generated.")
@@ -256,7 +284,12 @@ def get_data(
             chunks=True,
             compression=3,
         )
-        dset_training_data.attrs["dim_names"] = ["runs", "time", "vertex_idx", "dim_name__0"]
+        dset_training_data.attrs["dim_names"] = [
+            "runs",
+            "time",
+            "vertex_idx",
+            "dim_name__0",
+        ]
         dset_training_data.attrs["coords_mode__runs"] = "trivial"
         dset_training_data.attrs["coords_mode__time"] = "start_and_step"
         dset_training_data.attrs["coords__time"] = [1, 1]
