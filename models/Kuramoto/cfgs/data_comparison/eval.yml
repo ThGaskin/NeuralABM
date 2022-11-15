@@ -1,14 +1,14 @@
 .variables:
   colors: &colors
-    yellow: &yellow       '#F5DDA9'
-    darkblue: &darkblue     '#2F7194'
-    red: &red          '#ec7070'
-    skyblue: &skyblue      '#97c3d0'
-    green: &green        '#48675A'
-    lightbrown: &lightbrown   '#C6BFA2'
-    orange: &orange       '#EC9F7E'
-    lightgreen: &lightgreen   '#AFD8BC'
-    grey: &grey         '#3D4244'
+    yellow:       &yellow       '#F5DDA9'
+    darkblue:     &darkblue     '#2F7194'
+    red:          &red          '#ec7070'
+    skyblue:      &skyblue      '#97c3d0'
+    green:        &green        '#48675A'
+    lightbrown:   &lightbrown   '#C6BFA2'
+    orange:       &orange       '#EC9F7E'
+    lightgreen:   &lightgreen   '#AFD8BC'
+    grey:         &grey         '#3D4244'
 
   # Page widths in inches for latex documents: ensures easy integration into latex documents
   page_widths:
@@ -37,37 +37,43 @@ loss:
       y: log
     set_legend:
       custom_labels: [$1 \times 200$, $2 \times 100$, $4 \times 50$, $5 \times 40$, $10 \times 20$, $20 \times 10$, $40 \times 5$]
+      ncol: 2
   style:
-    figure.figsize: [*half_width, *half_width]
+    figure.figsize: [*half_width, *third_width]
 
 # Frobenius error
 frobenius_loss:
   based_on: loss
   select_and_combine:
     fields:
-      values: data/output_data/frobenius_error
+      values: output_data/frobenius_error
   helpers:
     set_labels:
       y: Frobenius error $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_\mathrm{Fr}$
+    set_legend:
+      use_legend: False
 
 # Network size comparison
-network_size:
+network_density:
   based_on: .errorbands
   select_and_combine:
     fields:
       sizes:
-        path: data/output_data/network_size
+        path: output_data/network_size
         transform:
           - .isel: [!dag_prev , {time: -1}]
+          - div: [!dag_prev , 240]
       true_size:
-        path: data/true_network/_edge_weights
+        path: true_network/_edge_weights
         transform:
           - .isel: [!dag_prev , {time: -1}]
             kwargs: { drop: true }
           - len: [ !dag_node -1 ]
           - mul: [ !dag_node -1, 2 ]
+          - div: [!dag_prev , 240]
   transform:
-    - .assign_coords: [!dag_tag sizes , {training_data: [ 200, 100, 50, 40, 20, 10, 5 ]}]
+    - .assign_coords: [!dag_tag sizes , {training_data: [ 1, 2, 4, 5, 10, 20, 40 ]}]
+    - .rename: [!dag_prev , {training_data: Number of training sets}]
       tag: sizes_reassigned
     - .mean: [ !dag_prev ]
       kwargs: { dim: seed }
@@ -84,15 +90,14 @@ network_size:
     set_hv_lines:
       hlines:
         - pos: !dag_result nw_size
-          color: gray
+          color: *red
           label: $\vert E \vert$
-          linestyle: dashed
+          linestyle: dotted
     set_labels:
-      x: Training data size
-      y: '$\vert \hat{E} \vert$'
-  x: training_data
+      y: Predicted network density
+  x: Number of training sets
   style:
-    figure.figsize: [ *half_width, *half_width ]
+    figure.figsize: [ *half_width, *third_width ]
 
 # Plot the average predicted weight on false edges
 accuracy_on_false_edges:
@@ -100,10 +105,10 @@ accuracy_on_false_edges:
   select_and_combine:
     fields:
       prediction:
-        path: data/output_data/predictions
+        path: output_data/predictions
         transform: [ .data ]
       true_values:
-        path: data/true_network/_adjacency_matrix
+        path: true_network/_adjacency_matrix
         transform: [ .data ]
   transform:
     - sub: [ !dag_tag prediction, !dag_tag true_values ]
@@ -113,7 +118,8 @@ accuracy_on_false_edges:
     - xr.where: [!dag_prev , 1, 0]
     - mul: [!dag_tag prediction, !dag_prev ]
     - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
-    - .assign_coords: [!dag_prev , {training_data: [ 200, 100, 50, 40, 20, 10, 5 ]}]
+    - .assign_coords: [!dag_prev , {training_data: [ 1, 2, 4, 5, 10, 20, 40 ]}]
+    - .rename: [!dag_prev , {training_data: Number of training sets}]
       tag: accuracies_reassigned
     - .mean: [!dag_prev ]
       kwargs: {dim: ['seed', 'i', 'j']}
@@ -125,6 +131,11 @@ accuracy_on_false_edges:
         yerr: !dag_prev
     - print: [!dag_prev ]
       tag: data
-  x: training_data
+  x: Number of training sets
   style:
-    figure.figsize: [ *half_width, *half_width ]
+    figure.figsize: [ *half_width, *third_width ]
+  helpers:
+    set_scales:
+      y: log
+    set_labels:
+      y: Average edge weight on $E_\wedge$

@@ -97,27 +97,27 @@ def save_nw(
     degree_w.attrs["dim_names"] = ["time", "vertex_idx"]
     degree_w.attrs["coords_mode__vertex_idx"] = "trivial"
 
-    clustering = nw_group.create_dataset(
-        "_clustering",
+    triangles = nw_group.create_dataset(
+        "_triangles",
         (1, network.number_of_nodes()),
         maxshape=(1, network.number_of_nodes()),
         chunks=True,
         compression=3,
         dtype=float,
     )
-    clustering.attrs["dim_names"] = ["time", "vertex_idx"]
-    clustering.attrs["coords_mode__vertex_idx"] = "trivial"
+    triangles.attrs["dim_names"] = ["time", "vertex_idx"]
+    triangles.attrs["coords_mode__vertex_idx"] = "trivial"
 
-    clustering_w = nw_group.create_dataset(
-        "_clustering_weighted",
+    triangles_w = nw_group.create_dataset(
+        "_triangles_weighted",
         (1, network.number_of_nodes()),
         maxshape=(1, network.number_of_nodes()),
         chunks=True,
         compression=3,
         dtype=float,
     )
-    clustering_w.attrs["dim_names"] = ["time", "vertex_idx"]
-    clustering_w.attrs["coords_mode__vertex_idx"] = "trivial"
+    triangles_w.attrs["dim_names"] = ["time", "vertex_idx"]
+    triangles_w.attrs["coords_mode__vertex_idx"] = "trivial"
 
     # Write network properties
     vertices[0, :] = network.nodes()
@@ -130,9 +130,11 @@ def save_nw(
     edge_weights[:, :] = list(nx.get_edge_attributes(network, "weight").values())
     degree[0, :] = [network.degree(i) for i in network.nodes()]
     degree_w[0, :] = [deg[1] for deg in network.degree(weight="weight")]
-    clustering[0, :] = [val for val in nx.clustering(network).values()]
-    clustering_w[0, :] = [
-        val for val in nx.clustering(network, weight="weight").values()
+    triangles[0, :] = [
+        val for val in np.diagonal(np.linalg.matrix_power(np.ceil(nx.to_numpy_matrix(network)), 3))
+    ]
+    triangles_w[0, :] = [
+        val for val in np.diagonal(np.linalg.matrix_power(nx.to_numpy_matrix(network), 3))
     ]
 
     if write_adjacency_matrix:

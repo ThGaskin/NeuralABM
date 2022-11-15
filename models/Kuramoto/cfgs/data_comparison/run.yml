@@ -1,5 +1,7 @@
 ---
 perform_sweep: True
+paths:
+  model_note: data_comparison
 parameter_space:
   seed: !sweep
     default: 1

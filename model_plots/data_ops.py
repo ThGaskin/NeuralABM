@@ -11,12 +11,13 @@ from utopya.eval import is_operation
 
 def apply_along_dim(func):
     def _apply_along_axis(
-        data: xr.Dataset, along_dim: str = None, labels: list = None, *args, **kwargs
+        data: xr.Dataset, *args, loss: xr.Dataset = None, along_dim: str = None, labels: list = None, **kwargs
     ):
         """Decorator which allows for applying a function, which acts on an array-like, along a dimension of a
         xarray.Dataset.
 
-        :param data: xr.Dataset
+        :param data: xr.Dataset containing the parameter estimates and (optionally) loss data
+        :param loss: (optional) xr.Dataset containing separate loss data
         :param along_dim: the dimension along with to apply the operation
         :param labels: if passed, relabels the along_dim coordinates
         :param args: additional args, passed to function
@@ -29,6 +30,7 @@ def apply_along_dim(func):
                 dsets.append(
                     func(
                         data.sel({along_dim: val}),
+                        loss.sel({along_dim: val}) if loss is not None else None,
                         coords={along_dim: val}
                         if labels is None
                         else {along_dim: labels[idx]},
@@ -40,7 +42,7 @@ def apply_along_dim(func):
             return xr.concat(dsets, dim=along_dim, coords="all")
 
         else:
-            return func(data, *args, **kwargs)
+            return func(data, loss, *args, **kwargs)
 
     return _apply_along_axis
 
@@ -49,10 +51,11 @@ def apply_along_dim(func):
 @apply_along_dim
 def get_marginals(
     data: xr.Dataset,
-    *,
+    *_,
     coords: dict = None,
     bins: int = 100,
-    clip: tuple = [-np.inf, +np.inf]
+    clip: tuple = [-np.inf, +np.inf],
+    **__,
 ) -> xr.Dataset:
     """Sorts the data into bins and calculates marginal densities by summing over each bin entry.
 
@@ -253,3 +256,56 @@ def compute_avg_peak_widths(
     mean, std = np.mean(peaks[1]["widths"]), np.std(peaks[1]["widths"])
 
     return xr.Dataset(data_vars=dict(mean=mean, std=std), coords=coords)
+
+
+@is_operation("NeuralABM.hist")
+def hist(
+    ds: xr.DataArray, axis: int = 1, *args, bins: np.array, **kwargs
+) -> xr.DataArray:
+    def _hist(obj, *args, **kwargs):
+
+        return np.histogram(obj, *args, **kwargs)[0]
+
+    data = np.apply_along_axis(_hist, axis, ds, *args, bins, **kwargs)
+
+    return xr.DataArray(
+        data,
+        dims=["sample", "bin_center"],
+        coords=dict(
+            sample=np.arange(np.shape(data)[0]),
+            bin_center=bins[:-1] + (bins[1:] - bins[:-1]) / 2,
+        ),
+    )
+
+
+@is_operation("NeuralABM.marginal_of_density")
+@apply_along_dim
+def marginal_of_density(vals: xr.DataArray, loss: xr.DataArray, *, coords: dict = {}) -> xr.Dataset:
+
+    hist_data = vals.data
+    n_bins = len(vals.coords["bin_center"])
+    dx = (vals.coords["bin_center"][1] - vals.coords["bin_center"][0]).item()
+    hist_data = np.reshape(hist_data, (-1, n_bins))
+    n_samples = np.shape(hist_data)[0]
+
+    loss_data = np.repeat(np.reshape(loss.data, (n_samples, 1)), n_bins, 1)
+    loss_data = loss_data / np.sum(loss_data, axis=0)
+
+    # Calculate the mean of each bin
+    means = np.sum(hist_data * loss_data, axis=0)
+
+    # Calculate the variance of each bin
+    std = np.square(hist_data - np.repeat(np.resize(means, (1, n_bins)), n_samples, 0))
+    std = np.sqrt(np.sum(std * loss_data, axis=0))
+
+    # Normalise to 1
+    means = means/(np.sum(means) * dx)
+    std = std/(np.sum(means) * dx)
+    coords.update(dict(bin_idx=np.arange(n_bins)))
+
+    return xr.Dataset(
+        data_vars=dict(bin_center=("bin_idx", vals.coords['bin_center'].data),
+                       y=("bin_idx", means),
+                       yerr=("bin_idx", std)),
+        coords=coords
+    )

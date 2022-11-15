@@ -249,33 +249,33 @@ class Kuramoto_NN:
         ]
 
         # Clustering coefficients
-        self._dset_clustering = predicted_nw_group.create_dataset(
-            "_clustering",
+        self._dset_triangles = predicted_nw_group.create_dataset(
+            "_triangles",
             (1, self.num_agents),
             maxshape=(None, self.num_agents),
             chunks=True,
             compression=3,
             dtype=float,
         )
-        self._dset_clustering.attrs["dim_names"] = ["time", "vertex_idx"]
-        self._dset_clustering.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_clustering.attrs["coords__time"] = [
+        self._dset_triangles.attrs["dim_names"] = ["time", "vertex_idx"]
+        self._dset_triangles.attrs["coords_mode__time"] = "start_and_step"
+        self._dset_triangles.attrs["coords__time"] = [
             write_start,
             self._write_predictions_every,
         ]
 
         # Weighted clustering coefficients
-        self._dset_clustering_w = predicted_nw_group.create_dataset(
-            "_clustering_weighted",
+        self._dset_triangles_w = predicted_nw_group.create_dataset(
+            "_weighted_triangles",
             (1, self.num_agents),
             maxshape=(None, self.num_agents),
             chunks=True,
             compression=3,
             dtype=float,
         )
-        self._dset_clustering_w.attrs["dim_names"] = ["time", "vertex_idx"]
-        self._dset_clustering_w.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_clustering_w.attrs["coords__time"] = [
+        self._dset_triangles_w.attrs["dim_names"] = ["time", "vertex_idx"]
+        self._dset_triangles_w.attrs["coords_mode__time"] = "start_and_step"
+        self._dset_triangles_w.attrs["coords__time"] = [
             write_start,
             self._write_predictions_every,
         ]
@@ -392,55 +392,65 @@ class Kuramoto_NN:
             if self._time % self._write_predictions_every != 0:
                 pass
 
-        else:
-            log.info("    Writing prediction data ... ")
-            self._dset_predictions.resize(self._dset_predictions.shape[0] + 1, axis=0)
-            self._dset_predictions[-1, :] = self.current_adjacency_matrix
+            else:
+                log.info("    Writing prediction data ... ")
+                self._dset_predictions.resize(
+                    self._dset_predictions.shape[0] + 1, axis=0
+                )
+                self._dset_predictions[-1, :] = self.current_adjacency_matrix
 
-            # Write predicted network structure and edge weights, corresponding to the probability of that
-            # edge existing. Write topological properties.
-            # Create a graph from the current prediction
-            G = nx.empty_graph(self.num_agents, create_using=nx.DiGraph)
-            adj_matrix = self.current_adjacency_matrix
+                # Write predicted network structure and edge weights, corresponding to the probability of that
+                # edge existing. Write topological properties.
 
-            curr_edges = torch.nonzero(adj_matrix).numpy()
-            edge_weights = torch.flatten(
-                self.current_predictions[torch.nonzero(self.current_predictions)]
-            ).numpy()
+                curr_edges = torch.nonzero(self.current_adjacency_matrix).numpy()
+                edge_weights = torch.flatten(
+                    self.current_predictions[torch.nonzero(self.current_predictions)]
+                ).numpy()
 
-            G.add_weighted_edges_from(
-                np.column_stack([curr_edges, edge_weights]), weight="weight"
-            )
+                self._dset_edges.resize(self._dset_edges.shape[0] + 1, axis=0)
+                self._dset_edges[-1, 0 : len(curr_edges), :] = curr_edges
 
-            self._dset_edges.resize(self._dset_edges.shape[0] + 1, axis=0)
-            self._dset_edges[-1, 0 : G.size(), :] = G.edges()
+                self._dset_edge_weights.resize(
+                    self._dset_edge_weights.shape[0] + 1, axis=0
+                )
+                self._dset_edge_weights[-1, 0 : len(edge_weights)] = edge_weights
 
-            self._dset_edge_weights.resize(self._dset_edge_weights.shape[0] + 1, axis=0)
-            self._dset_edge_weights[-1, 0 : G.size()] = edge_weights
+                self._dset_in_degree.resize(self._dset_in_degree.shape[0] + 1, axis=0)
+                self._dset_in_degree[-1, :] = torch.sum(
+                    torch.ceil(self.current_adjacency_matrix), dim=1
+                )
 
-            self._dset_in_degree.resize(self._dset_in_degree.shape[0] + 1, axis=0)
-            self._dset_in_degree[-1, :] = [deg[1] for deg in G.in_degree()]
+                self._dset_in_degree_w.resize(
+                    self._dset_in_degree_w.shape[0] + 1, axis=0
+                )
+                self._dset_in_degree_w[-1, :] = torch.sum(
+                    self.current_adjacency_matrix, dim=1
+                )
 
-            self._dset_in_degree_w.resize(self._dset_in_degree_w.shape[0] + 1, axis=0)
-            self._dset_in_degree_w[-1, :] = [
-                deg[1] for deg in G.in_degree(weight="weight")
-            ]
+                self._dset_out_degree.resize(self._dset_out_degree.shape[0] + 1, axis=0)
+                self._dset_out_degree[-1, :] = torch.sum(
+                    torch.ceil(torch.transpose(self.current_adjacency_matrix, 0, 1)),
+                    dim=1,
+                )
 
-            self._dset_out_degree.resize(self._dset_out_degree.shape[0] + 1, axis=0)
-            self._dset_out_degree[-1, :] = [deg[1] for deg in G.out_degree()]
+                self._dset_out_degree_w.resize(
+                    self._dset_out_degree_w.shape[0] + 1, axis=0
+                )
+                self._dset_out_degree_w[-1, :] = torch.sum(
+                    torch.transpose(self.current_adjacency_matrix, 0, 1), dim=1
+                )
 
-            self._dset_out_degree_w.resize(self._dset_out_degree_w.shape[0] + 1, axis=0)
-            self._dset_out_degree_w[-1, :] = [
-                deg[1] for deg in G.out_degree(weight="weight")
-            ]
+                self._dset_triangles.resize(self._dset_triangles.shape[0] + 1, axis=0)
+                self._dset_triangles[-1, :] = torch.matrix_power(
+                    torch.ceil(self.current_adjacency_matrix), 3
+                ).diag()
 
-            self._dset_clustering.resize(self._dset_clustering.shape[0] + 1, axis=0)
-            self._dset_clustering[-1, :] = [c for c in nx.clustering(G).values()]
-
-            self._dset_clustering_w.resize(self._dset_clustering_w.shape[0] + 1, axis=0)
-            self._dset_clustering_w[-1, :] = [
-                c for c in nx.clustering(G, weight="weight").values()
-            ]
+                self._dset_triangles_w.resize(
+                    self._dset_triangles_w.shape[0] + 1, axis=0
+                )
+                self._dset_triangles_w[-1, :] = torch.matrix_power(
+                    self.current_adjacency_matrix, 3
+                ).diag()
 
 
 # ----------------------------------------------------------------------------------------------------------------------

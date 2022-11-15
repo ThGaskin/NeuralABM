@@ -6,6 +6,10 @@
 # ======================================================================================================================
 
 .variables:
+
+  base_path:        &base_path    data
+  loss_limit:       &loss_limit   1e-15
+
   colors: &colors
     yellow:         &yellow       '#F5DDA9'
     darkblue:       &darkblue     '#2F7194'
@@ -31,7 +35,8 @@
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[yellow]:}',
+      fstr: "cycler('color', ['black',
+                              '{colors[yellow]:}',
                               '{colors[darkblue]:}',
                               '{colors[red]:}',
                               '{colors[skyblue]:}',
@@ -48,6 +53,34 @@
       dpi: 900
   file_ext: png
 
+.calculate_clustering_coefficient:
+  dag_options:
+    select_path_prefix: ~
+    meta_operations:
+      calculate_clustering_coefficient:
+        select:
+          in_degree:
+            path: !kwarg in_degree
+            transform:
+              - .data: [!dag_prev ]
+                tag: k_in
+              - sub: [!dag_prev , 1]
+              - mul: [!dag_prev , !dag_tag k_in]
+          out_degree:
+            path: !kwarg out_degree
+            transform:
+              - .data: [!dag_prev ]
+                tag: k_out
+              - sub: [!dag_prev , 1]
+              - mul: [!dag_prev , !dag_tag k_out]
+          triangles:
+            path: !kwarg triangles
+            transform:
+              - .data: [!dag_prev ]
+        transform:
+          - add: [ !dag_tag in_degree , !dag_tag out_degree ]
+          - div: [ !dag_tag triangles, !dag_prev ]
+
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
@@ -60,16 +93,21 @@
     - .creator.universe
     - .default_style
 
+  dag_options:
+    select_path_prefix: *base_path
+
 .creator.multiverse:
   based_on:
     - .creator.multiverse
     - .default_style
 
+  select_and_combine:
+    base_path: *base_path
+
 .line_universe:
   based_on:
     - .creator.universe
     - .plot.facet_grid.line
-  color: black
 
 .line_multiverse:
   based_on:
@@ -111,52 +149,67 @@
 loss:
   based_on: .line_universe
   select:
-    data: data/output_data/loss
+    data: output_data/loss
   helpers:
     set_labels:
       x: iteration
     set_scales:
       y: log
 
-network_size:
+density:
   based_on: .line_universe
   select:
-    data: data/output_data/network_size
+    predicted_size: output_data/network_size
+    num_vertices:
+      path: true_network/_vertices
+      transform:
+        - .coords: [!dag_prev , 'vertex_idx']
+        - len: [!dag_prev ]
     true_size:
-      path: data/true_network/_edge_weights
+      path: true_network/_edge_weights
       transform:
         - .isel: [!dag_prev , {time: -1}]
           kwargs:
             drop: True
         - len: [!dag_prev ]
         - mul: [!dag_prev , 2]
+  transform:
+    - sub: [!dag_tag num_vertices, 1 ]
+    - mul: [!dag_tag num_vertices, !dag_prev ]
+      tag: complete_size
+    - div: [!dag_tag true_size, !dag_tag complete_size]
+      tag: target_size
+    - div: [!dag_tag predicted_size, !dag_tag complete_size]
+      tag: data
   helpers:
     set_hv_lines:
       hlines:
-        - pos: !dag_result true_size
+        - pos: !dag_result target_size
           linestyle: dashed
-
+          color: gray
+    set_labels:
+      y: Network density
 
 # Comparison of true and predicted degrees
 degree:
   based_on: .multiplot_universe
   select:
     true_degree:
-      path: data/true_network/_degree_weighted
+      path: true_network/_degree_weighted
       transform:
         - .isel: [!dag_prev , {time: -1}]
           kwargs:
             drop: True
         - .data: [!dag_prev ]
     predicted_out_degree:
-      path: data/predicted_network/_out_degree_weighted
+      path: predicted_network/_out_degree_weighted
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
           kwargs:
             drop: True
         - .data: [ !dag_prev ]
     predicted_in_degree:
-      path: data/predicted_network/_in_degree_weighted
+      path: predicted_network/_in_degree_weighted
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
           kwargs:
@@ -183,24 +236,78 @@ degree:
     set_title:
       title: Node degrees
 
+# Predicted mean degree over time
+mean_degree_over_time:
+  based_on: .line_universe
+  select:
+    in_degree:
+      path: predicted_network/_in_degree
+      transform: [.data]
+    in_degree_w:
+      path: predicted_network/_in_degree_weighted
+      transform: [.data]
+    out_degree:
+      path: predicted_network/_out_degree
+      transform: [.data]
+    out_degree_w:
+      path: predicted_network/_out_degree_weighted
+      transform: [.data]
+  transform:
+    - operation: pd.Index
+      args: [ [ 'in degree', 'weighted in degree', 'out degree', 'weighted out degree' ] ]
+      kwargs:
+        name: 'type'
+    - xr.concat: [[!dag_tag in_degree, !dag_tag in_degree_w, !dag_tag out_degree, !dag_tag out_degree_w], !dag_prev ]
+    - .mean: [!dag_prev , 'vertex_idx']
+      tag: data
+  hue: type
+  x: time
+
+# Predicted clustering over time
+clustering_over_time:
+  based_on:
+    - .line_universe
+    - .calculate_clustering_coefficient
+  transform:
+    - calculate_clustering_coefficient:
+        in_degree: data/predicted_network/_in_degree
+        out_degree: data/predicted_network/_out_degree
+        triangles: data/predicted_network/_triangles
+      tag: clustering
+    - calculate_clustering_coefficient:
+        in_degree: data/predicted_network/_in_degree_weighted
+        out_degree: data/predicted_network/_out_degree_weighted
+        triangles: data/predicted_network/_weighted_triangles
+      tag: clustering_weighted
+    - operation: pd.Index
+      args: [ [ 'clustering coefficient', 'weighted clustering coefficient'] ]
+      kwargs:
+        name: 'type'
+    - xr.concat: [[!dag_tag clustering, !dag_tag clustering_weighted], !dag_prev ]
+    - .mean: [!dag_prev , 'vertex_idx']
+    - div: [!dag_prev , 3]
+      tag: data
+  hue: type
+  x: time
+
 # Comparison of the graph clustering
 clustering:
-  based_on: .multiplot_universe
+  based_on:
+    - .multiplot_universe
+    - .calculate_clustering_coefficient
   select:
     true_clustering:
       path: data/true_network/_clustering_weighted
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
-          kwargs:
-            drop: True
         - .data: [ !dag_prev ]
-    predicted_clustering:
-      path: data/predicted_network/_clustering_weighted
-      transform:
-        - .isel: [ !dag_prev , { time: -1 } ]
-          kwargs:
-            drop: True
-        - .data: [ !dag_prev ]
+  transform:
+    - calculate_clustering_coefficient:
+        in_degree: data/predicted_network/_in_degree_weighted
+        out_degree: data/predicted_network/_out_degree_weighted
+        triangles: data/predicted_network/_weighted_triangles
+    - .isel: [!dag_prev , {time: -1}]
+      tag: predicted_clustering
   to_plot:
     - function: sns.kdeplot
       args:
@@ -225,13 +332,11 @@ phases:
     - .plot.facet_grid.scatter
   select:
     phases:
-      path: data/training_data/training_data
+      path: training_data/training_data
       transform:
-        - .isel: [!dag_prev , {time: [0, 99, 599]}]
+        - .isel: [!dag_prev , {time: [0, -1], runs: 0}]
+          kwargs: {drop: true}
   transform:
-    - .isel: [ !dag_tag phases , { runs: 0 } ]
-      kwargs:
-        drop: True
     - mod: [!dag_tag phases , 6.283 ]
       tag: angle
     - xr.ones_like: [!dag_prev ]
@@ -253,7 +358,7 @@ phases:
       0.5: *yellow
       1: *darkblue
     continuous: true
-  add_guide: False
+  add_colorbar: False
   helpers:
     call:
       functions:
@@ -288,7 +393,7 @@ phases_lines:
     - .plot.facet_grid.line
   select:
     data:
-      path: data/training_data/training_data
+      path: training_data/training_data
       transform:
         - .isel: [ !dag_prev , { runs: 0 } ]
           kwargs:
@@ -311,7 +416,7 @@ graph:
     - .creator.universe
     - .plot.graph
   select:
-    graph_group: data/true_network
+    graph_group: true_network
   graph_creation:
     at_time_idx: -1
     edge_props: [_edge_weights]
@@ -335,8 +440,8 @@ undirected_adjacency_matrix:
     - .creator.universe
     - .plot.facet_grid.scatter
   select:
-    edges: data/true_network/_edges
-    edge_weights: data/true_network/_edge_weights
+    edges: true_network/_edges
+    edge_weights: true_network/_edge_weights
     num_agents:
       path: cfg
       transform:
@@ -412,17 +517,19 @@ directed_adjacency_matrix:
 adjacency_matrix:
   based_on: .matrix
   select:
-    data: data/true_network/_adjacency_matrix
+    data: true_network/_adjacency_matrix
 
 # Accuracy of the prediction, using an L1 norm
 accuracy:
   based_on: .matrix
   select:
     prediction:
-      path: data/output_data/predictions
-      transform: [.data]
+      path: output_data/predictions
+      transform:
+        - .isel: [!dag_prev , {time: -1}]
+        - .data: [!dag_prev ]
     true_values:
-      path: data/true_network/_adjacency_matrix
+      path: true_network/_adjacency_matrix
       transform: [.data]
   transform:
     - sub: [!dag_tag prediction, !dag_tag true_values]
@@ -453,6 +560,194 @@ accuracy_on_false_edges:
     - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
       tag: data
 
+marginals_uni:
+  based_on: .creator.universe
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
+  select:
+    param:
+      path: predicted_network/_in_degree
+      transform:
+        - .mean: [!dag_prev ]
+          kwargs: {dim: vertex_idx}
+    true_param:
+      path: true_network/_degree
+      transform:
+        - .mean: [!dag_prev ]
+          kwargs: {dim: vertex_idx}
+    loss:
+      path: output_data/loss
+      transform:
+        - np.maximum: [ !dag_prev , *loss_limit ]
+        - log10: [ !dag_prev ]
+        - mul: [ !dag_prev , -1 ]
+        - np.exp: [!dag_prev ]
+  transform:
+    - xr.Dataset:
+      - param1: !dag_tag param
+        loss: !dag_tag loss
+    - NeuralABM.compute_marginals: [ !dag_prev ]
+      kwargs:
+        bins: 200
+      tag: data
+  helpers:
+    set_hv_lines:
+      vlines:
+        - pos: !dag_result true_param
+          linestyle: dashed
+          color: gray
+
+marginals_density_uni:
+  based_on:
+    - .multiplot_universe
+  dag_options:
+    define:
+      n_bins: 100
+      min_bin: -1
+      max_bin: 16
+      bw_method: 0.5
+      sigma: 6
+  select:
+    num_agents:
+      path: true_network/_vertices
+      transform:
+        - .coords: [!dag_prev , 'vertex_idx']
+        - len: [!dag_prev ]
+    coords:
+      path: predicted_network/_in_degree
+      transform:
+        - .coords: [!dag_prev , 'time']
+        - .isel: [!dag_prev , {time: !slice [~, -2]}]
+    sel_idx:
+      path: output_data/loss
+      transform:
+        - .idxmin: [!dag_prev ]
+          kwargs: {dim: time}
+        - .values: [!dag_prev ]
+        - .item: [!dag_prev ]
+    param:
+      path: predicted_network/_in_degree
+      transform:
+    param_binned:
+      path: predicted_network/_in_degree
+      transform:
+        - .isel: [!dag_prev , {time: !slice [~, -2]}]
+        - np.linspace: [!dag_tag min_bin, !dag_tag max_bin, !dag_tag n_bins]
+        - .data: [ !dag_node -2 ]
+        - NeuralABM.hist: [!dag_prev ]
+          kwargs:
+            density: true
+            bins: !dag_node -2
+    loss:
+      path: output_data/loss
+      transform:
+        - np.maximum: [ !dag_prev , *loss_limit ]
+        - log10: [ !dag_prev ]
+        - mul: [ !dag_prev , -1 ]
+        - np.exp: [!dag_prev ]
+    true_param:
+      path: true_network/_degree
+      transform:
+        - .isel: [!dag_prev , {time: -1}]
+          kwargs:
+            drop: True
+        - .data: [!dag_prev ]
+  transform:
+    - .sel: [!dag_tag loss , {time: !dag_tag coords }]
+    - NeuralABM.marginal_of_density: [!dag_tag param_binned ]
+      kwargs:
+        loss: !dag_prev
+      tag: data
+    - .sel: [!dag_tag param , {time: !dag_tag sel_idx }]
+      kwargs: {drop: true}
+      tag: MLE
+  to_plot:
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [!dag_result data]
+      x: bin_center
+      y: y
+      yerr: yerr
+      label: $\hat{P}(k)$
+      smooth_kwargs:
+        enabled: True
+        sigma: !dag_result sigma
+      pass_helper: true
+      color: *darkblue
+    - function: [ seaborn, kdeplot ]
+      args: [ !dag_result MLE ]
+      gridsize: !dag_result n_bins
+      color: black
+      bw_method: !dag_result bw_method
+      label: MLE
+      legend: true
+      clip: [0, ~]
+    - function: [ seaborn, kdeplot ]
+      args: [ !dag_result true_param ]
+      gridsize: !dag_result n_bins
+      bw_method: !dag_result bw_method
+      label: $P(k)$
+      clip: [0, ~]
+      linestyle: dotted
+      color: *red
+
+
+  helpers:
+    set_legend:
+      use_legend: true
+    set_tick_locators:
+      x:
+        <<: *formatting
+
+
+marginals_density_mv:
+  based_on:
+    - .creator.multiverse
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
+  select_and_combine:
+    fields:
+      coords:
+        path: predicted_network/_in_degree
+        transform:
+          - .coords: [!dag_prev , 'time']
+          - .isel: [!dag_prev , {time: !slice [~, -2]}]
+      degrees:
+        path: predicted_network/_in_degree
+        transform:
+          - .isel: [!dag_prev , {time: !slice [~, -2]}]
+          - .coords: [!dag_prev , 'vertex_idx']
+          - len: [!dag_prev ]
+          - np.linspace: [0, !dag_prev , 10]
+          - .data: [ !dag_node -4 ]
+          - NeuralABM.hist: [!dag_prev ]
+            kwargs: {bins: !dag_node -2 }
+      loss:
+        path: output_data/loss
+        transform:
+          - np.maximum: [ !dag_prev , *loss_limit ]
+          - log10: [ !dag_prev ]
+          - mul: [ !dag_prev , -1 ]
+          - np.exp: [!dag_prev ]
+  transform:
+    - .isel: [!dag_tag coords, {seed: 0, num_layers: 0}]
+      kwargs: {drop: true}
+    - .sel: [!dag_tag loss , {time: !dag_prev }]
+    - NeuralABM.marginal_of_density: [!dag_tag degrees ]
+      kwargs:
+        loss: !dag_prev
+        along_dim: 'num_layers'
+      tag: data
+  x: bin_center
+  y: y
+  yerr: yerr
+  hue: num_layers
+  helpers:
+    set_legend:
+      use_legend: true
+  smooth_kwargs:
+    enabled: True
+    sigma: 2
+
 # ======================================================================================================================
 #  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
 #  ║║║║ ║║  ║ ║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
@@ -463,7 +758,7 @@ loss_stacked:
   expected_multiverse_ndim: [1, 2, 3, 4, 5]
   select_and_combine:
     fields:
-      values: data/output_data/loss
+      values: output_data/loss
   transform:
     - .mean: [!dag_tag values]
       kwargs:
