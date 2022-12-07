@@ -44,7 +44,6 @@ class Kuramoto_NN:
         write_predictions_every: int = 1,
         write_start: int = 1,
         num_steps: int = 3,
-        write_time: bool = False,
         **__,
     ):
         """Initialize the model instance with a previously constructed RNG and
@@ -62,7 +61,6 @@ class Kuramoto_NN:
             write_predictions_every: write out predicted parameters every iteration
             write_start: iteration at which to start writing
             num_steps: number of iterations of the ABM
-            write_time: whether to write out the training time into a dataset
         """
         self._name = name
         self._time = 0
@@ -85,7 +83,6 @@ class Kuramoto_NN:
         self._write_predictions_every = write_predictions_every
         self._write_start = write_start
         self._num_steps = num_steps
-        self._write_time = write_time
 
         # Current training loss, Frobenius error, and current predictions
         self.current_loss = torch.tensor(0.0)
@@ -95,13 +92,13 @@ class Kuramoto_NN:
 
         # Store the neural net training loss
         self._dset_loss = self._training_group.create_dataset(
-            "loss",
-            (0, 1),
-            maxshape=(None, 1),
+            "training_loss",
+            (0, ),
+            maxshape=(None, ),
             chunks=True,
             compression=3,
         )
-        self._dset_loss.attrs["dim_names"] = ["time", "training loss"]
+        self._dset_loss.attrs["dim_names"] = ["time"]
         self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
         self._dset_loss.attrs["coords__time"] = [write_start, write_every]
 
@@ -129,7 +126,7 @@ class Kuramoto_NN:
         self._dset_predictions.attrs["coords_mode__time"] = "start_and_step"
         self._dset_predictions.attrs["coords__time"] = [
             write_start,
-            self._write_predictions_every,
+            max(self._write_predictions_every, 1),
         ]
         self._dset_predictions.attrs["coords_mode__i"] = "trivial"
         self._dset_predictions.attrs["coords_mode__j"] = "trivial"
@@ -180,14 +177,14 @@ class Kuramoto_NN:
         self._dset_edge_weights.attrs["coords_mode__time"] = "start_and_step"
         self._dset_edge_weights.attrs["coords__time"] = [
             write_start,
-            write_predictions_every,
+            self._write_predictions_every,
         ]
         self._dset_edge_weights.attrs["coords_mode__edge_idx"] = "trivial"
 
         # In-degree
         self._dset_in_degree = predicted_nw_group.create_dataset(
             "_in_degree",
-            (1, self.num_agents),
+            (0, self.num_agents),
             maxshape=(None, self.num_agents),
             chunks=True,
             compression=3,
@@ -199,11 +196,12 @@ class Kuramoto_NN:
             write_start,
             self._write_predictions_every,
         ]
+        self._dset_in_degree.attrs["coords_mode__vertex_idx"] = "trivial"
 
         # Weighted in-degree
         self._dset_in_degree_w = predicted_nw_group.create_dataset(
             "_in_degree_weighted",
-            (1, self.num_agents),
+            (0, self.num_agents),
             maxshape=(None, self.num_agents),
             chunks=True,
             compression=3,
@@ -215,11 +213,12 @@ class Kuramoto_NN:
             write_start,
             self._write_predictions_every,
         ]
+        self._dset_in_degree_w.attrs["coords_mode__vertex_idx"] = "trivial"
 
         # Out-degree
         self._dset_out_degree = predicted_nw_group.create_dataset(
             "_out_degree",
-            (1, self.num_agents),
+            (0, self.num_agents),
             maxshape=(None, self.num_agents),
             chunks=True,
             compression=3,
@@ -231,11 +230,12 @@ class Kuramoto_NN:
             write_start,
             self._write_predictions_every,
         ]
+        self._dset_out_degree.attrs["coords_mode__vertex_idx"] = "trivial"
 
         # Weighted out-degree
         self._dset_out_degree_w = predicted_nw_group.create_dataset(
             "_out_degree_weighted",
-            (1, self.num_agents),
+            (0, self.num_agents),
             maxshape=(None, self.num_agents),
             chunks=True,
             compression=3,
@@ -247,11 +247,12 @@ class Kuramoto_NN:
             write_start,
             self._write_predictions_every,
         ]
+        self._dset_out_degree_w.attrs["coords_mode__vertex_idx"] = "trivial"
 
         # Clustering coefficients
         self._dset_triangles = predicted_nw_group.create_dataset(
             "_triangles",
-            (1, self.num_agents),
+            (0, self.num_agents),
             maxshape=(None, self.num_agents),
             chunks=True,
             compression=3,
@@ -263,11 +264,12 @@ class Kuramoto_NN:
             write_start,
             self._write_predictions_every,
         ]
+        self._dset_triangles.attrs["coords_mode__vertex_idx"] = "trivial"
 
         # Weighted clustering coefficients
         self._dset_triangles_w = predicted_nw_group.create_dataset(
             "_weighted_triangles",
-            (1, self.num_agents),
+            (0, self.num_agents),
             maxshape=(None, self.num_agents),
             chunks=True,
             compression=3,
@@ -279,6 +281,7 @@ class Kuramoto_NN:
             write_start,
             self._write_predictions_every,
         ]
+        self._dset_triangles_w.attrs["coords_mode__vertex_idx"] = "trivial"
 
         self.dset_time = self._training_group.create_dataset(
             "computation_time",
@@ -331,7 +334,7 @@ class Kuramoto_NN:
                 # Penalise the trace (cannot be learned)
                 loss = loss + torch.trace(pred_adj_matrix)
 
-                loss = loss + torch.nn.MSELoss()(
+                loss = loss + self.loss_function(
                     pred_adj_matrix, torch.transpose(pred_adj_matrix, 0, 1)
                 )
 
@@ -351,9 +354,8 @@ class Kuramoto_NN:
                 self.write_data()
                 self.write_predictions()
 
-        if self._write_time:
-            self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
-            self.dset_time[-1, :] = time.time() - start_time
+        self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
+        self.dset_time[-1, :] = time.time() - start_time
 
     def write_data(self):
         """Write the current loss and predicted network size into the state dataset.
@@ -366,7 +368,7 @@ class Kuramoto_NN:
 
             if self._time % self._write_every == 0:
                 self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
-                self._dset_loss[-1, :] = self.current_loss
+                self._dset_loss[-1] = self.current_loss
 
                 self._dset_frob_error.resize(self._dset_frob_error.shape[0] + 1, axis=0)
                 self._dset_frob_error[-1, :] = self.current_frob_error
@@ -384,16 +386,13 @@ class Kuramoto_NN:
         extend the dataset size prior to writing; this way, the newly written
         data is always in the last row of the dataset.
         """
-
         if self._write_predictions_every == -1 and not write_final:
             pass
 
-        elif self._write_predictions_every != -1:
-            if self._time % self._write_predictions_every != 0:
-                pass
+        else:
+            if self._time >= self._write_start and self._time % self._write_predictions_every == 0:
 
-            else:
-                log.info("    Writing prediction data ... ")
+                log.debug(f"    Writing prediction data ... ")
                 self._dset_predictions.resize(
                     self._dset_predictions.shape[0] + 1, axis=0
                 )
@@ -401,7 +400,6 @@ class Kuramoto_NN:
 
                 # Write predicted network structure and edge weights, corresponding to the probability of that
                 # edge existing. Write topological properties.
-
                 curr_edges = torch.nonzero(self.current_adjacency_matrix).numpy()
                 edge_weights = torch.flatten(
                     self.current_predictions[torch.nonzero(self.current_predictions)]
@@ -558,8 +556,7 @@ if __name__ == "__main__":
         num_steps=training_data.shape[1],
         write_every=cfg["write_every"],
         write_predictions_every=write_predictions_every,
-        write_start=cfg["write_start"],
-        write_time=model_cfg.get("write_time", False),
+        write_start=cfg["write_start"]
     )
 
     log.info(f"   Initialized model '{model_name}'.")
@@ -574,7 +571,8 @@ if __name__ == "__main__":
             f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}"
         )
 
-    model.write_predictions(write_final=write_predictions_every == -1)
+    if write_predictions_every == -1:
+        model.write_predictions(write_final=True)
 
     log.info("   Simulation run finished.")
     log.info("   Wrapping up ...")

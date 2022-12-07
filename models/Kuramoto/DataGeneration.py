@@ -162,7 +162,7 @@ def get_data(
 ) -> (torch.Tensor, Union[nx.Graph, None]):
 
     load_from_dir = cfg.pop("load_from_dir", {})
-    write_adjacency_matrix = cfg.pop("write_adjacency_matrix", False)
+    write_adjacency_matrix = cfg.pop("write_adjacency_matrix", load_from_dir == {})
 
     training_data, network, eigen_frequencies = None, None, None
 
