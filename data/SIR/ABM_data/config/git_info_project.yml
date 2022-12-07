@@ -9,7 +9,7 @@ git_status:
 - ['', M models/HarrisWilson/cfgs/Marginals/eval.yml]
 - ['', M models/HarrisWilson/cfgs/Marginals/run.yml]
 - ['', M models/HarrisWilson/cfgs/Performance_analysis/run.yml]
-- ['', M models/HarrisWilson/cfgs/Sample_run/run.yml]
+- ['', M models/HarrisWilson/cfgs/Small_sample/run.yml]
 - ['', M models/SIR/SIR_cfg.yml]
 - ['', M models/SIR/cfgs/Predictions/eval.yml]
 - ['', M models/SIR/cfgs/Predictions/run.yml]

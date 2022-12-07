@@ -1,6 +1,6 @@
 ---
 paths:
-  model_note: Sample_run
+  model_note: Small_sample
 parameter_space:
   seed: 0
   num_epochs: 6000

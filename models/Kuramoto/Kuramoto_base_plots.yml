@@ -127,6 +127,12 @@
     - .plot.multiplot
   compute_only: []
 
+.multiplot_multiverse:
+  based_on:
+    - .creator.multiverse
+    - .plot.multiplot
+  compute_only: []
+
 .matrix:
   based_on:
     - .creator.universe
@@ -140,6 +146,66 @@
       1: *darkblue
     continuous: true
 
+.plot.prob_density:
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
+
+.marginals_density:
+  dag_options:
+    define:
+      n_bins: 100
+      min_bin: -1
+      max_bin: 16
+      bw_method: 0.5
+      sigma: 6
+  to_plot:
+    - function: [ model_plots.HarrisWilson, plot_prob_density ]
+      args: [ !dag_result distributions ]
+      x: bin_center
+      y: y
+      smooth_kwargs:
+        enabled: True
+        sigma: !dag_result sigma
+      pass_helper: true
+      hue: sample
+      alpha: !dag_result losses
+      lw: !dag_result losses
+      suppress_labels: True
+      color: *grey
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [!dag_result data]
+      x: bin_center
+      y: MLE
+      yerr: yerr
+      smooth_kwargs:
+        enabled: True
+        sigma: !dag_result sigma
+      pass_helper: true
+      color: black
+      linestyle: dotted
+      label: MLE
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [ !dag_result true_param ]
+      x: bin_center
+      y: y
+      smooth_kwargs:
+        enabled: True
+        sigma: !dag_result sigma
+      linestyle: dotted
+      color: *red
+      pass_helper: true
+  helpers:
+    set_legend:
+      use_legend: true
+    set_limits:
+      y: [0, ~]
+    set_tick_locators:
+      x: &formatting
+        major:
+          name: MaxNLocator
+          integer: true
+          nbins: !dag_result num_agents
+
 # ======================================================================================================================
 #  ╦ ╦╔╗╔╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
 #  ║ ║║║║║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
@@ -149,7 +215,7 @@
 loss:
   based_on: .line_universe
   select:
-    data: output_data/loss
+    data: output_data/training_loss
   helpers:
     set_labels:
       x: iteration
@@ -279,10 +345,8 @@ clustering_over_time:
         out_degree: data/predicted_network/_out_degree_weighted
         triangles: data/predicted_network/_weighted_triangles
       tag: clustering_weighted
-    - operation: pd.Index
-      args: [ [ 'clustering coefficient', 'weighted clustering coefficient'] ]
-      kwargs:
-        name: 'type'
+    - pd.Index: [ [ 'clustering coefficient', 'weighted clustering coefficient'] ]
+      kwargs: {name: 'type'}
     - xr.concat: [[!dag_tag clustering, !dag_tag clustering_weighted], !dag_prev ]
     - .mean: [!dag_prev , 'vertex_idx']
     - div: [!dag_prev , 3]
@@ -479,11 +543,8 @@ undirected_adjacency_matrix:
       x: [ -1, !dag_result num_agents ]
       y: [ !dag_result num_agents, -1 ]
     set_tick_locators:
-      x: &formatting
-        major:
-          name: MaxNLocator
-          integer: true
-          nbins: !dag_result num_agents
+      x:
+        <<: *formatting
       y:
         <<: *formatting
   cmap:
@@ -560,10 +621,11 @@ accuracy_on_false_edges:
     - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
       tag: data
 
-marginals_uni:
-  based_on: .creator.universe
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
+# Marginal density on a parameter
+marginals_parameter_uni:
+  based_on:
+    - .creator.universe
+    - .plot.prob_density
   select:
     param:
       path: predicted_network/_in_degree
@@ -597,156 +659,40 @@ marginals_uni:
           linestyle: dashed
           color: gray
 
+# Marginal density on a distribution
 marginals_density_uni:
   based_on:
     - .multiplot_universe
-  dag_options:
-    define:
-      n_bins: 100
-      min_bin: -1
-      max_bin: 16
-      bw_method: 0.5
-      sigma: 6
+    - .marginals_density
   select:
     num_agents:
       path: true_network/_vertices
       transform:
         - .coords: [!dag_prev , 'vertex_idx']
         - len: [!dag_prev ]
-    coords:
-      path: predicted_network/_in_degree
-      transform:
-        - .coords: [!dag_prev , 'time']
-        - .isel: [!dag_prev , {time: !slice [~, -2]}]
-    sel_idx:
-      path: output_data/loss
-      transform:
-        - .idxmin: [!dag_prev ]
-          kwargs: {dim: time}
-        - .values: [!dag_prev ]
-        - .item: [!dag_prev ]
-    param:
-      path: predicted_network/_in_degree
-      transform:
     param_binned:
       path: predicted_network/_in_degree
       transform:
-        - .isel: [!dag_prev , {time: !slice [~, -2]}]
         - np.linspace: [!dag_tag min_bin, !dag_tag max_bin, !dag_tag n_bins]
         - .data: [ !dag_node -2 ]
         - NeuralABM.hist: [!dag_prev ]
           kwargs:
             density: true
             bins: !dag_node -2
+    true_param:
+      path: true_network/_degree
+      transform:
+        - .data: [!dag_prev ]
+        - .squeeze: [!dag_prev ]
     loss:
       path: output_data/loss
       transform:
         - np.maximum: [ !dag_prev , *loss_limit ]
-        - log10: [ !dag_prev ]
-        - mul: [ !dag_prev , -1 ]
-        - np.exp: [!dag_prev ]
-    true_param:
-      path: true_network/_degree
-      transform:
-        - .isel: [!dag_prev , {time: -1}]
-          kwargs:
-            drop: True
-        - .data: [!dag_prev ]
   transform:
-    - .sel: [!dag_tag loss , {time: !dag_tag coords }]
     - NeuralABM.marginal_of_density: [!dag_tag param_binned ]
       kwargs:
-        loss: !dag_prev
+        loss: !dag_tag loss
       tag: data
-    - .sel: [!dag_tag param , {time: !dag_tag sel_idx }]
-      kwargs: {drop: true}
-      tag: MLE
-  to_plot:
-    - function: [model_plots.HarrisWilson, plot_prob_density]
-      args: [!dag_result data]
-      x: bin_center
-      y: y
-      yerr: yerr
-      label: $\hat{P}(k)$
-      smooth_kwargs:
-        enabled: True
-        sigma: !dag_result sigma
-      pass_helper: true
-      color: *darkblue
-    - function: [ seaborn, kdeplot ]
-      args: [ !dag_result MLE ]
-      gridsize: !dag_result n_bins
-      color: black
-      bw_method: !dag_result bw_method
-      label: MLE
-      legend: true
-      clip: [0, ~]
-    - function: [ seaborn, kdeplot ]
-      args: [ !dag_result true_param ]
-      gridsize: !dag_result n_bins
-      bw_method: !dag_result bw_method
-      label: $P(k)$
-      clip: [0, ~]
-      linestyle: dotted
-      color: *red
-
-
-  helpers:
-    set_legend:
-      use_legend: true
-    set_tick_locators:
-      x:
-        <<: *formatting
-
-
-marginals_density_mv:
-  based_on:
-    - .creator.multiverse
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
-  select_and_combine:
-    fields:
-      coords:
-        path: predicted_network/_in_degree
-        transform:
-          - .coords: [!dag_prev , 'time']
-          - .isel: [!dag_prev , {time: !slice [~, -2]}]
-      degrees:
-        path: predicted_network/_in_degree
-        transform:
-          - .isel: [!dag_prev , {time: !slice [~, -2]}]
-          - .coords: [!dag_prev , 'vertex_idx']
-          - len: [!dag_prev ]
-          - np.linspace: [0, !dag_prev , 10]
-          - .data: [ !dag_node -4 ]
-          - NeuralABM.hist: [!dag_prev ]
-            kwargs: {bins: !dag_node -2 }
-      loss:
-        path: output_data/loss
-        transform:
-          - np.maximum: [ !dag_prev , *loss_limit ]
-          - log10: [ !dag_prev ]
-          - mul: [ !dag_prev , -1 ]
-          - np.exp: [!dag_prev ]
-  transform:
-    - .isel: [!dag_tag coords, {seed: 0, num_layers: 0}]
-      kwargs: {drop: true}
-    - .sel: [!dag_tag loss , {time: !dag_prev }]
-    - NeuralABM.marginal_of_density: [!dag_tag degrees ]
-      kwargs:
-        loss: !dag_prev
-        along_dim: 'num_layers'
-      tag: data
-  x: bin_center
-  y: y
-  yerr: yerr
-  hue: num_layers
-  helpers:
-    set_legend:
-      use_legend: true
-  smooth_kwargs:
-    enabled: True
-    sigma: 2
 
 # ======================================================================================================================
 #  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
@@ -758,7 +704,7 @@ loss_stacked:
   expected_multiverse_ndim: [1, 2, 3, 4, 5]
   select_and_combine:
     fields:
-      values: output_data/loss
+      values: output_data/training_loss
   transform:
     - .mean: [!dag_tag values]
       kwargs:

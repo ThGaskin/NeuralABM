@@ -1,0 +1,562 @@
+.variables:
+  colors: &colors
+    yellow:       &yellow       '#F5DDA9'
+    darkblue:     &darkblue     '#2F7194'
+    red:          &red          '#ec7070'
+    skyblue:      &skyblue      '#97c3d0'
+    green:        &green        '#48675A'
+    lightbrown:   &lightbrown   '#C6BFA2'
+    orange:       &orange       '#EC9F7E'
+    lightgreen:   &lightgreen   '#AFD8BC'
+    grey:         &grey         '#3D4244'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:     &full_width         7.5
+    half_width:     &half_width         !expr 7.5 / 2
+    third_width:    &third_width        !expr 7.5 / 3
+    quarter_width:  &quarter_width      !expr 7.5 / 4
+    fifth_width:    &fifth_width        !expr 7.5 / 5
+    eighth_width:    &eighth_width      !expr 7.5 / 8
+
+# ======================================================================================================================
+
+# Training loss
+loss:
+  based_on: loss_stacked
+  transform:
+    - .mean: [!dag_tag values, 'seed']
+      tag: data
+  x: time
+  hue: sigma
+  helpers:
+    set_scales:
+      y: log
+    set_legend:
+      custom_labels: [$0$, $1e-4$, $5e-4$, $1e-3$, $5e-3$, $1e-2$, $5e-2$, $1e-1$]
+      ncol: 2
+  style:
+    figure.figsize: [*half_width, *third_width]
+
+# Frobenius error
+frobenius_loss:
+  based_on: loss
+  select_and_combine:
+    fields:
+      values: output_data/frobenius_error
+  helpers:
+    set_labels:
+      y: Frobenius error $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_\mathrm{Fr}$
+    set_legend:
+      use_legend: False
+
+# Network size comparison
+network_density:
+  based_on: .errorbands
+  select_and_combine:
+    fields:
+      sizes:
+        path: output_data/network_size
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+          - div: [!dag_prev , 9900]
+      true_size:
+        path: true_network/_edge_weights
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: { drop: true }
+          - len: [ !dag_node -1 ]
+          - mul: [ !dag_node -1, 2 ]
+          - div: [!dag_prev , 9900]
+  transform:
+    - .mean: [ !dag_tag sizes ]
+      kwargs: { dim: seed }
+      tag: means
+    - .std: [ !dag_tag sizes ]
+      kwargs: { dim: seed }
+    - xr.Dataset:
+      - y: !dag_tag means
+        yerr: !dag_prev
+      tag: data
+    - .isel: [!dag_tag true_size , { seed: -1, sigma: -1 }]
+      tag: nw_size
+  helpers:
+    set_hv_lines:
+      hlines:
+        - pos: !dag_result nw_size
+          color: *red
+          label: $\vert E \vert$
+          linestyle: dotted
+    set_labels:
+      x: $\sigma$
+      y: Predicted network density
+    set_scales:
+      x: log
+  x: sigma
+  style:
+    figure.figsize: [ *half_width, *quarter_width ]
+
+# Plot the average predicted weight on false edges
+accuracy_on_false_edges:
+  based_on: .errorbands
+  select_and_combine:
+    fields:
+      prediction:
+        path: output_data/predictions
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: {drop: true}
+      true_values:
+        path: true_network/_adjacency_matrix
+        transform: [.data]
+  transform:
+    - sub: [ !dag_tag prediction, !dag_tag true_values ]
+    - np.abs: [ !dag_prev ]
+      tag: l1_accuracy
+    - ==: [!dag_tag true_values, 0]
+    - xr.where: [!dag_prev , 1, 0]
+    - mul: [!dag_tag prediction, !dag_prev ]
+    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
+      tag: accuracies
+    - .mean: [!dag_prev , ['seed', 'i', 'j'] ]
+      tag: means
+    - .std: [!dag_tag accuracies, ['seed', 'i', 'j'] ]
+    - xr.Dataset:
+      - y: !dag_tag means
+        yerr: !dag_prev
+      tag: data
+  x: Noise
+  style:
+    figure.figsize: [ *half_width, *third_width ]
+  helpers:
+    set_scales:
+      x: log
+      y: log
+    set_labels:
+      y: Average edge weight on $E_\wedge$
+
+
+loss_compared:
+  based_on: .multiplot_multiverse
+  select_and_combine:
+    fields:
+      training_loss:
+        path: output_data/training_loss
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: {drop: true}
+      frobenius_loss:
+        path: output_data/frobenius_error
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: {drop: true}
+  transform:
+    - pd.Index: [ [ 'Training loss', 'Frobenius error'] ]
+      kwargs: {name: 'loss type'}
+    - xr.concat: [[!dag_tag training_loss, !dag_tag frobenius_loss], !dag_prev ]
+    - .squeeze: [!dag_prev ]
+      tag: dset
+    - .mean: [!dag_prev , 'seed']
+      tag: means
+    - .std: [!dag_tag dset, 'seed']
+    - add: [!dag_tag means, !dag_prev ]
+      tag: upper
+  to_plot:
+    - function: [ xarray.plot, line ]
+      args: [ !dag_result upper ]
+      linestyle: dotted
+      linewidth: 1
+    - function: [xarray.plot, line]
+      args: [!dag_result means]
+  x: sigma
+  hue: loss type
+  style:
+    figure.figsize: [ *half_width, *quarter_width ]
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['black',
+                              '{colors[yellow]:}',
+                              ])"
+      colors: *colors
+  helpers:
+    set_scales:
+      x: log
+      y: log
+    set_labels:
+      x: Noise level $\sigma$
+      y: Final loss
+    set_legend:
+      title: ~
+
+
+
+degree_distribution: !pspace
+  based_on: .multiplot_multiverse
+  dag_options:
+    meta_operations:
+      hist:
+        - np.linspace: [ 0, 100, 400 ]
+        - NeuralABM.hist: [ !arg 0 ]
+          kwargs: { bins: !dag_node -1 }
+  select_and_combine:
+    fields:
+      param_binned:
+        path: predicted_network/_in_degree
+        transform:
+          - hist: [!dag_prev ]
+      true_val:
+        path: true_network/_degree
+        transform:
+          - hist: [!dag_prev ]
+        subspace:
+          seed: 0
+          sigma: 0
+      loss:
+        path: output_data/training_loss
+        transform:
+          - mul: [!dag_prev , -1]
+          - np.exp: [!dag_prev ]
+    subspace:
+      sigma: !sweep
+        default: 0.0
+        values: [0.0, 1e-3, 4e-2]
+
+  transform:
+
+    # Get the true value
+    - NeuralABM.flatten_dims: [ !dag_tag true_val , { sample: [ seed, sigma, time ] } ]
+    - NeuralABM.normalise_degrees_to_edges: [ !dag_prev ]
+    - .squeeze: [ !dag_prev ]
+    - .to_dataset: [!dag_prev ]
+      kwargs: {name: y}
+      tag: true_param
+
+    # Calculate mean, MLE, and error
+    - NeuralABM.flatten_dims: [ !dag_tag param_binned , { sample: [ seed, sigma, time ] } ]
+    - NeuralABM.normalise_degrees_to_edges: [!dag_prev ]
+      tag: samples
+    - NeuralABM.flatten_dims: [ !dag_tag loss , { sample: [ seed, sigma, time ] } ]
+    - .expand_dims: [!dag_prev ]
+      kwargs:
+        bin_center: 1
+        axis: -1
+      tag: loss_flattened
+    - .sum: [!dag_prev , 'sample']
+    - div: [!dag_tag loss_flattened, !dag_prev ]
+      tag: loss_normalised
+    - .coords: [!dag_tag loss , 'time']
+    - len: [!dag_prev ]
+      tag: n_steps
+    - .isel: [!dag_tag loss , {time: -1}]
+      kwargs: {drop: true}
+    - .argmax: [!dag_prev ]
+    - mul: [!dag_prev , !dag_tag n_steps]
+    - sub: [!dag_prev , 1]
+    - NeuralABM.marginal_of_density: [ !dag_tag samples ]
+      kwargs:
+        loss: !dag_tag loss_normalised
+        error: Hellinger
+        MLE_index: !dag_prev
+      tag: data
+    - div: [!dag_tag loss_flattened , 20 ]
+      tag: losses
+    - .data: [!dag_tag loss_flattened]
+    - .to_dataset: [ !dag_tag samples ]
+      kwargs: { name: y }
+      tag: distributions
+  to_plot:
+    - function: [ model_plots.HarrisWilson, plot_prob_density ]
+      args: [ !dag_result distributions ]
+      y: y
+      hue: sample
+      alpha: !dag_result losses
+      lw: !dag_result losses
+      suppress_labels: true
+      color: *grey
+      pass_helper: True
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [!dag_result data]
+      x: bin_center
+      y: MLE
+      yerr: yerr
+      label: $\hat{P}(k)$
+      pass_helper: true
+      color: *darkblue
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [ !dag_result true_param ]
+      y: y
+      linestyle: dotted
+      color: *red
+      label: $P(k)$
+      pass_helper: True
+  x: bin_center
+  smooth_kwargs:
+    enabled: True
+    sigma: 6
+  helpers:
+    set_title:
+      title: ~
+    set_labels:
+      x: $k$
+      y: $P(k)$
+    set_legend:
+      use_legend: True
+      ncol: 1
+      loc: upper right
+    set_limits:
+      x: [5, 50]
+      y: [0, 0.2]
+  style:
+    figure.figsize: [*half_width, *quarter_width]
+
+triangles: !pspace
+  based_on: degree_distribution
+  dag_options:
+    meta_operations:
+      hist:
+        - np.linspace: [ 0, 1000, 1000 ]
+        - NeuralABM.hist: [ !arg 0 ]
+          kwargs: { bins: !dag_node -1 }
+  select_and_combine:
+    fields:
+      param_binned:
+        path: predicted_network/_triangles
+      true_val:
+        path: true_network/_triangles
+    subspace:
+      sigma: !sweep
+        default: 0.0
+        values: [0.0, 1e-3, 4e-2]
+  to_plot:
+    - function: [ model_plots.HarrisWilson, plot_prob_density ]
+      args: [ !dag_result distributions ]
+      y: y
+      hue: sample
+      alpha: !dag_result losses
+      lw: !dag_result losses
+      suppress_labels: true
+      color: *grey
+      pass_helper: True
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [!dag_result data]
+      x: bin_center
+      y: MLE
+      yerr: yerr
+      label: $\hat{P}(t)$
+      pass_helper: true
+      color: *darkblue
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [ !dag_result true_param ]
+      y: y
+      linestyle: dotted
+      color: *red
+      label: $P(t)$
+      pass_helper: True
+  x: bin_center
+  helpers:
+    set_labels:
+      x: $t$
+      y: $P(t)$
+    set_limits:
+      x: [10, 600]
+      y: [0, 0.03]
+    set_scales:
+      x: log
+
+
+mean_degree:
+  based_on: .errorbands
+  select_and_combine:
+    fields:
+      degree:
+        path: predicted_network/_in_degree
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+  transform:
+    - .mean: [!dag_tag degree , ['vertex_idx', 'seed']]
+      tag: mean
+    - .std: [!dag_tag degree , ['vertex_idx', 'seed']]
+    - xr.Dataset:
+      - y: !dag_tag mean
+        yerr: !dag_prev
+      tag: data
+  y: y
+  yerr: yerr
+  helpers:
+    set_scales:
+      x: log
+  style:
+    figure.figsize: [ *half_width, *third_width ]
+
+
+average_degree_error:
+  based_on: .line_multiverse
+  dag_options:
+    meta_operations:
+      hist:
+        - np.linspace: [ 0, 100, 400 ]
+        - NeuralABM.hist: [ !arg 0 ]
+          kwargs: { bins: !dag_node -1 }
+  select_and_combine:
+    fields:
+      param_binned:
+        path: predicted_network/_in_degree
+        transform:
+          - hist: [!dag_prev ]
+      loss:
+        path: output_data/training_loss
+        transform:
+          - mul: [!dag_prev , -1]
+          - np.exp: [!dag_prev ]
+
+  transform:
+
+    # Calculate mean, MLE, and error
+    - NeuralABM.flatten_dims: [ !dag_tag param_binned , { sample: [ seed, time ] } ]
+    - NeuralABM.normalise_degrees_to_edges: [!dag_prev ]
+      kwargs:
+        along_dim: sigma
+      tag: samples
+    - NeuralABM.flatten_dims: [ !dag_tag loss , { sample: [ seed, time ] } ]
+    - .expand_dims: [!dag_prev ]
+      kwargs:
+        bin_center: 1
+        axis: -1
+      tag: loss_flattened
+    - .sum: [!dag_prev , 'sample']
+    - div: [!dag_tag loss_flattened, !dag_prev ]
+      tag: loss_normalised
+    - NeuralABM.marginal_of_density: [ !dag_tag samples ]
+      kwargs:
+        loss: !dag_tag loss_normalised
+        error: standard
+        MLE_index: -1
+        along_dim: sigma
+    - getitem: [!dag_prev , 'yerr']
+    - .std: [!dag_prev , 'bin_idx']
+      tag: data
+  x: sigma
+  style:
+    figure.figsize: [*half_width, *third_width]
+
+average_triangle_error:
+  based_on: average_degree_error
+  dag_options:
+    meta_operations:
+      hist:
+        - np.linspace: [ 0, 1000, 1000 ]
+        - NeuralABM.hist: [ !arg 0 ]
+          kwargs: { bins: !dag_node -1 }
+  select_and_combine:
+    fields:
+      param_binned:
+        path: predicted_network/_triangles
+
+hellinger_error:
+  based_on: .line_multiverse
+  select_and_combine:
+    fields:
+      degree:
+        path: predicted_network/_in_degree
+        transform:
+          - np.linspace: [ 0, 100, 400 ]
+          - NeuralABM.hist: [ !dag_node -2 ]
+            kwargs: { bins: !dag_node -1 }
+      triangles:
+        path: predicted_network/_triangles
+        transform:
+          - np.linspace: [ 0, 1000, 1000 ]
+          - NeuralABM.hist: [ !dag_node -2 ]
+            kwargs: { bins: !dag_node -1 }
+      loss:
+        path: output_data/training_loss
+        transform:
+          - mul: [!dag_prev , -1]
+          - np.exp: [!dag_prev ]
+  dag_options:
+    meta_operations:
+      calculate_samples:
+        - NeuralABM.flatten_dims: [ !arg 0 , { sample: [ seed, time ] } ]
+        - NeuralABM.normalise_degrees_to_edges: [ !dag_prev ]
+          kwargs: {along_dim: sigma}
+      flatten_loss:
+        - NeuralABM.flatten_dims: [ !arg 0 , { sample: [ seed, time ] } ]
+        - .transpose: [ !dag_prev , 'sigma', 'sample' ]
+      normalise_loss:
+        - .sum: [ !arg 0 , 'sample' ]
+        - div: [ !arg 0, !dag_prev ]
+      calculate_MLE:
+        - .coords: [!arg 1 , 'time']
+        - len: [!dag_prev ]
+        - .isel: [!arg 1 , {time: -1}]
+          kwargs: {drop: true}
+        - .argmax: [!dag_prev ]
+          kwargs: {dim: 'seed'}
+        - mul: [!dag_prev , !dag_node -3]
+        - sub: [!dag_prev , 1]
+        - .isel: [!arg 0 , {sample: !dag_prev } ]
+      average_hellinger_distance:
+        - NeuralABM.Hellinger_distance: [ !arg 0, !arg 1 ]
+        - mul: [ !dag_prev , !arg 2 ]
+        - .sum: [ !dag_prev , 'sample' ]
+      average_relative_entropy:
+        - NeuralABM.relative_entropy: [ !arg 0, !arg 1 ]
+        - mul: [ !dag_prev , !arg 2 ]
+        - .sum: [ !dag_prev , 'sample' ]
+      combine:
+        - pd.Index: [ [ 'degree distribution', 'triangle distribution' ] ]
+          kwargs: {name: 'parameter'}
+        - xr.concat: [[!arg 0, !arg 1], !dag_prev ]
+  transform:
+    - calculate_samples: [!dag_tag degree]
+      tag: degree_samples
+    - calculate_samples: [!dag_tag triangles]
+      tag: triangle_samples
+    - flatten_loss: [!dag_tag loss]
+    - normalise_loss: [!dag_prev ]
+      tag: loss_normalised
+    - calculate_MLE: [!dag_tag degree_samples, !dag_tag loss]
+      tag: degree_MLE
+    - calculate_MLE: [!dag_tag triangle_samples, !dag_tag loss]
+      tag: triangle_MLE
+    - average_hellinger_distance: [!dag_tag degree_samples, !dag_tag degree_MLE, !dag_tag loss_normalised]
+      tag: hellinger_degree
+    - average_hellinger_distance: [!dag_tag triangle_samples, !dag_tag triangle_MLE, !dag_tag loss_normalised]
+      tag: hellinger_triangles
+    - combine: [!dag_tag hellinger_degree, !dag_tag hellinger_triangles]
+      tag: data
+  x: sigma
+  hue: parameter
+  helpers:
+    set_legend:
+      use_legend: true
+    set_labels:
+      x: $\sigma$
+      y: $\bar{d}_\mathrm{H}$
+  style:
+    figure.figsize: [*half_width, *quarter_width]
+
+relative_entropy_error:
+  based_on: hellinger_error
+  transform:
+    - calculate_samples: [!dag_tag degree]
+      tag: degree_samples
+    - calculate_samples: [!dag_tag triangles]
+      tag: triangle_samples
+    - flatten_loss: [!dag_tag loss]
+    - normalise_loss: [!dag_prev ]
+      tag: loss_normalised
+    - calculate_MLE: [!dag_tag degree_samples, !dag_tag loss]
+      tag: degree_MLE
+    - calculate_MLE: [!dag_tag triangle_samples, !dag_tag loss]
+      tag: triangle_MLE
+    - average_relative_entropy: [!dag_tag degree_samples, !dag_tag degree_MLE, !dag_tag loss_normalised]
+      tag: relative_entropy_degree
+    - average_relative_entropy: [!dag_tag triangle_samples, !dag_tag triangle_MLE, !dag_tag loss_normalised]
+      tag: relative_entropy_triangles
+    - combine: [!dag_tag relative_entropy_degree, !dag_tag relative_entropy_triangles]
+      tag: data
+  helpers:
+    set_legend:
+      use_legend: False
+    set_labels:
+      y: $\bar{d}_\mathrm{KL}$

@@ -35,6 +35,3 @@ Training:
   true_parameters:
     sigma: *sigma
   device: cpu
-
-# Whether to write out the training time
-write_time: False

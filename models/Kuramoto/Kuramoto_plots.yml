@@ -24,12 +24,18 @@ marginals/degree_distribution:
   based_on: marginals_density_uni
   dag_options:
     define:
-      n_bins: 100
+      n_bins: 300
       bw_method: 0.5
       sigma: 6
+      min_bin: 0
+      max_bin: 100
   helpers:
     set_title:
       title: Degree distribution $P(k)$
+    set_tick_locators:
+      x:
+        major:
+          nbins: 20
 
 marginals/clustering:
   based_on: marginals_density_uni

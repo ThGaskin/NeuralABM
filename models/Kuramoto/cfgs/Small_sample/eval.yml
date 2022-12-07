@@ -43,58 +43,7 @@
       y: [max, min]
       x: [min, max]
 
-graphs/true_graph:
-  based_on: graph
-
-graphs/prediction:
-  based_on: graph
-  select:
-    graph_group: predicted_network
-
-marginals/degree_distribution:
-  based_on: marginals_density_uni
-  dag_options:
-    define:
-      n_bins: 200
-      bw_method: 0.5
-      sigma: 6
-  helpers:
-    set_title:
-      title: Degree distribution $P(k)$
-    set_labels:
-      y: ' '
-  style:
-    figure.figsize: [*half_width, *third_width]
-
-marginals/clustering:
-  based_on: marginals_density_uni
-  dag_options:
-    define:
-      n_bins: 1000
-      min_bin: -8
-      max_bin: 257
-      bw_method: 0.2
-      sigma: 4
-  select:
-    coords:
-      path: predicted_network/_triangles
-    param:
-      path: predicted_network/_triangles
-    param_binned:
-      path: predicted_network/_triangles
-    true_param:
-      path: true_network/_triangles
-  helpers:
-    set_title:
-      title: Triangle distribution $P(c)$
-    set_limits:
-      x: [0, 40]
-    set_labels:
-      y: ' '
-  style:
-    figure.figsize: [ *half_width, *third_width ]
-
-matrices/comparison:
+comparison:
   based_on:
     - .matrix
     - .matrix_defaults
@@ -119,7 +68,7 @@ matrices/comparison:
   cbar_kwargs:
     label: ~
 
-matrices/error:
+error:
   based_on:
     - accuracy
     - .matrix_defaults
@@ -129,3 +78,8 @@ matrices/error:
   vmax: ~
   cbar_kwargs:
     label: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
+
+loss:
+  based_on: loss
+  color: black
+  figsize: [*half_width, *third_width]

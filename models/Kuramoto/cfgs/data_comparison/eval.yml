@@ -139,3 +139,55 @@ accuracy_on_false_edges:
       y: log
     set_labels:
       y: Average edge weight on $E_\wedge$
+
+loss_compared:
+  based_on: .multiplot_multiverse
+  select_and_combine:
+    fields:
+      training_loss:
+        path: output_data/loss
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: {drop: true}
+      frobenius_loss:
+        path: output_data/frobenius_error
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: {drop: true}
+  transform:
+    - pd.Index: [ [ 'Training loss', 'Frobenius error'] ]
+      kwargs: {name: 'loss type'}
+    - xr.concat: [[!dag_tag training_loss, !dag_tag frobenius_loss], !dag_prev ]
+    - .assign_coords: [!dag_prev , {training_data: [1, 2, 4, 5, 10, 20, 40]}]
+    - .squeeze: [!dag_prev ]
+      tag: dset
+    - .mean: [!dag_prev , 'seed']
+      tag: means
+    - .std: [!dag_tag dset, 'seed']
+    - add: [!dag_tag means, !dag_prev ]
+      tag: upper
+  to_plot:
+    - function: [ xarray.plot, line ]
+      args: [ !dag_result upper ]
+      linestyle: dotted
+      linewidth: 1
+    - function: [xarray.plot, line]
+      args: [!dag_result means]
+  x: training_data
+  hue: loss type
+  style:
+    figure.figsize: [ *half_width, *quarter_width ]
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['black',
+                              '{colors[yellow]:}',
+                              ])"
+      colors: *colors
+  helpers:
+    set_scales:
+      x: log
+      y: log
+    set_labels:
+      x: Number of training sets
+      y: Final loss
+    set_legend:
+      title: ~

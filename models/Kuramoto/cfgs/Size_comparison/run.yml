@@ -1,0 +1,55 @@
+---
+perform_sweep: True
+paths:
+  model_note: Size_comparison
+parameter_space:
+  seed: 1
+  num_epochs: 30
+  write_every: 2
+  write_predictions_every: 1000
+  Kuramoto:
+    Data:
+      write_adjacency_matrix: True
+#      load_from_dir:
+#        copy_data: True
+#        network: /Users/thomasgaskin/utopya_output/Kuramoto/network/data/uni0/data.h5
+#        training_data: /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni7/data.h5
+#        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/network/data/uni0/data.h5
+      synthetic_data:
+        num_steps: 10
+        training_set_size: 100
+        N: !sweep
+          default: 500
+          values: [50, 100, 150, 500, 1000]
+          name: num_vertices
+        sigma: &sigma 0.0
+        network:
+          type: random
+          mean_degree: !coupled-sweep
+            default: 50
+            values: [10, 20, 30, 100, 200]
+            target_name: num_vertices
+          graph_props:
+            is_directed: False
+            WattsStrogatz:
+              p_rewire: 0.5
+        dt: 0.02
+    NeuralNet:
+      num_layers: 5
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: tanh
+        layer_specific:
+          -1: Hardsigmoid
+      biases:
+        default: ~
+    Training:
+      batch_size: 2
+      optimizer: Adam
+      learning_rate: 0.002
+      loss_function:
+        name: MSELoss
+      true_parameters:
+        sigma: *sigma
+
