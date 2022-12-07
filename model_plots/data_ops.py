@@ -3,6 +3,7 @@ from operator import itemgetter
 import numpy as np
 import scipy.signal
 import xarray as xr
+from typing import Sequence
 
 from utopya.eval import is_operation
 
@@ -43,7 +44,6 @@ def apply_along_dim(func):
 
         else:
             return func(data, loss, *args, **kwargs)
-
     return _apply_along_axis
 
 
@@ -260,52 +260,83 @@ def compute_avg_peak_widths(
 
 @is_operation("NeuralABM.hist")
 def hist(
-    ds: xr.DataArray, axis: int = 1, *args, bins: np.array, **kwargs
+    ds: xr.DataArray, axis: int = 1, *args, bins: Sequence, **kwargs
 ) -> xr.DataArray:
     def _hist(obj, *args, **kwargs):
 
-        return np.histogram(obj, *args, **kwargs)[0]
+        return np.histogram(obj, *args, **kwargs)[0].astype(float)
 
     data = np.apply_along_axis(_hist, axis, ds, *args, bins, **kwargs)
-
+    dim_0 = list(ds.sizes)[0]
     return xr.DataArray(
         data,
-        dims=["sample", "bin_center"],
-        coords=dict(
-            sample=np.arange(np.shape(data)[0]),
-            bin_center=bins[:-1] + (bins[1:] - bins[:-1]) / 2,
-        ),
+        dims=[dim_0, "bin_center"],
+        coords={
+            dim_0: ds.coords[list(ds.sizes)[0]],
+            'bin_center': bins[:-1] + (np.subtract(bins[1:], bins[:-1])) / 2
+        }
     )
 
+@is_operation("NeuralABM.flatten_dims")
+@apply_along_dim
+def flatten_dims(ds: xr.DataArray, loss, dim, *args, **kwargs):
+    """ Flattens dimensions of a dataarray into a new datarray"""
+
+    key, params = list(dim.keys())[0], list(dim.values())[0]
+    ds = ds.stack(dim).drop_vars(params)
+
+    return ds.assign_coords({key: np.arange(len(ds.coords[key]))}).transpose(key, ...)
+
+@is_operation("NeuralABM.normalise_degrees_to_edges")
+@apply_along_dim
+def normalise_degrees_to_edges(ds, *_, **__):
+
+    norms = np.expand_dims(ds.sum('bin_center') * np.diff(ds.coords["bin_center"])[0], -1)
+    # norms = np.expand_dims(np.sum(ds.data * np.expand_dims(ds.coords["bin_center"], 0), axis=1), -1)
+    ds.data = ds.data / np.where(norms != 0, norms, 1)
+    return ds
+
+@is_operation("NeuralABM.Hellinger_distance")
+@apply_along_dim
+def Hellinger_distance(P1, loss, P2,  x: str = 'bin_center', *_, **__):
+
+    return np.square(np.sqrt(P1) - np.sqrt(P2)).sum(x)
+
+@is_operation("NeuralABM.relative_entropy")
+@apply_along_dim
+def relative_entropy(P1, loss, P2,  x: str = 'bin_center', *_, **__):
+
+    return np.abs(P1 * np.log( xr.where(P1 != 0, P1, 1.0) / xr.where(P2 != 0, P2, 1.0))).sum(x)
 
 @is_operation("NeuralABM.marginal_of_density")
 @apply_along_dim
-def marginal_of_density(vals: xr.DataArray, loss: xr.DataArray, *, coords: dict = {}) -> xr.Dataset:
+def marginal_of_density(vals: xr.DataArray,
+                        loss: xr.DataArray,
+                        *,
+                        coords: dict = {},
+                        MLE_index: int = None,
+                        error: str = "standard") -> xr.Dataset:
 
-    hist_data = vals.data
-    n_bins = len(vals.coords["bin_center"])
-    dx = (vals.coords["bin_center"][1] - vals.coords["bin_center"][0]).item()
-    hist_data = np.reshape(hist_data, (-1, n_bins))
-    n_samples = np.shape(hist_data)[0]
-
-    loss_data = np.repeat(np.reshape(loss.data, (n_samples, 1)), n_bins, 1)
-    loss_data = loss_data / np.sum(loss_data, axis=0)
+    n_samples, n_bins = list(vals.sizes.values())[:]
 
     # Calculate the mean of each bin
-    means = np.sum(hist_data * loss_data, axis=0)
+    means = np.sum(vals.data * loss.data, axis=0)
 
-    # Calculate the variance of each bin
-    std = np.square(hist_data - np.repeat(np.resize(means, (1, n_bins)), n_samples, 0))
-    std = np.sqrt(np.sum(std * loss_data, axis=0))
+    # Calculate the uncertainty of each bin
+    if error.lower() == "standard":
+        err = np.square(vals.data - np.resize(means, (1, n_bins)))
+        err = np.sqrt(np.sum(err * loss.data, axis=0))
 
-    # Normalise to 1
-    means = means/(np.sum(means) * dx)
-    std = std/(np.sum(means) * dx)
+    elif error.lower() == "hellinger":
+        err = np.sqrt(vals.data) - np.sqrt(np.resize(means, (1, n_bins)))
+        err = np.sum(np.square(err) * loss.data, axis=0)
+
     coords.update(dict(bin_idx=np.arange(n_bins)))
 
     return xr.Dataset(
         data_vars=dict(bin_center=("bin_idx", vals.coords['bin_center'].data),
                        y=("bin_idx", means),
-                       yerr=("bin_idx", std)),
+                       yerr=("bin_idx", err),
+                       MLE=("bin_idx", vals.data[MLE_index])),
         coords=coords
     )
