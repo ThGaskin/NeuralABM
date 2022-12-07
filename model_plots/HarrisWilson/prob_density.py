@@ -1,15 +1,13 @@
 import logging
 
-import dantro
 import matplotlib.lines as mlines
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import xarray as xr
-
+from typing import Union
 from utopya.eval import PlotHelper, is_plot_func
 
 log = logging.getLogger(__name__)
-
 
 @is_plot_func(use_dag=True)
 def plot_prob_density(
@@ -21,10 +19,24 @@ def plot_prob_density(
     yerr: str = None,
     hue: str = None,
     label: str = None,
+    lw: Union[float, str, xr.DataArray] = None,
+    alpha: Union[float, str, xr.DataArray] = None,
+    suppress_labels: bool = False,
     info_box_labels: dict = None,
     smooth_kwargs: dict = {},
     **plot_kwargs
 ):
+
+    def _parse_plot_kwargs(param, coordinate) -> Union[float, None]:
+
+        if isinstance(param, float):
+            return param
+        elif isinstance(param, str):
+            return dset[param].sel({hue: coordinate})
+        elif isinstance(param, xr.DataArray):
+            return param.sel({hue: coordinate}).item()
+        else:
+            return None
 
     """Plots the marginal probability densities for a collection of datasets consisting of *different*
     x-values (param1) and associated probability values ('prob'). If specified, smooths the densities using
@@ -41,7 +53,15 @@ def plot_prob_density(
     # Plot stacked lines
     _handles, _labels = [], []
     if hue:
-        for coord in dset.coords[hue].values:
+        for i, coord in enumerate(dset.coords[hue].values):
+
+            plot_kwargs.update(lw=_parse_plot_kwargs(lw, coord))
+            plot_kwargs.update(alpha=_parse_plot_kwargs(alpha, coord))
+
+            if x in dset.coords:
+                x_vals = dset.coords[x]
+            else:
+                x_vals = dset[x].sel({hue: coord})
 
             y_vals = dset[y].sel({hue: coord})
 
@@ -49,16 +69,17 @@ def plot_prob_density(
             y_vals_upper = y_vals + dset[yerr].sel({hue: coord}) if yerr is not None else None
             y_vals_lower = y_vals - dset[yerr].sel({hue: coord}) if yerr is not None else None
 
-            # Smooth the probability distribution, if set
+            # Smooth and normalise the probability distribution, if set
             if smooth:
                 y_vals = scipy.ndimage.gaussian_filter1d(y_vals, sigma, **smooth_kwargs)
+
                 if yerr is not None:
                     y_vals_upper = scipy.ndimage.gaussian_filter1d(y_vals_upper, sigma, **smooth_kwargs)
                     y_vals_lower = scipy.ndimage.gaussian_filter1d(y_vals_lower, sigma, **smooth_kwargs)
 
             # Plot the distribution
-            ebar,  = hlpr.ax.plot(
-                dset[x].sel({hue: coord}), y_vals, **plot_kwargs
+            ebar, = hlpr.ax.plot(
+                x_vals, y_vals, **plot_kwargs
             )
 
             # Add errorbands, if given
@@ -66,12 +87,13 @@ def plot_prob_density(
                 plot_kwargs.update(dict(alpha=0.5))
                 fb = hlpr.ax.fill_between(dset[x].sel({hue: coord}), y_vals_lower, y_vals_upper, linewidth=0, **plot_kwargs)
 
-            _labels.append(f'{hue} = {coord}')
-            _handles.append(ebar if yerr is None else (ebar, fb))
+            if not suppress_labels:
+                _labels.append(f'{hue} = {coord}')
+                _handles.append(ebar if yerr is None else (ebar, fb))
 
     else:
 
-        y_vals = dset[y]
+        x_vals, y_vals = dset[x], dset[y]
 
         # Select the errorbands, if set
         y_vals_upper = y_vals + dset[yerr] if yerr is not None else None
@@ -80,7 +102,6 @@ def plot_prob_density(
         # Smooth the probability distribution, if set
         if smooth:
             y_vals = scipy.ndimage.gaussian_filter1d(y_vals, sigma, **smooth_kwargs)
-
             if yerr is not None:
                 y_vals_upper = scipy.ndimage.gaussian_filter1d(y_vals_upper, sigma, **smooth_kwargs)
                 y_vals_lower = scipy.ndimage.gaussian_filter1d(y_vals_lower, sigma, **smooth_kwargs)
@@ -94,7 +115,7 @@ def plot_prob_density(
             fb = hlpr.ax.fill_between(dset[x], y_vals_lower, y_vals_upper, linewidth=0, **plot_kwargs)
 
         if label is not None:
-            _handles.append(ebar[0] if yerr is None else (ebar, fb))
+            _handles.append(ebar if yerr is None else (ebar, fb))
             _labels.append(label)
 
     hlpr.track_handles_labels(_handles, _labels)
