@@ -1,0 +1,84 @@
+.variables:
+  colors: &colors
+    yellow:       &yellow       '#F5DDA9'
+    darkblue:     &darkblue     '#2F7194'
+    red:          &red          '#ec7070'
+    skyblue:      &skyblue      '#97c3d0'
+    green:        &green        '#48675A'
+    lightbrown:   &lightbrown   '#C6BFA2'
+    orange:       &orange       '#EC9F7E'
+    lightgreen:   &lightgreen   '#AFD8BC'
+    grey:         &grey         '#3D4244'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:         &full_width         7.5
+    half_width:         &half_width         !expr 7.5 / 2
+    two_thirds_width:   &two_thirds_width   !expr 2 * 7.5 / 3
+    third_width:        &third_width        !expr 7.5 / 3
+    quarter_width:      &quarter_width      !expr 7.5 / 4
+    fifth_width:        &fifth_width        !expr 7.5 / 5
+    eighth_width:       &eighth_width       !expr 7.5 / 8
+
+
+regression_comp:
+  based_on: .multiplot_multiverse
+  select_and_combine:
+    fields:
+      regression:
+        path: regression_data/predictions
+        transform:
+          - .data: [!dag_prev ]
+      NN_prediction:
+        path: output_data/predictions
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: {drop: true}
+      true_values:
+        path: true_network/_adjacency_matrix
+        transform: [.data]
+  transform:
+    - sub: [!dag_tag regression, !dag_tag true_values]
+    - np.abs: [!dag_prev ]
+    - .sum: [!dag_prev , ['i', 'j']]
+      tag: regression_error
+    - sub: [!dag_tag NN_prediction, !dag_tag true_values]
+    - np.abs: [!dag_prev ]
+    - .sum: [!dag_prev , ['i', 'j']]
+      tag: NN_error
+    - pd.Index: [ [ 'Neural net', 'OLS' ] ]
+      kwargs:
+        name: 'type'
+    - xr.concat: [[!dag_tag NN_error, !dag_tag regression_error], !dag_prev ]
+    - .squeeze: [!dag_prev ]
+      tag: data
+    - .mean: [!dag_tag data , 'seed']
+      tag: means
+    - .std: [!dag_tag data, 'seed']
+    - add: [!dag_tag means, !dag_prev ]
+      tag: upper
+  to_plot:
+    - function: [ xarray.plot, line ]
+      args: [ !dag_result upper ]
+      linestyle: dotted
+      linewidth: 1
+    - function: [ xarray.plot, line ]
+      args: [ !dag_result means ]
+  x: sigma
+  hue: type
+  helpers:
+    set_scales:
+      x: log
+      y: log
+    set_labels:
+      x: $\sigma$
+      y: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
+    set_legend:
+      title: ~
+  style:
+    figure.figsize: [ *half_width, *quarter_width ]
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['black',
+                              '{colors[yellow]:}',
+                              ])"
+      colors: *colors

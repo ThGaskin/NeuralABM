@@ -1,9 +1,9 @@
 from operator import itemgetter
+from typing import Sequence
 
 import numpy as np
 import scipy.signal
 import xarray as xr
-from typing import Sequence
 
 from utopya.eval import is_operation
 
@@ -12,7 +12,12 @@ from utopya.eval import is_operation
 
 def apply_along_dim(func):
     def _apply_along_axis(
-        data: xr.Dataset, *args, loss: xr.Dataset = None, along_dim: str = None, labels: list = None, **kwargs
+        data: xr.Dataset,
+        *args,
+        loss: xr.Dataset = None,
+        along_dim: str = None,
+        labels: list = None,
+        **kwargs,
     ):
         """Decorator which allows for applying a function, which acts on an array-like, along a dimension of a
         xarray.Dataset.
@@ -36,7 +41,7 @@ def apply_along_dim(func):
                         if labels is None
                         else {along_dim: labels[idx]},
                         *args,
-                        **kwargs
+                        **kwargs,
                     )
                 )
 
@@ -44,6 +49,7 @@ def apply_along_dim(func):
 
         else:
             return func(data, loss, *args, **kwargs)
+
     return _apply_along_axis
 
 
@@ -112,7 +118,7 @@ def joint_density(
     *,
     coords: dict = None,
     bins: tuple = [100, 100],
-    clip: tuple = [[-np.inf, +np.inf], [-np.inf, +np.inf]]
+    clip: tuple = [[-np.inf, +np.inf], [-np.inf, +np.inf]],
 ) -> xr.Dataset:
     """Computes the 2d joint probability density function
 
@@ -198,7 +204,7 @@ def compute_mode(
     coords: dict = None,
     x: str = "param1",
     p: str = "prob",
-    dim: str = "bin_idx"
+    dim: str = "bin_idx",
 ):
     """Computes the x-coordinate of the mode of a one-dimensional dataset consisting of x-values and probabilities"""
     coords = data.coords if coords is None else coords
@@ -273,49 +279,60 @@ def hist(
         dims=[dim_0, "bin_center"],
         coords={
             dim_0: ds.coords[list(ds.sizes)[0]],
-            'bin_center': bins[:-1] + (np.subtract(bins[1:], bins[:-1])) / 2
-        }
+            "bin_center": bins[:-1] + (np.subtract(bins[1:], bins[:-1])) / 2,
+        },
     )
+
 
 @is_operation("NeuralABM.flatten_dims")
 @apply_along_dim
 def flatten_dims(ds: xr.DataArray, loss, dim, *args, **kwargs):
-    """ Flattens dimensions of a dataarray into a new datarray"""
+    """Flattens dimensions of a dataarray into a new datarray"""
 
     key, params = list(dim.keys())[0], list(dim.values())[0]
     ds = ds.stack(dim).drop_vars(params)
 
     return ds.assign_coords({key: np.arange(len(ds.coords[key]))}).transpose(key, ...)
 
+
 @is_operation("NeuralABM.normalise_degrees_to_edges")
 @apply_along_dim
 def normalise_degrees_to_edges(ds, *_, **__):
 
-    norms = np.expand_dims(ds.sum('bin_center') * np.diff(ds.coords["bin_center"])[0], -1)
+    norms = np.expand_dims(
+        ds.sum("bin_center") * np.diff(ds.coords["bin_center"])[0], -1
+    )
     # norms = np.expand_dims(np.sum(ds.data * np.expand_dims(ds.coords["bin_center"], 0), axis=1), -1)
     ds.data = ds.data / np.where(norms != 0, norms, 1)
     return ds
 
+
 @is_operation("NeuralABM.Hellinger_distance")
 @apply_along_dim
-def Hellinger_distance(P1, loss, P2,  x: str = 'bin_center', *_, **__):
+def Hellinger_distance(P1, loss, P2, x: str = "bin_center", *_, **__):
 
     return np.square(np.sqrt(P1) - np.sqrt(P2)).sum(x)
 
+
 @is_operation("NeuralABM.relative_entropy")
 @apply_along_dim
-def relative_entropy(P1, loss, P2,  x: str = 'bin_center', *_, **__):
+def relative_entropy(P1, loss, P2, x: str = "bin_center", *_, **__):
 
-    return np.abs(P1 * np.log( xr.where(P1 != 0, P1, 1.0) / xr.where(P2 != 0, P2, 1.0))).sum(x)
+    return np.abs(
+        P1 * np.log(xr.where(P1 != 0, P1, 1.0) / xr.where(P2 != 0, P2, 1.0))
+    ).sum(x)
+
 
 @is_operation("NeuralABM.marginal_of_density")
 @apply_along_dim
-def marginal_of_density(vals: xr.DataArray,
-                        loss: xr.DataArray,
-                        *,
-                        coords: dict = {},
-                        MLE_index: int = None,
-                        error: str = "standard") -> xr.Dataset:
+def marginal_of_density(
+    vals: xr.DataArray,
+    loss: xr.DataArray,
+    *,
+    coords: dict = {},
+    MLE_index: int = None,
+    error: str = "standard",
+) -> xr.Dataset:
 
     n_samples, n_bins = list(vals.sizes.values())[:]
 
@@ -334,9 +351,11 @@ def marginal_of_density(vals: xr.DataArray,
     coords.update(dict(bin_idx=np.arange(n_bins)))
 
     return xr.Dataset(
-        data_vars=dict(bin_center=("bin_idx", vals.coords['bin_center'].data),
-                       y=("bin_idx", means),
-                       yerr=("bin_idx", err),
-                       MLE=("bin_idx", vals.data[MLE_index])),
-        coords=coords
+        data_vars=dict(
+            bin_center=("bin_idx", vals.coords["bin_center"].data),
+            y=("bin_idx", means),
+            yerr=("bin_idx", err),
+            MLE=("bin_idx", vals.data[MLE_index]),
+        ),
+        coords=coords,
     )

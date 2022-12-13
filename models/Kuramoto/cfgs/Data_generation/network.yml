@@ -22,4 +22,3 @@ parameter_space:
             values: [6, 20, 40, 150]
           graph_props:
             is_directed: False
-

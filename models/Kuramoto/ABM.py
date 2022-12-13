@@ -53,9 +53,7 @@ class Kuramoto_ABM:
         sigma = self.sigma if sigma is None else sigma
 
         new_phases = current_phases.clone().detach()
-
         diffs = torch.sin(current_phases - torch.reshape(current_phases, (self.N,)))
-
         new_phases = (
             new_phases
             + (

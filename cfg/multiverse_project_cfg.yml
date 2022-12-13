@@ -9,6 +9,7 @@ parameter_space:
   num_epochs: 1000
   write_start: 1
   write_every: 1
+  perform_regression: false
 
 # Data loading configuration
 data_manager:

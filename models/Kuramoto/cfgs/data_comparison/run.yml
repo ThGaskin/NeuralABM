@@ -17,7 +17,7 @@ parameter_space:
       write_adjacency_matrix: True
       load_from_dir:
         copy_data: True
-        network: /Users/thomasgaskin/utopya_output/Kuramoto/network/data/uni0/data.h5
+        network: /Users/thomasgaskin/utopya_output/Kuramoto/networks/N_16/uni0/data.h5
         training_data: !sweep
           default: /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni7/data.h5
           values: [
@@ -29,7 +29,7 @@ parameter_space:
             /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni6/data.h5,
             /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni7/data.h5
           ]
-        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/network/data/uni0/data.h5
+        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/networks/N_16/uni0/data.h5
       synthetic_data:
         N: 16
         sigma: &sigma 0.0

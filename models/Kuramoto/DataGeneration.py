@@ -2,6 +2,7 @@ import logging
 import sys
 from os.path import dirname as up
 from typing import Union
+import time
 
 import dantro.groups.graph
 import h5py as h5
@@ -131,10 +132,14 @@ def save_nw(
     degree[0, :] = [network.degree(i) for i in network.nodes()]
     degree_w[0, :] = [deg[1] for deg in network.degree(weight="weight")]
     triangles[0, :] = [
-        val for val in np.diagonal(np.linalg.matrix_power(np.ceil(nx.to_numpy_matrix(network)), 3))
+        val
+        for val in np.diagonal(
+            np.linalg.matrix_power(np.ceil(nx.to_numpy_matrix(network)), 3)
+        )
     ]
     triangles_w[0, :] = [
-        val for val in np.diagonal(np.linalg.matrix_power(nx.to_numpy_matrix(network), 3))
+        val
+        for val in np.diagonal(np.linalg.matrix_power(nx.to_numpy_matrix(network), 3))
     ]
 
     if write_adjacency_matrix:
@@ -301,3 +306,68 @@ def get_data(
 
     # Return the training data and the network
     return training_data.to(device), network
+
+
+def regression(
+    training_data: torch.Tensor,
+    eigenfrequencies: torch.Tensor,
+    h5file: h5.File,
+    dt: float = 0.01,
+):
+
+    """Estimates the network via an OLS-regression"""
+
+    N = training_data.shape[2]
+
+    # Create data group and datasets for the predictions
+    regression_group = h5file.create_group("regression_data")
+    dset_prediction = regression_group.create_dataset(
+        "predictions",
+        (N, N),
+        maxshape=(N, N),
+        chunks=True,
+        compression=3,
+    )
+    dset_prediction.attrs["dim_names"] = ["i", "j"]
+    dset_prediction.attrs["coords_mode__i"] = "trivial"
+    dset_prediction.attrs["coords_mode__j"] = "trivial"
+
+    dset_time = regression_group.create_dataset(
+        "computation_time",
+        (1,),
+        maxshape=(1,),
+        chunks=True,
+        compression=3,
+    )
+    dset_time.attrs["dim_names"] = ["training_time"]
+
+    X_mat = torch.transpose(torch.reshape(torch.diff(training_data, dim=1)/dt - eigenfrequencies, (-1, N)), 0, 1)
+    G_mat = torch.zeros(training_data.shape[0], training_data.shape[1]-1, training_data.shape[2], N)
+
+    for dset in range(G_mat.shape[0]):
+        for step in range(G_mat.shape[1]):
+            G_mat[dset, step] = torch.sin(-training_data[dset, step] + torch.flatten(training_data[dset, step]))
+
+    # Permute node and time series indices
+    G_mat = torch.reshape(torch.permute(G_mat, (2, 3, 0, 1)), (N, N, -1))
+    G_mat_transpose = torch.transpose(G_mat, 1, 2)
+
+    A_pred = torch.zeros(N, N)
+
+    # Perform regression analysis and keep track of time
+    start_time = time.time()
+    for n in range(N):
+
+        g = torch.cat((G_mat[n][:n, :], G_mat[n][n+1:, :]))
+        g_t = torch.transpose(g, 0, 1)
+        t = torch.matmul(G_mat[n], G_mat_transpose[n])
+        subsel = torch.cat((t[:n, :], t[n+1:, :]), dim=0)
+        subsel = torch.cat((subsel[:, :n], subsel[:, n+1:]), dim=1)
+
+        row_entry = np.matmul(torch.matmul(X_mat[n], g_t), np.linalg.inv(subsel))
+        A_pred[n, :] = torch.cat((row_entry[:n], torch.tensor([0]), row_entry[n:]))
+
+    prediction_time = time.time() - start_time
+
+    dset_prediction[:, :] = A_pred
+    dset_time[-1] = prediction_time

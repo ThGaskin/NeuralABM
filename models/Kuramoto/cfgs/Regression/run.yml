@@ -1,29 +1,25 @@
 ---
-perform_sweep: True
 paths:
-  model_note: Noise_performance
+  model_note: Regression
+perform_sweep: True
 parameter_space:
   seed: !sweep
-    default: 2
-    range: [10]
-  num_epochs: 50
+    default: 0
+    range: [5]
+  num_epochs: 500
   write_every: 10
-  write_start: 15 # burn-in?
-  write_predictions_every: 10
+  write_predictions_every: -1
+  perform_regression: true
   Kuramoto:
     Data:
       write_adjacency_matrix: True
-      load_from_dir:
-        copy_data: True
-        network: /Users/thomasgaskin/utopya_output/Kuramoto/networks/data/N_100/data.h5
-        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/networks/data/N_100/data.h5
       synthetic_data:
         num_steps: 5
-        training_set_size: 500
-        N: 100
+        training_set_size: 10
+        N: 16
         sigma: !sweep
-          default: 0.0
-          values: [0.0, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 2e-2, 4e-2, 6e-2, 8e-2, 1e-1]
+          default: 0
+          values: [1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 2e-2, 4e-2, 6e-2, 8e-2, 1e-1]
         network:
           type: random
           mean_degree: 6
@@ -31,7 +27,7 @@ parameter_space:
             is_directed: False
             WattsStrogatz:
               p_rewire: 0.5
-        dt: 0.02
+        dt: 0.01
     NeuralNet:
       num_layers: 5
       nodes_per_layer:
@@ -43,10 +39,11 @@ parameter_space:
       biases:
         default: ~
     Training:
-      batch_size: 5
+      batch_size: 10
       optimizer: Adam
       learning_rate: 0.002
       loss_function:
         name: MSELoss
       true_parameters:
-        sigma: 0.0
+        sigma: 0
+

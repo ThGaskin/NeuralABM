@@ -93,8 +93,8 @@ class Kuramoto_NN:
         # Store the neural net training loss
         self._dset_loss = self._training_group.create_dataset(
             "training_loss",
-            (0, ),
-            maxshape=(None, ),
+            (0,),
+            maxshape=(None,),
             chunks=True,
             compression=3,
         )
@@ -390,7 +390,10 @@ class Kuramoto_NN:
             pass
 
         else:
-            if self._time >= self._write_start and self._time % self._write_predictions_every == 0:
+            if (
+                self._time >= self._write_start
+                and self._time % self._write_predictions_every == 0
+            ):
 
                 log.debug(f"    Writing prediction data ... ")
                 self._dset_predictions.resize(
@@ -556,7 +559,7 @@ if __name__ == "__main__":
         num_steps=training_data.shape[1],
         write_every=cfg["write_every"],
         write_predictions_every=write_predictions_every,
-        write_start=cfg["write_start"]
+        write_start=cfg["write_start"],
     )
 
     log.info(f"   Initialized model '{model_name}'.")
@@ -575,6 +578,14 @@ if __name__ == "__main__":
         model.write_predictions(write_final=True)
 
     log.info("   Simulation run finished.")
+
+    # If specified, compare results to an OLS regression
+    if cfg.get("perform_regression", False):
+        log.info("   Performing regression ... ")
+        Kuramoto.DataGeneration.regression(
+            training_data, eigen_frequencies, h5file, model_cfg["Data"]["synthetic_data"]["dt"]
+        )
+
     log.info("   Wrapping up ...")
 
     h5file.close()

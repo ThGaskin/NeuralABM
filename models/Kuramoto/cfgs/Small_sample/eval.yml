@@ -78,6 +78,11 @@ error:
   vmax: ~
   cbar_kwargs:
     label: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
+  cmap:
+    from_values:
+      0: white
+      0.5: *yellow
+      1: *red
 
 loss:
   based_on: loss

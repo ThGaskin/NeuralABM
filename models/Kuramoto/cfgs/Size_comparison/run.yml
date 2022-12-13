@@ -52,4 +52,3 @@ parameter_space:
         name: MSELoss
       true_parameters:
         sigma: *sigma
-

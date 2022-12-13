@@ -319,8 +319,7 @@ mean_degree_over_time:
       path: predicted_network/_out_degree_weighted
       transform: [.data]
   transform:
-    - operation: pd.Index
-      args: [ [ 'in degree', 'weighted in degree', 'out degree', 'weighted out degree' ] ]
+    - pd.Index: [ [ 'in degree', 'weighted in degree', 'out degree', 'weighted out degree' ] ]
       kwargs:
         name: 'type'
     - xr.concat: [[!dag_tag in_degree, !dag_tag in_degree_w, !dag_tag out_degree, !dag_tag out_degree_w], !dag_prev ]
