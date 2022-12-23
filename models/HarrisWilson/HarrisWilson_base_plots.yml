@@ -27,6 +27,7 @@
     ytick.labelsize:    *font_size
     grid.linewidth:     0.5
     savefig.bbox:       tight
+    savefig.transparent: true
     axes.prop_cycle: !format
       fstr: "cycler('color', ['{colors[yellow]:}',
                               '{colors[darkblue]:}',

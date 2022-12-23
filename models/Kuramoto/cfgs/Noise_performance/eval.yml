@@ -271,7 +271,7 @@ degree_distribution: !pspace
       alpha: !dag_result losses
       lw: !dag_result losses
       suppress_labels: true
-      color: *grey
+      color: *darkblue
       pass_helper: True
     - function: [model_plots.HarrisWilson, plot_prob_density]
       args: [!dag_result data]
@@ -280,7 +280,7 @@ degree_distribution: !pspace
       yerr: yerr
       label: $\hat{P}(k)$
       pass_helper: true
-      color: *darkblue
+      color: *grey
     - function: [model_plots.HarrisWilson, plot_prob_density]
       args: [ !dag_result true_param ]
       y: y
@@ -308,7 +308,7 @@ degree_distribution: !pspace
   style:
     figure.figsize: [*half_width, *quarter_width]
 
-triangles: !pspace
+triangle_distribution: !pspace
   based_on: degree_distribution
   dag_options:
     meta_operations:
@@ -334,7 +334,7 @@ triangles: !pspace
       alpha: !dag_result losses
       lw: !dag_result losses
       suppress_labels: true
-      color: *grey
+      color: *darkblue
       pass_helper: True
     - function: [model_plots.HarrisWilson, plot_prob_density]
       args: [!dag_result data]
@@ -343,7 +343,7 @@ triangles: !pspace
       yerr: yerr
       label: $\hat{P}(t)$
       pass_helper: true
-      color: *darkblue
+      color: *grey
     - function: [model_plots.HarrisWilson, plot_prob_density]
       args: [ !dag_result true_param ]
       y: y
@@ -361,7 +361,6 @@ triangles: !pspace
       y: [0, 0.03]
     set_scales:
       x: log
-
 
 mean_degree:
   based_on: .errorbands

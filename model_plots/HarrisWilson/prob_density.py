@@ -151,5 +151,6 @@ def plot_prob_density(
             handlelength=0,
             handleheight=0,
             handletextpad=0,
+            **info_box_labels.get('info_box_kwargs', {})
         )
         plt.gca().add_artist(legend)

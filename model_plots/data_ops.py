@@ -37,11 +37,11 @@ def apply_along_dim(func):
                     func(
                         data.sel({along_dim: val}),
                         loss.sel({along_dim: val}) if loss is not None else None,
+                        *args,
                         coords={along_dim: val}
                         if labels is None
                         else {along_dim: labels[idx]},
-                        *args,
-                        **kwargs,
+                        **kwargs
                     )
                 )
 
@@ -200,11 +200,12 @@ def joint_density(
 @apply_along_dim
 def compute_mode(
     data: xr.Dataset,
-    *,
+    *_,
     coords: dict = None,
     x: str = "param1",
     p: str = "prob",
     dim: str = "bin_idx",
+    **__
 ):
     """Computes the x-coordinate of the mode of a one-dimensional dataset consisting of x-values and probabilities"""
     coords = data.coords if coords is None else coords
@@ -218,7 +219,7 @@ def compute_mode(
 @is_operation("NeuralABM.compute_mean")
 @apply_along_dim
 def compute_mean(
-    data: xr.Dataset, *, coords: dict = None, x: str = "param1", p: str = "prob"
+    data: xr.Dataset, *_, coords: dict = None, x: str = "param1", p: str = "prob", **__
 ):
     """Computes the mean of a one-dimensional dataset consisting of x-values and probabilities"""
     coords = data.coords if coords is None else coords
@@ -232,7 +233,7 @@ def compute_mean(
 @is_operation("NeuralABM.compute_std")
 @apply_along_dim
 def compute_std(
-    data: xr.Dataset, *, coords: dict = None, x: str = "param1", p: str = "prob"
+    data: xr.Dataset, *_, coords: dict = None, x: str = "param1", p: str = "prob", **__
 ):
     """Computes the standard deviation of a one-dimensional dataset consisting of x-values and probabilities"""
     coords = data.coords if coords is None else coords

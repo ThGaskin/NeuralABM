@@ -139,7 +139,7 @@ class HarrisWilson_NN:
         for t, sample in enumerate(training_data):
 
             predicted_parameters = self._neural_net(torch.flatten(sample))
-            predicted_data = ABM.run_single(
+            predicted_data = self._ABM.run_single(
                 input_data=predicted_parameters,
                 curr_vals=sample,
                 epsilon=epsilon,

@@ -15,6 +15,7 @@ Data:
     sigma: !is-positive-or-zero &sigma 0.0
     dt: !is-positive 0.01
     num_steps: !is-positive-int 60
+    num_training_steps: !is-positive-int 1
     training_set_size: !is-positive-int 1
 
 # Neural net configuration

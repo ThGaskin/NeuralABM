@@ -40,6 +40,7 @@
     axes.spines.top:    False
     axes.spines.right:  False
     legend.fontsize: 9
+    savefig.transparent: True
   helpers:
     save_figure:
       dpi: 900

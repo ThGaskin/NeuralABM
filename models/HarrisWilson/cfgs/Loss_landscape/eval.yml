@@ -163,3 +163,5 @@ alpha_beta:
           linewidth: 0.5
   style:
     figure.figsize: [*half_width, *half_width]
+  file_ext: pdf # Create a pdf but with rasterized data to reduce file size
+  rasterized: True

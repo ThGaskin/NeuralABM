@@ -344,9 +344,7 @@ class Kuramoto_NN:
                 self.current_loss = loss.clone().detach().numpy().item()
                 self.current_frob_error = torch.nn.functional.mse_loss(
                     self.true_network,
-                    torch.reshape(
-                        self.current_predictions, (self.num_agents, self.num_agents)
-                    ),
+                    pred_adj_matrix
                 )
                 self.current_predictions = predicted_parameters.clone().detach()
                 self.current_adjacency_matrix = pred_adj_matrix.clone().detach()

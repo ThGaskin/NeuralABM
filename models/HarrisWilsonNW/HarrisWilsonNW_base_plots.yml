@@ -47,13 +47,10 @@
     axes.grid:          True
     axes.spines.top:    False
     axes.spines.right:  False
-    savefig.transparent: True
 
   helpers:
     save_figure:
       dpi: 900
-    set_legend:
-      facecolor: None
   file_ext: png
 
 .calculate_clustering_coefficient:
@@ -220,8 +217,6 @@ loss:
   select:
     data: output_data/training_loss
   helpers:
-    set_labels:
-      x: iteration
     set_scales:
       y: log
 
@@ -271,14 +266,14 @@ degree:
             drop: True
         - .data: [!dag_prev ]
     predicted_out_degree:
-      path: predicted_network/_out_degree_weighted
+      path: predicted_true_network/_out_degree_weighted
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
           kwargs:
             drop: True
         - .data: [ !dag_prev ]
     predicted_in_degree:
-      path: predicted_network/_in_degree_weighted
+      path: predicted_true_network/_in_degree_weighted
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
           kwargs:
@@ -310,16 +305,16 @@ mean_degree_over_time:
   based_on: .line_universe
   select:
     in_degree:
-      path: predicted_network/_in_degree
+      path: predicted_true_network/_in_degree
       transform: [.data]
     in_degree_w:
-      path: predicted_network/_in_degree_weighted
+      path: predicted_true_network/_in_degree_weighted
       transform: [.data]
     out_degree:
-      path: predicted_network/_out_degree
+      path: predicted_true_network/_out_degree
       transform: [.data]
     out_degree_w:
-      path: predicted_network/_out_degree_weighted
+      path: predicted_true_network/_out_degree_weighted
       transform: [.data]
   transform:
     - pd.Index: [ [ 'in degree', 'weighted in degree', 'out degree', 'weighted out degree' ] ]
@@ -338,14 +333,14 @@ clustering_over_time:
     - .calculate_clustering_coefficient
   transform:
     - calculate_clustering_coefficient:
-        in_degree: data/predicted_network/_in_degree
-        out_degree: data/predicted_network/_out_degree
-        triangles: data/predicted_network/_triangles
+        in_degree: data/predicted_true_network/_in_degree
+        out_degree: data/predicted_true_network/_out_degree
+        triangles: data/predicted_true_network/_triangles
       tag: clustering
     - calculate_clustering_coefficient:
-        in_degree: data/predicted_network/_in_degree_weighted
-        out_degree: data/predicted_network/_out_degree_weighted
-        triangles: data/predicted_network/_weighted_triangles
+        in_degree: data/predicted_true_network/_in_degree_weighted
+        out_degree: data/predicted_true_network/_out_degree_weighted
+        triangles: data/predicted_true_network/_weighted_triangles
       tag: clustering_weighted
     - pd.Index: [ [ 'clustering coefficient', 'weighted clustering coefficient'] ]
       kwargs: {name: 'type'}
@@ -369,9 +364,9 @@ clustering:
         - .data: [ !dag_prev ]
   transform:
     - calculate_clustering_coefficient:
-        in_degree: data/predicted_network/_in_degree_weighted
-        out_degree: data/predicted_network/_out_degree_weighted
-        triangles: data/predicted_network/_weighted_triangles
+        in_degree: data/predicted_true_network/_in_degree_weighted
+        out_degree: data/predicted_true_network/_out_degree_weighted
+        triangles: data/predicted_true_network/_weighted_triangles
     - .isel: [!dag_prev , {time: -1}]
       tag: predicted_clustering
   to_plot:
@@ -482,7 +477,7 @@ graph:
     - .creator.universe
     - .plot.graph
   select:
-    graph_group: true_network
+    graph_group: network
   graph_creation:
     at_time_idx: -1
     edge_props: [_edge_weights]
@@ -630,7 +625,7 @@ marginals_parameter_uni:
     - .plot.prob_density
   select:
     param:
-      path: predicted_network/_in_degree
+      path: predicted_true_network/_in_degree
       transform:
         - .mean: [!dag_prev ]
           kwargs: {dim: vertex_idx}
@@ -673,7 +668,7 @@ marginals_density_uni:
         - .coords: [!dag_prev , 'vertex_idx']
         - len: [!dag_prev ]
     param_binned:
-      path: predicted_network/_in_degree
+      path: predicted_true_network/_in_degree
       transform:
         - np.linspace: [!dag_tag min_bin, !dag_tag max_bin, !dag_tag n_bins]
         - .data: [ !dag_node -2 ]
@@ -695,6 +690,24 @@ marginals_density_uni:
       kwargs:
         loss: !dag_tag loss
       tag: data
+
+# Timeseries plot
+time_series:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data:
+      path: training_data/time_series
+      transform:
+        - .isel: [!dag_prev , {training_set: 0}]
+          kwargs: {drop: true}
+  hue: zone_id
+  x: time
+  add_legend: False
+  helpers:
+    set_labels:
+      y: $W_j$
 
 # ======================================================================================================================
 #  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
@@ -718,3 +731,4 @@ loss_stacked:
       y: log
     set_labels:
       y: Training loss $J$
+

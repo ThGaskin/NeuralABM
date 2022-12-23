@@ -25,8 +25,8 @@
 state:
   based_on:
     - state
-    - .animation.frames
-  frames_isel: [3, 13, 30, 45]
+    - .animation.ffmpeg
+#  frames_isel: [3, 13, 30, 45]
   add_colorbar: False
   style:
     axes.grid: False
@@ -34,11 +34,23 @@ state:
     axes.spines.bottom: False
     axes.spines.left: False
     axes.spines.right: False
-    savefig.bbox: tight
+#    savefig.transparent: True
+#    axes.facecolor: '#00000000'
+#    figure.facecolor: '#00000000'
+#    patch.facecolor: '#00000000'
+#    savefig.bbox: tight
+  animation:
+    writer_kwargs:
+      ffmpeg:
+        saving:
+          dpi: 200
   suptitle_fstr: ''
+  to_plot:
+    data:
+      size_scale: 0.00005
   helpers:
-    setup_figure:
-      figsize: [*quarter_width, *quarter_width]
+#    setup_figure:
+#      figsize: [*quarter_width, *quarter_width]
     set_limits:
       x: [0, 10]
       y: [0, 10]

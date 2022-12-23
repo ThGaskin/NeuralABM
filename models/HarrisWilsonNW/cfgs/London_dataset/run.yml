@@ -1,0 +1,33 @@
+perform_sweep: True
+paths:
+  model_note: London_dataset
+parameter_space:
+  seed: !sweep
+    default: 2
+    range: [20]
+  num_epochs: 10000
+  write_start: 1
+  write_every: 1
+  HarrisWilson:
+    Data:
+      load_from_dir:
+        origin_zones: data/HarrisWilson/London_data/origin_sizes.csv
+        destination_zones: data/HarrisWilson/London_data/dest_sizes.csv
+    NeuralNet:
+      num_layers: 5
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: sigmoid
+        layer_specific:
+          -1: HardSigmoid
+      optimizer: Adam
+      learning_rate: 0.002
+    Training:
+      true_parameters:
+        alpha: 0.9
+        beta: 0.2
+        kappa: 8.3
+        sigma: !sweep
+          default: 0
+          values: [0.014, 0.14]

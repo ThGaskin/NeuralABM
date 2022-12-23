@@ -7,19 +7,20 @@ class HarrisWilsonABM:
     def __init__(
         self,
         *,
-        origin_sizes,
-        network,
-        M,
-        true_parameters: dict = None,
-        epsilon: float = 1.0,
-        dt: float = 0.001,
+        N: int,
+        M: int,
+        alpha: float,
+        beta: float,
+        kappa: float,
+        epsilon: float,
+        sigma: float,
+        dt: float,
         device: str
     ):
 
         """The Harris and Wilson model of economic activity.
 
-        :param origin_sizes: the origin sizes of the network
-        :param network: the network adjacency matrix
+        :param N: the number of origin zones
         :param M: the number of destination zones
         :param true_parameters: (optional) a dictionary of the true parameters
         :param epsilon: (optional) the epsilon value to use for the solver
@@ -28,27 +29,14 @@ class HarrisWilsonABM:
         """
 
         # The origin zone sizes, number of origin zones, and number of destination zones
-        self.or_sizes = origin_sizes
-        self.N = len(origin_sizes)
+        self.N = N
         self.M = M
 
-        # The network
-        self.nw = network
-
         # Model parameters
-        self.true_parameters = true_parameters
-        params_to_learn = (
-            {}
-            if true_parameters is not None
-            else {"alpha": 0, "beta": 1, "kappa": 2, "sigma": 3}
-        )
-        if true_parameters is not None:
-            idx = 0
-            for param in ["alpha", "beta", "kappa", "sigma"]:
-                if param not in true_parameters.keys():
-                    params_to_learn[param] = idx
-                    idx += 1
-        self.parameters_to_learn = params_to_learn
+        self.alpha = torch.tensor(alpha).to(device)
+        self.beta = torch.tensor(beta).to(device)
+        self.kappa = torch.tensor(kappa).to(device)
+        self.sigma = torch.tensor(sigma).to(device)
         self.epsilon = torch.tensor(epsilon).to(device)
         self.dt = torch.tensor(dt).to(device)
         self.device = device
@@ -59,16 +47,16 @@ class HarrisWilsonABM:
         self,
         *,
         curr_vals,
-        input_data=None,
+        adjacency_matrix: torch.tensor,
         epsilon: float = None,
+        sigma: float = None,
         dt: float = None,
-        requires_grad: bool = True
+        origin_sizes: torch.tensor
     ):
 
         """Runs the model for a single iteration.
 
         :param curr_vals: the current values which to take as initial data.
-        :param input_data: the input parameters (to learn). Defaults to the model defaults.
         :param epsilon: (optional) the epsilon value to use. Defaults to the model default.
         :param dt: (optional) the time differential to use. Defaults to the model default.
         :param requires_grad: whether the resulting values require differentiation
@@ -76,40 +64,18 @@ class HarrisWilsonABM:
 
         """
 
-        # Parameters to learn
-        alpha = (
-            self.true_parameters["alpha"]
-            if "alpha" not in self.parameters_to_learn.keys()
-            else input_data[self.parameters_to_learn["alpha"]]
-        )
-        beta = (
-            self.true_parameters["beta"]
-            if "beta" not in self.parameters_to_learn.keys()
-            else input_data[self.parameters_to_learn["beta"]]
-        )
-        kappa = (
-            self.true_parameters["kappa"]
-            if "kappa" not in self.parameters_to_learn.keys()
-            else input_data[self.parameters_to_learn["kappa"]]
-        )
-        sigma = (
-            self.true_parameters["sigma"]
-            if "sigma" not in self.parameters_to_learn.keys()
-            else input_data[self.parameters_to_learn["sigma"]]
-        )
-
         # Training parameters
+        sigma = self.sigma if sigma is None else sigma
         epsilon = self.epsilon if epsilon is None else epsilon
         dt = self.dt if dt is None else dt
 
-        new_sizes = curr_vals.clone()
-        new_sizes.requires_grad = requires_grad
+        new_sizes = curr_vals.clone().detach()
 
         # Calculate the weight matrix C^beta
-        weights = torch.pow(self.nw, beta)
+        weights = torch.pow(adjacency_matrix, self.beta)
 
         # Calculate the exponential sizes W_j^alpha
-        W_alpha = torch.pow(curr_vals, alpha)
+        W_alpha = torch.pow(curr_vals, self.alpha)
 
         # Calculate the normalisations sum_k W_k^alpha exp(-beta * c_ik) (double transposition of weight matrix
         # necessary for this step)
@@ -124,7 +90,8 @@ class HarrisWilsonABM:
             W_alpha,
             torch.reshape(
                 torch.sum(
-                    torch.div(torch.mul(self.or_sizes, weights), normalisations),
+                    #torch.mul(origin_sizes, weights),
+                    torch.div(torch.mul(origin_sizes, weights), normalisations),
                     dim=0,
                     keepdim=True,
                 ),
@@ -137,7 +104,7 @@ class HarrisWilsonABM:
             new_sizes
             + torch.mul(
                 curr_vals,
-                epsilon * (demand - kappa * curr_vals)
+                epsilon * (demand - self.kappa * curr_vals)
                 + sigma
                 * 1
                 / torch.sqrt(torch.tensor(2 * torch.pi * dt, dtype=torch.float)).to(
@@ -154,11 +121,11 @@ class HarrisWilsonABM:
         self,
         *,
         init_data,
-        input_data=None,
+        adjacency_matrix: torch.tensor,
         n_iterations: int,
         epsilon: float = None,
         dt: float = None,
-        requires_grad: bool = True,
+        origin_sizes: torch.tensor,
         generate_time_series: bool = False
     ) -> torch.tensor:
 
@@ -180,10 +147,10 @@ class HarrisWilsonABM:
             for _ in range(n_iterations):
                 sizes = self.run_single(
                     curr_vals=sizes,
-                    input_data=input_data,
+                    adjacency_matrix=adjacency_matrix,
                     epsilon=epsilon,
                     dt=dt,
-                    requires_grad=requires_grad,
+                    origin_sizes=origin_sizes[_],
                 )
                 return torch.stack(sizes)
 
@@ -193,10 +160,10 @@ class HarrisWilsonABM:
                 sizes.append(
                     self.run_single(
                         curr_vals=sizes[-1],
-                        input_data=input_data,
+                        adjacency_matrix=adjacency_matrix,
                         epsilon=epsilon,
                         dt=dt,
-                        requires_grad=requires_grad,
+                        origin_sizes=origin_sizes[_],
                     )
                 )
             sizes = torch.stack(sizes)
