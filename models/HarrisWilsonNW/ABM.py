@@ -90,8 +90,10 @@ class HarrisWilsonABM:
             W_alpha,
             torch.reshape(
                 torch.sum(
-                    #torch.mul(origin_sizes, weights),
-                    torch.div(torch.mul(origin_sizes, weights), normalisations),
+                    torch.div(
+                        torch.mul(origin_sizes, weights),
+                        torch.where(normalisations != 0, normalisations, 1),
+                    ),
                     dim=0,
                     keepdim=True,
                 ),
@@ -107,7 +109,7 @@ class HarrisWilsonABM:
                 epsilon * (demand - self.kappa * curr_vals)
                 + sigma
                 * 1
-                / torch.sqrt(torch.tensor(2 * torch.pi * dt, dtype=torch.float)).to(
+                / torch.sqrt(torch.tensor(2, dtype=torch.float) * torch.pi * dt).to(
                     self.device
                 )
                 * torch.normal(0, 1, size=(self.M, 1)).to(self.device),

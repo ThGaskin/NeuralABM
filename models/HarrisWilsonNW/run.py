@@ -104,8 +104,8 @@ class HarrisWilson_NN:
         # Store the prediction error
         self._dset_frob_error = self._training_group.create_dataset(
             "frobenius_error",
-            (0, ),
-            maxshape=(None, ),
+            (0,),
+            maxshape=(None,),
             chunks=True,
             compression=3,
         )
@@ -141,8 +141,15 @@ class HarrisWilson_NN:
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
         self.dset_time.attrs["coords_mode__training_time"] = "trivial"
 
-    def epoch(self, *, training_data, origin_sizes, batch_size: int, epsilon: float = None,
-                dt: float = None):
+    def epoch(
+        self,
+        *,
+        training_data,
+        origin_sizes,
+        batch_size: int,
+        epsilon: float = None,
+        dt: float = None,
+    ):
 
         """Trains the model for a single epoch.
 
@@ -158,16 +165,18 @@ class HarrisWilson_NN:
 
         start_time = time.time()
 
-        for i, dset in enumerate(training_data):
+        # Generate the batch ids
+        batches = np.arange(0, training_data.shape[1], batch_size)
 
-            batches = np.arange(0, len(dset), batch_size)
-            if len(batches) == 1:
-                batches = np.append(batches, len(dset) - 1)
-            else:
-                if batches[-1] != len(dset) - 1:
-                    batches = np.append(batches, len(dset)-1)
+        if len(batches) == 1:
+            batches = np.append(batches, training_data.shape[1] - 1)
+        else:
+            if batches[-1] != training_data.shape[1] - 1:
+                batches = np.append(batches, training_data.shape[1] - 1)
 
-            for batch_no, batch_idx in enumerate(batches[:-1]):
+        for batch_no, batch_idx in enumerate(batches[:-1]):
+
+            for i, dset in enumerate(training_data):
 
                 predicted_parameters = self.neural_net(torch.flatten(dset[batch_idx]))
                 pred_adj_matrix = torch.reshape(
@@ -183,23 +192,32 @@ class HarrisWilson_NN:
                     # Solve the ODE
                     current_values = self.ABM.run_single(
                         adjacency_matrix=pred_adj_matrix,
-                        origin_sizes=origin_sizes[i][ele-1],
+                        origin_sizes=origin_sizes[i][ele - 1],
                         curr_vals=current_values,
                         epsilon=epsilon,
                         dt=dt,
                     )
 
                     # Calculate the loss
-                    loss = loss + self.loss_function(current_values, dset[ele])
+                    loss = loss + (
+                        self.loss_function(current_values, dset[ele])
+                        + self.loss_function(
+                            torch.sum(pred_adj_matrix, axis=1),
+                            torch.ones(self.n_origin),
+                        )
+                    ) / (batches[batch_no + 1] - batch_idx + 1)
 
                 loss.backward()
                 self.neural_net.optimizer.step()
                 self.neural_net.optimizer.zero_grad()
                 self.current_loss += loss.clone().detach().numpy().item()
-                self.current_frob_error += torch.nn.functional.mse_loss(
-                    self.true_network,
-                    pred_adj_matrix
-                ).clone().detach().numpy().item()
+                self.current_frob_error += (
+                    torch.nn.functional.mse_loss(self.true_network, pred_adj_matrix)
+                    .clone()
+                    .detach()
+                    .numpy()
+                    .item()
+                )
                 self.current_predictions = predicted_parameters.clone().detach()
                 self.current_adjacency_matrix = pred_adj_matrix.clone().detach()
 
@@ -248,6 +266,7 @@ class HarrisWilson_NN:
                     self._dset_predictions.shape[0] + 1, axis=0
                 )
                 self._dset_predictions[-1, :] = self.current_adjacency_matrix
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 # -- Performing the simulation run -------------------------------------------------------------------------------------
@@ -302,12 +321,11 @@ if __name__ == "__main__":
     log.info("   Generating training data ...")
 
     # Get the datasets
-    or_sizes, dest_sizes, network, time_series = HW.get_HW_data(
+    or_sizes, dest_sizes, training_or_sizes, network, time_series = HW.get_HW_data(
         model_cfg["Data"], h5file, training_data_group, device=device
     )
 
-    N_origin = or_sizes.shape[-2]
-    N_dest = dest_sizes.shape[-2]
+    N_origin, N_dest = or_sizes.shape[-2], dest_sizes.shape[-2]
 
     log.info(
         f"   Initializing the neural net; input size: {N_dest}, output size: {N_origin * N_dest} ..."
@@ -320,12 +338,7 @@ if __name__ == "__main__":
     true_parameters = model_cfg["Training"]["true_parameters"]
 
     # Initialise the ABM
-    ABM = HW.HarrisWilsonABM(
-        N=N_origin,
-        M=N_dest,
-        device=device,
-        **true_parameters
-    )
+    ABM = HW.HarrisWilsonABM(N=N_origin, M=N_dest, device=device, **true_parameters)
 
     # Calculate the frequency with which to write out the model predictions
     write_predictions_every = cfg.get("write_predictions_every", cfg["write_every"])
@@ -354,7 +367,12 @@ if __name__ == "__main__":
     log.info(f"   Now commencing training for {num_epochs} epochs ...")
 
     for i in range(num_epochs):
-        model.epoch(training_data=dest_sizes, origin_sizes=or_sizes, batch_size=batch_size)
+
+        model.epoch(
+            training_data=dest_sizes,
+            origin_sizes=training_or_sizes,
+            batch_size=batch_size,
+        )
 
         log.progress(
             f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}, "
@@ -366,13 +384,16 @@ if __name__ == "__main__":
 
     log.info("   Simulation run finished. Generating prediction ... ")
 
-    predicted_ts = torch.flatten(ABM.run(
-        init_data=time_series[0][0],
-        adjacency_matrix=model.current_adjacency_matrix,
-        n_iterations=time_series.shape[1]-1,
-        origin_sizes=or_sizes[0],
-        generate_time_series=True,
-    ), start_dim=-2)
+    predicted_ts = torch.flatten(
+        ABM.run(
+            init_data=time_series[0][0],
+            adjacency_matrix=model.current_adjacency_matrix,
+            n_iterations=time_series.shape[1] - 1,
+            origin_sizes=or_sizes[0],
+            generate_time_series=True,
+        ),
+        start_dim=-2,
+    )
 
     dset_time_series = neural_net_group.create_dataset(
         "predicted_time_series",

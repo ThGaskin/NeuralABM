@@ -79,7 +79,7 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
     num_steps = data_cfg["num_steps"]
 
     # Generate the network
-    network = torch.exp(
+    network: torch.tensor = torch.exp(
         -1
         * torch.abs(
             torch.normal(
@@ -91,13 +91,17 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
     )
     network = network * torch.bernoulli(network)
 
+    # Normalise the rowsums
+    norms = torch.sum(network, axis=1, keepdim=True)
+    network /= torch.where(norms != 0, norms, 1)
+
     # Extract the underlying parameters from the config
     true_parameters = {
         "alpha": data_cfg["alpha"],
         "beta": data_cfg["beta"],
         "kappa": data_cfg["kappa"],
         "sigma": data_cfg["sigma"],
-        "epsilon": data_cfg["epsilon"]
+        "epsilon": data_cfg["epsilon"],
     }
 
     # Initialise the ABM
@@ -110,7 +114,7 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
     )
     origin_sizes, dest_sizes = [], []
 
-    for _ in range(cfg['training_set_size']):
+    for _ in range(cfg["training_set_size"]):
 
         # Generate the initial destination zone sizes
         init_dest_sizes = torch.abs(
@@ -120,23 +124,35 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
         # Generate the origin sizes time series
         or_sizes = torch.abs(torch.normal(1, 0.1, size=(1, N_origin, 1)))
 
-        if data_cfg['origin_size_std'] == 0:
+        if data_cfg["origin_size_std"] == 0:
             or_sizes = or_sizes.repeat(num_steps, 1, 1)
         else:
             for __ in range(num_steps):
-                or_sizes = torch.cat((or_sizes, torch.abs(
-                    or_sizes[-1] + torch.normal(0, data_cfg['origin_size_std'], size=(1, N_origin, 1)))), dim=0)
+                or_sizes = torch.cat(
+                    (
+                        or_sizes,
+                        torch.abs(
+                            or_sizes[-1]
+                            + torch.normal(
+                                0, data_cfg["origin_size_std"], size=(1, N_origin, 1)
+                            )
+                        ),
+                    ),
+                    dim=0,
+                )
 
         origin_sizes.append(or_sizes)
 
         # Run the ABM for n iterations, generating the entire time series
-        dest_sizes.append(ABM.run(
-            init_data=init_dest_sizes,
-            adjacency_matrix=network,
-            n_iterations=num_steps,
-            origin_sizes=or_sizes,
-            generate_time_series=True,
-        ))
+        dest_sizes.append(
+            ABM.run(
+                init_data=init_dest_sizes,
+                adjacency_matrix=network,
+                n_iterations=num_steps,
+                origin_sizes=or_sizes,
+                generate_time_series=True,
+            )
+        )
 
     dest_sizes = torch.stack(dest_sizes)
     origin_sizes = torch.stack(origin_sizes)
@@ -168,14 +184,7 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
     N_origin = or_sizes.shape[2]
     N_destination = dest_sizes.shape[2]
 
-    # Only save individual time frames
-    synthetic_data = cfg.get("synthetic_data", None)
-    if synthetic_data is not None:
-        write_start = synthetic_data.get("write_start", 0)
-        write_every = synthetic_data.get("write_every", 1)
-        time_series = dest_sizes[:, write_start::write_every, :, :]
-    else:
-        time_series = dest_sizes
+    time_series = dest_sizes
 
     # If time series has a single frame, double it to enable visualisation.
     # This does not affect the training data
@@ -191,10 +200,14 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
         chunks=True,
         compression=3,
     )
-    dset_time_series.attrs["dim_names"] = ["training_set", "time", "zone_id", "dim_name__0"]
+    dset_time_series.attrs["dim_names"] = [
+        "training_set",
+        "time",
+        "zone_id",
+        "dim_name__0",
+    ]
     dset_time_series.attrs["coords_mode__training_set"] = "trivial"
-    dset_time_series.attrs["coords_mode__time"] = "start_and_step"
-    dset_time_series.attrs["coords__time"] = [write_start, write_every]
+    dset_time_series.attrs["coords_mode__time"] = "trivial"
     dset_time_series.attrs["coords_mode__zone_id"] = "values"
     dset_time_series.attrs["coords__zone_id"] = np.arange(
         N_origin, N_origin + N_destination, 1
@@ -205,21 +218,29 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
 
     # Training time series
     # Extract the training data from the time series data and save
-    training_data = dest_sizes[:, -num_training_steps:]
+    training_or_sizes, training_dset_sizes = (
+        or_sizes[:, -num_training_steps:],
+        dest_sizes[:, -num_training_steps:],
+    )
     dset_training_data = h5group.create_dataset(
         "training_data",
-        training_data.shape,
-        maxshape=training_data.shape,
+        training_dset_sizes.shape,
+        maxshape=training_dset_sizes.shape,
         chunks=True,
         compression=3,
     )
-    dset_training_data.attrs["dim_names"] = ["training_set", "time", "zone_id", "dim_name__0"]
+    dset_training_data.attrs["dim_names"] = [
+        "training_set",
+        "time",
+        "zone_id",
+        "dim_name__0",
+    ]
     dset_training_data.attrs["coords_mode__time"] = "trivial"
     dset_training_data.attrs["coords_mode__zone_id"] = "values"
     dset_training_data.attrs["coords__zone_id"] = np.arange(
         N_origin, N_origin + N_destination, 1
     )
-    dset_training_data[:, :] = training_data
+    dset_training_data[:, :] = training_dset_sizes
 
     # Set up chunked dataset to store the state data in
     # Origin zone sizes
@@ -230,12 +251,19 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
         chunks=True,
         compression=3,
     )
-    dset_origin_sizes.attrs["dim_names"] = ["training_set", "time", "zone_id", "dim_name__0"]
+    dset_origin_sizes.attrs["dim_names"] = [
+        "training_set",
+        "time",
+        "zone_id",
+        "dim_name__0",
+    ]
     dset_origin_sizes.attrs["coords_mode__training_set"] = "trivial"
     dset_origin_sizes.attrs["coords_mode__time"] = "trivial"
     dset_origin_sizes.attrs["coords_mode__zone_id"] = "values"
     dset_origin_sizes.attrs["coords__zone_id"] = np.arange(0, N_origin, 1)
-    dset_origin_sizes[:, ] = or_sizes
+    dset_origin_sizes[
+        :,
+    ] = or_sizes
 
     # Create a network group
     nw_group = h5file.create_group("true_network")
@@ -301,4 +329,10 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
     adjacency_matrix.attrs["coords_mode__j"] = "trivial"
     adjacency_matrix[-1, :] = network
 
-    return or_sizes.to(device), training_data.to(device), network.to(device), time_series
+    return (
+        or_sizes.to(device),
+        training_dset_sizes.to(device),
+        training_or_sizes.to(device),
+        network.to(device),
+        time_series,
+    )

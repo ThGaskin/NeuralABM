@@ -1,26 +1,25 @@
 ---
 parameter_space:
-  num_epochs: 250
-  write_predictions_every: 2
-  write_every: 2
-  write_start: 50
+  num_epochs: 150
+  write_predictions_every: -1
+  write_every: 1
   seed: 39
   HarrisWilsonNW:
     Data:
-      num_training_steps: 200
-      training_set_size: 25
+      num_training_steps: 500
+      training_set_size: 1
       synthetic_data:
-        N_origin: 700
-        N_destination: 50
+        N_origin: 5
+        N_destination: 10
         dt: &dt 0.001
-        alpha: &alpha 0.2
-        beta: &beta 1.4
-        kappa: &kappa 4
+        alpha: &alpha 0.8
+        beta: &beta 4
+        kappa: &kappa 3
         sigma: &sigma 0.0
         epsilon: &epsilon 10
         write_start: 1
         write_every: 1
-        num_steps: 600
+        num_steps: 1000
         origin_size_std: 0.1
     Training:
       batch_size: 10
@@ -31,7 +30,7 @@ parameter_space:
         sigma: *sigma
         epsilon: *epsilon
         dt: *dt
-      learning_rate: 0.05
+      learning_rate: 0.002
     NeuralNet:
       activation_funcs:
         layer_specific:

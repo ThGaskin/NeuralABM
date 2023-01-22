@@ -145,6 +145,8 @@
       0.5: *yellow
       1: *darkblue
     continuous: true
+  vmin: 0
+  vmax: 1
 
 .plot.prob_density:
   module: model_plots.HarrisWilson
@@ -259,26 +261,19 @@ degree:
   based_on: .multiplot_universe
   select:
     true_degree:
-      path: true_network/_degree_weighted
+      path: true_network/_adjacency_matrix
       transform:
         - .isel: [!dag_prev , {time: -1}]
           kwargs:
-            drop: True
-        - .data: [!dag_prev ]
-    predicted_out_degree:
-      path: predicted_true_network/_out_degree_weighted
+            drop: true
+        - .sum: [!dag_prev , j]
+    predicted_degree:
+      path: output_data/predictions
       transform:
         - .isel: [ !dag_prev , { time: -1 } ]
           kwargs:
             drop: True
-        - .data: [ !dag_prev ]
-    predicted_in_degree:
-      path: predicted_true_network/_in_degree_weighted
-      transform:
-        - .isel: [ !dag_prev , { time: -1 } ]
-          kwargs:
-            drop: True
-        - .data: [ !dag_prev ]
+        - .sum: [ !dag_prev , j]
   to_plot:
     - function: sns.kdeplot
       args:
@@ -286,12 +281,7 @@ degree:
       label: $P(k)$
     - function: sns.kdeplot
       args:
-        - !dag_result predicted_out_degree
-      label: $\hat{P}_\mathrm{out}(k)$
-    - function: sns.kdeplot
-      args:
-        - !dag_result predicted_in_degree
-      label: $\hat{P}_\mathrm{in}(k)$
+        - !dag_result predicted_degree
   helpers:
     set_legend:
       use_legend: True
@@ -731,4 +721,3 @@ loss_stacked:
       y: log
     set_labels:
       y: Training loss $J$
-

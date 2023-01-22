@@ -1,0 +1,37 @@
+_:
+  colors: &colors
+    yellow:             &yellow           '#F5DDA9'
+    darkblue:           &darkblue         '#2F7194'
+    red:                &red              '#ec7070'
+    skyblue:            &skyblue          '#97c3d0'
+    green:              &green            '#48675A'
+    lightbrown:         &lightbrown       '#C6BFA2'
+    orange:             &orange           '#EC9F7E'
+    lightgreen:         &lightgreen       '#AFD8BC'
+    grey:               &grey             '#3D4244'
+    lightgrey:          &lightgrey        '#D6D6D6'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:         &full_width       7.00787402
+    half_width:         &half_width       !expr 7.00787402 / 2
+    third_width:        &third_width      !expr 7.00787402 / 3
+    quarter_width:      &quarter_width    !expr 7.00787402 / 4
+    fifth_width:        &fifth_width      !expr 7.00787402 / 5
+
+training_data:
+  based_on: time_series
+  select:
+    data:
+      path: training_data/training_data
+  style:
+    figure.figsize: [ *half_width, *fifth_width ]
+
+origin_sizes:
+  based_on: training_data
+  select:
+    data:
+      path: training_data/origin_sizes
+  helpers:
+    set_labels:
+      y: $O_i$

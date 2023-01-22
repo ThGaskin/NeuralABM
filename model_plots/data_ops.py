@@ -41,7 +41,7 @@ def apply_along_dim(func):
                         coords={along_dim: val}
                         if labels is None
                         else {along_dim: labels[idx]},
-                        **kwargs
+                        **kwargs,
                     )
                 )
 
@@ -205,7 +205,7 @@ def compute_mode(
     x: str = "param1",
     p: str = "prob",
     dim: str = "bin_idx",
-    **__
+    **__,
 ):
     """Computes the x-coordinate of the mode of a one-dimensional dataset consisting of x-values and probabilities"""
     coords = data.coords if coords is None else coords
@@ -349,6 +349,13 @@ def marginal_of_density(
         err = np.sqrt(vals.data) - np.sqrt(np.resize(means, (1, n_bins)))
         err = np.sum(np.square(err) * loss.data, axis=0)
 
+    elif error.lower() == "relative_entropy":
+        err = vals.data * np.log(
+            xr.where(vals.data != 0, vals.data, 1.0)
+            / xr.where(means.data != 0, means.data, 1.0)
+        )
+        err = np.sum(err * loss.data, axis=0)
+
     coords.update(dict(bin_idx=np.arange(n_bins)))
 
     return xr.Dataset(
@@ -360,3 +367,9 @@ def marginal_of_density(
         ),
         coords=coords,
     )
+
+@is_operation("NeuralABM.triangles")
+def triangles(ds: xr.DataArray, *args, **kwargs):
+
+    res = xr.apply_ufunc(np.linalg.matrix_power, ds, 3, *args, **kwargs)
+    return xr.apply_ufunc(np.diagonal, res, 0, 1, 2, input_core_dims=[['j'], [], [], []])

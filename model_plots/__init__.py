@@ -33,5 +33,6 @@ register_operation(name="nx.from_numpy_matrix", func=nx.from_numpy_matrix)
 register_operation(name="nx.clustering", func=nx.clustering)
 register_operation(name="np.nonzero", func=np.nonzero)
 register_operation(name="xr.where", func=xr.where)
+register_operation(name="xr.apply_ufunc", func=xr.apply_ufunc)
 register_operation(name=".to_dataset", func=lambda d, *a, **k: d.to_dataset(*a, **k))
 from .data_ops import *
