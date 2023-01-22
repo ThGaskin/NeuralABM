@@ -1,3 +1,9 @@
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+
 .variables:
   colors: &colors
     yellow:       &yellow       '#F5DDA9'
@@ -20,46 +26,21 @@
     eighth_width:    &eighth_width      !expr 7.5 / 8
 
 # ======================================================================================================================
-
-# Training loss
-loss:
-  based_on: loss_stacked
-  transform:
-    - .mean: [!dag_tag values, 'seed']
-      tag: data
-  x: time
-  hue: sigma
-  helpers:
-    set_scales:
-      y: log
-    set_legend:
-      custom_labels: [$0$, $1e-4$, $5e-4$, $1e-3$, $5e-3$, $1e-2$, $5e-2$, $1e-1$]
-      ncol: 2
-  style:
-    figure.figsize: [*half_width, *third_width]
-
-# Frobenius error
-frobenius_loss:
-  based_on: loss
-  select_and_combine:
-    fields:
-      values: output_data/frobenius_error
-  helpers:
-    set_labels:
-      y: Frobenius error $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_\mathrm{Fr}$
-    set_legend:
-      use_legend: False
-
-# Network size comparison
+# ╔═╗╦  ╔═╗╔╦╗╔═╗
+# ╠═╝║  ║ ║ ║ ╚═╗
+# ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+# Network density as a function of the training noise
 network_density:
   based_on: .errorbands
   select_and_combine:
     fields:
       sizes:
-        path: output_data/network_size
+        path: output_data/predictions
         transform:
           - .isel: [!dag_prev , {time: -1}]
-          - div: [!dag_prev , 9900]
+          - np.ceil: [!dag_prev ]
+          - .sum: [!dag_prev , ['i', 'j']]
       true_size:
         path: true_network/_edge_weights
         transform:
@@ -67,18 +48,33 @@ network_density:
             kwargs: { drop: true }
           - len: [ !dag_node -1 ]
           - mul: [ !dag_node -1, 2 ]
-          - div: [!dag_prev , 9900]
+      num_vertices:
+        path: true_network/_vertices
+        transform:
+          - .isel: [!dag_prev , time: 0]
+          - len: [!dag_prev ]
+        subspace:
+          seed: 0
+          sigma: 0
   transform:
-    - .mean: [ !dag_tag sizes ]
+    - .squeeze: [!dag_tag num_vertices ]
+      tag: N
+    - sub: [!dag_prev , 1]
+    - mul: [!dag_tag N, !dag_prev ]
+      tag: n_n-1
+    - div: [!dag_tag sizes, !dag_prev ]
+      tag: sizes_normalised
+    - .mean: [ !dag_prev ]
       kwargs: { dim: seed }
       tag: means
-    - .std: [ !dag_tag sizes ]
+    - .std: [ !dag_tag sizes_normalised ]
       kwargs: { dim: seed }
     - xr.Dataset:
       - y: !dag_tag means
         yerr: !dag_prev
       tag: data
     - .isel: [!dag_tag true_size , { seed: -1, sigma: -1 }]
+    - div: [!dag_prev , !dag_tag n_n-1]
       tag: nw_size
   helpers:
     set_hv_lines:
@@ -96,57 +92,18 @@ network_density:
   style:
     figure.figsize: [ *half_width, *quarter_width ]
 
-# Plot the average predicted weight on false edges
-accuracy_on_false_edges:
-  based_on: .errorbands
-  select_and_combine:
-    fields:
-      prediction:
-        path: output_data/predictions
-        transform:
-          - .isel: [!dag_prev , {time: -1}]
-            kwargs: {drop: true}
-      true_values:
-        path: true_network/_adjacency_matrix
-        transform: [.data]
-  transform:
-    - sub: [ !dag_tag prediction, !dag_tag true_values ]
-    - np.abs: [ !dag_prev ]
-      tag: l1_accuracy
-    - ==: [!dag_tag true_values, 0]
-    - xr.where: [!dag_prev , 1, 0]
-    - mul: [!dag_tag prediction, !dag_prev ]
-    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
-      tag: accuracies
-    - .mean: [!dag_prev , ['seed', 'i', 'j'] ]
-      tag: means
-    - .std: [!dag_tag accuracies, ['seed', 'i', 'j'] ]
-    - xr.Dataset:
-      - y: !dag_tag means
-        yerr: !dag_prev
-      tag: data
-  x: Noise
-  style:
-    figure.figsize: [ *half_width, *third_width ]
-  helpers:
-    set_scales:
-      x: log
-      y: log
-    set_labels:
-      y: Average edge weight on $E_\wedge$
-
-
+# Compare the training and Frobenius losses as a function of the noise
 loss_compared:
   based_on: .multiplot_multiverse
   select_and_combine:
     fields:
       training_loss:
-        path: output_data/training_loss
+        path: output_data/Training loss
         transform:
           - .isel: [!dag_prev , {time: -1}]
             kwargs: {drop: true}
       frobenius_loss:
-        path: output_data/frobenius_error
+        path: output_data/Frobenius error
         transform:
           - .isel: [!dag_prev , {time: -1}]
             kwargs: {drop: true}
@@ -185,33 +142,34 @@ loss_compared:
       x: Noise level $\sigma$
       y: Final loss
     set_legend:
+      use_legend: Falseb
       title: ~
 
-
-
+# Plot the degree distribution for low and high noise levels
 degree_distribution: !pspace
   based_on: .multiplot_multiverse
   dag_options:
     meta_operations:
       hist:
         - np.linspace: [ 0, 100, 400 ]
-        - NeuralABM.hist: [ !arg 0 ]
+        - NeuralABM.hist: [ !arg 0, !arg 1 ]
           kwargs: { bins: !dag_node -1 }
   select_and_combine:
     fields:
       param_binned:
-        path: predicted_network/_in_degree
+        path: output_data/predictions
         transform:
-          - hist: [!dag_prev ]
+          - .sum: [!dag_prev , i]
+          - hist: [!dag_prev , 1]
       true_val:
-        path: true_network/_degree
+        path: true_network/_degree_weighted
         transform:
-          - hist: [!dag_prev ]
+          - hist: [!dag_prev , 1]
         subspace:
           seed: 0
           sigma: 0
       loss:
-        path: output_data/training_loss
+        path: output_data/Training loss
         transform:
           - mul: [!dag_prev , -1]
           - np.exp: [!dag_prev ]
@@ -291,7 +249,7 @@ degree_distribution: !pspace
   x: bin_center
   smooth_kwargs:
     enabled: True
-    sigma: 6
+    sigma: 2
   helpers:
     set_title:
       title: ~
@@ -303,25 +261,30 @@ degree_distribution: !pspace
       ncol: 1
       loc: upper right
     set_limits:
-      x: [5, 50]
-      y: [0, 0.2]
+      x: [0, 30]
+      y: [0, 0.25]
   style:
     figure.figsize: [*half_width, *quarter_width]
 
+# Distribution of triangles for the same noise levels
 triangle_distribution: !pspace
   based_on: degree_distribution
   dag_options:
     meta_operations:
       hist:
         - np.linspace: [ 0, 1000, 1000 ]
-        - NeuralABM.hist: [ !arg 0 ]
+        - NeuralABM.hist: [ !arg 0 , !arg 1]
           kwargs: { bins: !dag_node -1 }
   select_and_combine:
     fields:
       param_binned:
-        path: predicted_network/_triangles
+        path: output_data/predictions
+        transform:
+          - .data: [!dag_prev ]
+          - NeuralABM.triangles: [!dag_prev ]
+          - hist: [!dag_prev , 1]
       true_val:
-        path: true_network/_triangles
+        path: true_network/_triangles_weighted
     subspace:
       sigma: !sweep
         default: 0.0
@@ -357,117 +320,23 @@ triangle_distribution: !pspace
       x: $t$
       y: $P(t)$
     set_limits:
-      x: [10, 600]
-      y: [0, 0.03]
-    set_scales:
-      x: log
+      x: [0.5, 40]
+      y: [0, 0.15]
 
-mean_degree:
-  based_on: .errorbands
-  select_and_combine:
-    fields:
-      degree:
-        path: predicted_network/_in_degree
-        transform:
-          - .isel: [!dag_prev , {time: -1}]
-  transform:
-    - .mean: [!dag_tag degree , ['vertex_idx', 'seed']]
-      tag: mean
-    - .std: [!dag_tag degree , ['vertex_idx', 'seed']]
-    - xr.Dataset:
-      - y: !dag_tag mean
-        yerr: !dag_prev
-      tag: data
-  y: y
-  yerr: yerr
-  helpers:
-    set_scales:
-      x: log
-  style:
-    figure.figsize: [ *half_width, *third_width ]
-
-
-average_degree_error:
-  based_on: .line_multiverse
-  dag_options:
-    meta_operations:
-      hist:
-        - np.linspace: [ 0, 100, 400 ]
-        - NeuralABM.hist: [ !arg 0 ]
-          kwargs: { bins: !dag_node -1 }
-  select_and_combine:
-    fields:
-      param_binned:
-        path: predicted_network/_in_degree
-        transform:
-          - hist: [!dag_prev ]
-      loss:
-        path: output_data/training_loss
-        transform:
-          - mul: [!dag_prev , -1]
-          - np.exp: [!dag_prev ]
-
-  transform:
-
-    # Calculate mean, MLE, and error
-    - NeuralABM.flatten_dims: [ !dag_tag param_binned , { sample: [ seed, time ] } ]
-    - NeuralABM.normalise_degrees_to_edges: [!dag_prev ]
-      kwargs:
-        along_dim: sigma
-      tag: samples
-    - NeuralABM.flatten_dims: [ !dag_tag loss , { sample: [ seed, time ] } ]
-    - .expand_dims: [!dag_prev ]
-      kwargs:
-        bin_center: 1
-        axis: -1
-      tag: loss_flattened
-    - .sum: [!dag_prev , 'sample']
-    - div: [!dag_tag loss_flattened, !dag_prev ]
-      tag: loss_normalised
-    - NeuralABM.marginal_of_density: [ !dag_tag samples ]
-      kwargs:
-        loss: !dag_tag loss_normalised
-        error: standard
-        MLE_index: -1
-        along_dim: sigma
-    - getitem: [!dag_prev , 'yerr']
-    - .std: [!dag_prev , 'bin_idx']
-      tag: data
-  x: sigma
-  style:
-    figure.figsize: [*half_width, *third_width]
-
-average_triangle_error:
-  based_on: average_degree_error
-  dag_options:
-    meta_operations:
-      hist:
-        - np.linspace: [ 0, 1000, 1000 ]
-        - NeuralABM.hist: [ !arg 0 ]
-          kwargs: { bins: !dag_node -1 }
-  select_and_combine:
-    fields:
-      param_binned:
-        path: predicted_network/_triangles
-
-hellinger_error:
+# The different error metrics for the degree distribution
+degree_error:
   based_on: .line_multiverse
   select_and_combine:
     fields:
-      degree:
-        path: predicted_network/_in_degree
+      param:
+        path: output_data/predictions
         transform:
+          - .sum: [!dag_prev , i]
           - np.linspace: [ 0, 100, 400 ]
           - NeuralABM.hist: [ !dag_node -2 ]
             kwargs: { bins: !dag_node -1 }
-      triangles:
-        path: predicted_network/_triangles
-        transform:
-          - np.linspace: [ 0, 1000, 1000 ]
-          - NeuralABM.hist: [ !dag_node -2 ]
-            kwargs: { bins: !dag_node -1 }
       loss:
-        path: output_data/training_loss
+        path: output_data/Training loss
         transform:
           - mul: [!dag_prev , -1]
           - np.exp: [!dag_prev ]
@@ -502,60 +371,47 @@ hellinger_error:
         - mul: [ !dag_prev , !arg 2 ]
         - .sum: [ !dag_prev , 'sample' ]
       combine:
-        - pd.Index: [ [ 'degree distribution', 'triangle distribution' ] ]
-          kwargs: {name: 'parameter'}
+        - pd.Index: [ [ 'Relative entropy', 'Hellinger metric' ] ]
+          kwargs: {name: 'metric'}
         - xr.concat: [[!arg 0, !arg 1], !dag_prev ]
   transform:
-    - calculate_samples: [!dag_tag degree]
-      tag: degree_samples
-    - calculate_samples: [!dag_tag triangles]
-      tag: triangle_samples
+    - calculate_samples: [!dag_tag param]
+      tag: samples
     - flatten_loss: [!dag_tag loss]
     - normalise_loss: [!dag_prev ]
       tag: loss_normalised
-    - calculate_MLE: [!dag_tag degree_samples, !dag_tag loss]
-      tag: degree_MLE
-    - calculate_MLE: [!dag_tag triangle_samples, !dag_tag loss]
-      tag: triangle_MLE
-    - average_hellinger_distance: [!dag_tag degree_samples, !dag_tag degree_MLE, !dag_tag loss_normalised]
-      tag: hellinger_degree
-    - average_hellinger_distance: [!dag_tag triangle_samples, !dag_tag triangle_MLE, !dag_tag loss_normalised]
-      tag: hellinger_triangles
-    - combine: [!dag_tag hellinger_degree, !dag_tag hellinger_triangles]
+    - calculate_MLE: [!dag_tag samples, !dag_tag loss]
+      tag: MLE
+    - average_hellinger_distance: [!dag_tag samples, !dag_tag MLE, !dag_tag loss_normalised]
+      tag: hellinger
+    - average_relative_entropy: [ !dag_tag samples, !dag_tag MLE, !dag_tag loss_normalised ]
+      tag: relative_entropy
+    - combine: [!dag_tag relative_entropy, !dag_tag hellinger]
       tag: data
   x: sigma
-  hue: parameter
+  hue: metric
   helpers:
     set_legend:
       use_legend: true
     set_labels:
       x: $\sigma$
-      y: $\bar{d}_\mathrm{H}$
+      y: ''
   style:
     figure.figsize: [*half_width, *quarter_width]
 
-relative_entropy_error:
-  based_on: hellinger_error
-  transform:
-    - calculate_samples: [!dag_tag degree]
-      tag: degree_samples
-    - calculate_samples: [!dag_tag triangles]
-      tag: triangle_samples
-    - flatten_loss: [!dag_tag loss]
-    - normalise_loss: [!dag_prev ]
-      tag: loss_normalised
-    - calculate_MLE: [!dag_tag degree_samples, !dag_tag loss]
-      tag: degree_MLE
-    - calculate_MLE: [!dag_tag triangle_samples, !dag_tag loss]
-      tag: triangle_MLE
-    - average_relative_entropy: [!dag_tag degree_samples, !dag_tag degree_MLE, !dag_tag loss_normalised]
-      tag: relative_entropy_degree
-    - average_relative_entropy: [!dag_tag triangle_samples, !dag_tag triangle_MLE, !dag_tag loss_normalised]
-      tag: relative_entropy_triangles
-    - combine: [!dag_tag relative_entropy_degree, !dag_tag relative_entropy_triangles]
-      tag: data
+# The different error metrics for the triangle distribution
+triangle_error:
+  based_on: degree_error
+  select_and_combine:
+    fields:
+      param:
+        path: output_data/predictions
+        transform:
+          - .data: [ !dag_prev ]
+          - NeuralABM.triangles: [ !dag_prev ]
+          - np.linspace: [ 0, 1000, 1000 ]
+          - NeuralABM.hist: [ !dag_node -2 ]
+            kwargs: { bins: !dag_node -1 }
   helpers:
     set_legend:
       use_legend: False
-    set_labels:
-      y: $\bar{d}_\mathrm{KL}$

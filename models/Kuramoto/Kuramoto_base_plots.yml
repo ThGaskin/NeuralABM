@@ -47,7 +47,7 @@
     axes.grid:          True
     axes.spines.top:    False
     axes.spines.right:  False
-    savefig.transparent: True
+    savefig.transparent: False
 
   helpers:
     save_figure:
@@ -56,33 +56,6 @@
       facecolor: None
   file_ext: png
 
-.calculate_clustering_coefficient:
-  dag_options:
-    select_path_prefix: ~
-    meta_operations:
-      calculate_clustering_coefficient:
-        select:
-          in_degree:
-            path: !kwarg in_degree
-            transform:
-              - .data: [!dag_prev ]
-                tag: k_in
-              - sub: [!dag_prev , 1]
-              - mul: [!dag_prev , !dag_tag k_in]
-          out_degree:
-            path: !kwarg out_degree
-            transform:
-              - .data: [!dag_prev ]
-                tag: k_out
-              - sub: [!dag_prev , 1]
-              - mul: [!dag_prev , !dag_tag k_out]
-          triangles:
-            path: !kwarg triangles
-            transform:
-              - .data: [!dag_prev ]
-        transform:
-          - add: [ !dag_tag in_degree , !dag_tag out_degree ]
-          - div: [ !dag_tag triangles, !dag_prev ]
 
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
@@ -218,10 +191,32 @@
 loss:
   based_on: .line_universe
   select:
-    data: output_data/training_loss
+    data: output_data/Training loss
   helpers:
     set_labels:
       x: iteration
+    set_scales:
+      y: log
+
+losses_combined:
+  based_on: .line_universe
+  select:
+    training_loss:
+      path: output_data/Training loss
+      transform: [.data]
+    Frobenius_error:
+      path: output_data/Frobenius error
+      transform: [.data]
+  transform:
+    - pd.Index: [ [ 'Training loss', 'Frobenius error' ] ]
+      kwargs: {name: 'loss type'}
+    - xr.concat: [[!dag_tag training_loss, !dag_tag Frobenius_error], !dag_prev ]
+      tag: data
+  hue: loss type
+  helpers:
+    set_labels:
+      x: iteration
+      y: loss
     set_scales:
       y: log
 

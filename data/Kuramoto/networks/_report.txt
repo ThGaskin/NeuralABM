@@ -1,0 +1,28 @@
+Runtime Statistics 
+------------------ 
+ 
+The statistics below are calculated from all individual universe run times. 
+ 
+  # universes:  4 / 4 
+ 
+  total (CPU)   6.7s 
+  total (wall)  2.1s 
+  mean          1.7s 
+   (last 50%)   1.7s 
+   (last 20%)   1.9s 
+   (last 5%)    1.9s 
+  std           0.1s 
+  min           1.6s 
+  at 25%        1.6s 
+  median        1.6s 
+  at 75%        1.7s 
+  max           1.9s 
+ 
+ 
+Universe Runtimes 
+----------------- 
+ 
+  uni1          1.7s 
+  uni2          1.6s 
+  uni3          1.6s 
+  uni4          1.9s

@@ -1,0 +1,16 @@
+---
+coupled_dims:
+- full_path: [Kuramoto, Data, synthetic_data, network, mean_degree]
+  name: mean_degree
+  target_name: N
+  values: [6, 20, 40, 150]
+dims:
+- full_path: [Kuramoto, Data, synthetic_data, N]
+  name: N
+  values: [16, 100, 500, 1000]
+num_coupled_dims: 1
+num_dims: 1
+perform_sweep: true
+shape: [4]
+volume: 4
+

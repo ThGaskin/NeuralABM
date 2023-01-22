@@ -75,6 +75,7 @@ regression_comp:
       y: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
     set_legend:
       title: ~
+      use_legend: False
   style:
     figure.figsize: [ *half_width, *quarter_width ]
     axes.prop_cycle: !format

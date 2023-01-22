@@ -8,15 +8,15 @@ parameter_space:
     range: [10]
   num_epochs: 50
   write_every: 10
-  write_start: 15 # burn-in?
+  write_start: 15
   write_predictions_every: 10
   Kuramoto:
     Data:
       write_adjacency_matrix: True
       load_from_dir:
         copy_data: True
-        network: /Users/thomasgaskin/utopya_output/Kuramoto/networks/data/N_100/data.h5
-        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/networks/data/N_100/data.h5
+        network: data/Kuramoto/networks/data/N_100/data.h5
+        eigen_frequencies: data/Kuramoto/networks/data/N_100/data.h5
       synthetic_data:
         num_steps: 5
         training_set_size: 500

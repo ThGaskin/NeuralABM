@@ -1,19 +1,25 @@
 ---
 paths:
-  model_note: Small_sample
+  model_note: OLS_regression_comparison
+perform_sweep: True
 parameter_space:
-  num_epochs: 100
-  write_every: 100
-  seed: 20
+  seed: !sweep
+    default: 0
+    range: [10]
+  num_epochs: 500
+  write_every: 10
   write_predictions_every: -1
+  perform_regression: true
   Kuramoto:
-    second_order: true
     Data:
+      write_adjacency_matrix: True
       synthetic_data:
         num_steps: 5
-        training_set_size: 40
+        training_set_size: 10
         N: 16
-        sigma: &sigma 0.0
+        sigma: !sweep
+          default: 0
+          values: [1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 2e-2, 4e-2, 6e-2, 8e-2, 1e-1]
         network:
           type: random
           mean_degree: 6
@@ -21,7 +27,7 @@ parameter_space:
             is_directed: False
             WattsStrogatz:
               p_rewire: 0.5
-        dt: 0.02
+        dt: 0.01
     NeuralNet:
       num_layers: 5
       nodes_per_layer:
@@ -33,10 +39,10 @@ parameter_space:
       biases:
         default: ~
     Training:
-      batch_size: 5
+      batch_size: 10
       optimizer: Adam
       learning_rate: 0.002
       loss_function:
         name: MSELoss
       true_parameters:
-        sigma: *sigma
+        sigma: 0

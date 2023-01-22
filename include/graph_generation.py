@@ -21,7 +21,7 @@ def connect_isolates(G: nx.Graph) -> nx.Graph:
 
 def generate_graph(
     *, N: int, mean_degree: int, type: str, seed: int = None, graph_props: dict = None
-):
+) -> nx.Graph:
     G = nx.empty_graph
 
     # Random graphs

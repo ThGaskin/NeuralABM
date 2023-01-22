@@ -1,22 +1,22 @@
 ---
 paths:
-  model_note: Small_sample
+  model_note: Large_sample
 parameter_space:
-  num_epochs: 100
+  num_epochs: 60
   write_every: 100
   seed: 20
-  write_predictions_every: -1
+  write_predictions_every: 100
+  write_start: 500
   Kuramoto:
-    second_order: true
     Data:
       synthetic_data:
-        num_steps: 5
-        training_set_size: 40
-        N: 16
+        num_steps: 2
+        training_set_size: 500
+        N: 1000
         sigma: &sigma 0.0
         network:
           type: random
-          mean_degree: 6
+          mean_degree: 20
           graph_props:
             is_directed: False
             WattsStrogatz:

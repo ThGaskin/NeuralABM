@@ -14,11 +14,8 @@ Data:
           p_rewire: !is-probability 0.2
     sigma: !is-positive-or-zero &sigma 0.0
     dt: !is-positive 0.01
-    gamma: !is-positive 1
     num_steps: !is-positive-int 60
     training_set_size: !is-positive-int 1
-
-second_order: !is-bool False
 
 # Neural net configuration
 NeuralNet:

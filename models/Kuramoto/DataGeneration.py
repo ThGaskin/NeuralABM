@@ -2,7 +2,6 @@ import logging
 import sys
 from os.path import dirname as up
 from typing import Union
-import time
 
 import dantro.groups.graph
 import h5py as h5
@@ -21,151 +20,21 @@ from .ABM import Kuramoto_ABM
 log = logging.getLogger(__name__)
 
 
-def save_nw(
-    network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool = False
-):
-
-    """Saves a network to a h5.Group
-
-    :param network: the network to save
-    :param nw_group: the h5.Group
-    :param write_adjacency_matrix: whether to write out the entire adjacency matrix
-    """
-
-    # Vertices
-    vertices = nw_group.create_dataset(
-        "_vertices",
-        (1, network.number_of_nodes()),
-        chunks=True,
-        compression=3,
-        dtype=int,
-    )
-    vertices.attrs["dim_names"] = ["time", "vertex_idx"]
-    vertices.attrs["coords_mode__vertex_idx"] = "trivial"
-
-    # Vertex properties
-    eigen_frequencies = nw_group.create_dataset(
-        "_eigen_frequencies",
-        (1, network.number_of_nodes()),
-        chunks=True,
-        compression=3,
-        dtype=float,
-    )
-    eigen_frequencies.attrs["dim_names"] = ["time", "vertex_idx"]
-    eigen_frequencies.attrs["coords_mode__vertex_idx"] = "trivial"
-
-    # Edges; the network size is assumed to remain constant
-    edges = nw_group.create_dataset(
-        "_edges",
-        (1, network.size(), 2),
-        chunks=True,
-        compression=3,
-    )
-    edges.attrs["dim_names"] = ["time", "edge_idx", "vertex_idx"]
-    edges.attrs["coords_mode__edge_idx"] = "trivial"
-    edges.attrs["coords_mode__vertex_idx"] = "trivial"
-
-    # Edge properties
-    edge_weights = nw_group.create_dataset(
-        "_edge_weights",
-        (1, network.size()),
-        chunks=True,
-        compression=3,
-    )
-    edge_weights.attrs["dim_names"] = ["time", "edge_idx"]
-    edge_weights.attrs["coords_mode__edge_idx"] = "trivial"
-
-    # Topological properties
-    degree = nw_group.create_dataset(
-        "_degree",
-        (1, network.number_of_nodes()),
-        maxshape=(1, network.number_of_nodes()),
-        chunks=True,
-        compression=3,
-        dtype=int,
-    )
-    degree.attrs["dim_names"] = ["time", "vertex_idx"]
-    degree.attrs["coords_mode__vertex_idx"] = "trivial"
-
-    degree_w = nw_group.create_dataset(
-        "_degree_weighted",
-        (1, network.number_of_nodes()),
-        maxshape=(1, network.number_of_nodes()),
-        chunks=True,
-        compression=3,
-        dtype=float,
-    )
-    degree_w.attrs["dim_names"] = ["time", "vertex_idx"]
-    degree_w.attrs["coords_mode__vertex_idx"] = "trivial"
-
-    triangles = nw_group.create_dataset(
-        "_triangles",
-        (1, network.number_of_nodes()),
-        maxshape=(1, network.number_of_nodes()),
-        chunks=True,
-        compression=3,
-        dtype=float,
-    )
-    triangles.attrs["dim_names"] = ["time", "vertex_idx"]
-    triangles.attrs["coords_mode__vertex_idx"] = "trivial"
-
-    triangles_w = nw_group.create_dataset(
-        "_triangles_weighted",
-        (1, network.number_of_nodes()),
-        maxshape=(1, network.number_of_nodes()),
-        chunks=True,
-        compression=3,
-        dtype=float,
-    )
-    triangles_w.attrs["dim_names"] = ["time", "vertex_idx"]
-    triangles_w.attrs["coords_mode__vertex_idx"] = "trivial"
-
-    # Write network properties
-    vertices[0, :] = network.nodes()
-    eigen_frequencies[0, :] = (
-        torch.stack(list(nx.get_node_attributes(network, "eigen_frequency").values()))
-        .numpy()
-        .flatten()
-    )
-    edges[0, :, :] = network.edges()
-    edge_weights[:, :] = list(nx.get_edge_attributes(network, "weight").values())
-    degree[0, :] = [network.degree(i) for i in network.nodes()]
-    degree_w[0, :] = [deg[1] for deg in network.degree(weight="weight")]
-    triangles[0, :] = [
-        val
-        for val in np.diagonal(
-            np.linalg.matrix_power(np.ceil(nx.to_numpy_matrix(network)), 3)
-        )
-    ]
-    triangles_w[0, :] = [
-        val
-        for val in np.diagonal(np.linalg.matrix_power(nx.to_numpy_matrix(network), 3))
-    ]
-
-    if write_adjacency_matrix:
-
-        adj_matrix = nx.to_numpy_matrix(network)
-
-        # Adjacency matrix: only written out if explicity specified
-        adjacency_matrix = nw_group.create_dataset(
-            "_adjacency_matrix",
-            [1] + list(np.shape(adj_matrix)),
-            chunks=True,
-            compression=3,
-        )
-        adjacency_matrix.attrs["dim_names"] = ["time", "i", "j"]
-        adjacency_matrix.attrs["coords_mode__i"] = "trivial"
-        adjacency_matrix.attrs["coords_mode__j"] = "trivial"
-        adjacency_matrix[-1, :] = adj_matrix
-
-
-# --- Data generation functions ------------------------------------------------------------------------------------
-
-
 def get_data(
-    cfg, h5file: h5.File, h5group: h5.Group, *, seed: int, device: str
+    cfg, h5file: h5.File, h5group: h5.Group, *, seed: int, device: str, second_order: bool,
 ) -> (torch.Tensor, Union[nx.Graph, None]):
 
+    """ Either loads data from an external file or synthetically generates Kuramoto data (including the network)
+    from a configuration file.
+
+    :param cfg: The configuration file containing either the paths to files to be loaded or the configuration settings
+        for the synthetic data generation
+    :param h5file: the h5 file to which to write any data to
+    :param h5group: the h5 group tow hich
+    :param seed: the seed to use for the graph generation
+    :param device: the training device to which to move the data
+    :return: the training data and, if given, the network
+    """
     load_from_dir = cfg.pop("load_from_dir", {})
     write_adjacency_matrix = cfg.pop("write_adjacency_matrix", load_from_dir == {})
 
@@ -193,7 +62,7 @@ def get_data(
                     directed=f["true_network"].attrs["is_directed"],
                     parallel=f["true_network"].attrs["allows_parallel"],
                 ),
-            )  # (f["true_network"])
+            )
             GG.new_container(
                 "nodes",
                 Cls=XrDataContainer,
@@ -248,23 +117,29 @@ def get_data(
     if training_data is None:
 
         log.info("   Generating training data ...")
-        num_steps: int = cfg.pop("num_steps")
-        training_set_size = cfg.pop("training_set_size")
-
+        num_steps: int = cfg.get("num_steps")
+        training_set_size = cfg.get("training_set_size")
         training_data = torch.empty((training_set_size, num_steps + 1, N, 1))
+
         adj_matrix = torch.from_numpy(nx.to_numpy_matrix(network)).float()
 
         ABM = Kuramoto_ABM(**cfg, eigen_frequencies=eigen_frequencies)
 
         for idx in range(training_set_size):
 
-            initial_phases = 2 * torch.pi * torch.rand(N, 1)
-            training_data[idx, 0, :, :] = initial_phases
+            training_data[idx, 0, :, :] = 2 * torch.pi * torch.rand(N, 1)
+            i_0 = 0
+
+            # For the second-order dynamics, the initial velocities must also be given
+            if second_order:
+                training_data[idx, 1, :, :] = training_data[idx, 0, :, :] + torch.rand(N, 1)
+                i_0 = 1
 
             # Run the ABM for n iterations and write the data
-            for i in range(num_steps):
+            for i in range(i_0, num_steps):
                 training_data[idx, i + 1] = ABM.run_single(
                     current_phases=training_data[idx, i],
+                    current_velocities=(training_data[idx, i] - training_data[idx, i-1])/ABM.dt if second_order else None,
                     adjacency_matrix=adj_matrix,
                     requires_grad=False,
                 )
@@ -281,7 +156,27 @@ def get_data(
         nw_group.attrs["content"] = "graph"
         nw_group.attrs["allows_parallel"] = False
         nw_group.attrs["is_directed"] = network.is_directed()
-        save_nw(network, nw_group, write_adjacency_matrix)
+
+        # Save the network
+        base.save_nw(network, nw_group, write_adjacency_matrix)
+
+        # Vertex properties: eigenfrequencies
+        eigen_frequencies = nw_group.create_dataset(
+            "_eigen_frequencies",
+            (1, network.number_of_nodes()),
+            chunks=True,
+            compression=3,
+            dtype=float,
+        )
+        eigen_frequencies.attrs["dim_names"] = ["time", "vertex_idx"]
+        eigen_frequencies.attrs["coords_mode__vertex_idx"] = "trivial"
+
+        # Write node properties
+        eigen_frequencies[0, :] = (
+            torch.stack(list(nx.get_node_attributes(network, "eigen_frequency").values()))
+                .numpy()
+                .flatten()
+        )
         log.info("   Network generated and saved.")
 
         # Save training data
@@ -307,67 +202,3 @@ def get_data(
     # Return the training data and the network
     return training_data.to(device), network
 
-
-def regression(
-    training_data: torch.Tensor,
-    eigenfrequencies: torch.Tensor,
-    h5file: h5.File,
-    dt: float = 0.01,
-):
-
-    """Estimates the network via an OLS-regression"""
-
-    N = training_data.shape[2]
-
-    # Create data group and datasets for the predictions
-    regression_group = h5file.create_group("regression_data")
-    dset_prediction = regression_group.create_dataset(
-        "predictions",
-        (N, N),
-        maxshape=(N, N),
-        chunks=True,
-        compression=3,
-    )
-    dset_prediction.attrs["dim_names"] = ["i", "j"]
-    dset_prediction.attrs["coords_mode__i"] = "trivial"
-    dset_prediction.attrs["coords_mode__j"] = "trivial"
-
-    dset_time = regression_group.create_dataset(
-        "computation_time",
-        (1,),
-        maxshape=(1,),
-        chunks=True,
-        compression=3,
-    )
-    dset_time.attrs["dim_names"] = ["training_time"]
-
-    X_mat = torch.transpose(torch.reshape(torch.diff(training_data, dim=1)/dt - eigenfrequencies, (-1, N)), 0, 1)
-    G_mat = torch.zeros(training_data.shape[0], training_data.shape[1]-1, training_data.shape[2], N)
-
-    for dset in range(G_mat.shape[0]):
-        for step in range(G_mat.shape[1]):
-            G_mat[dset, step] = torch.sin(-training_data[dset, step] + torch.flatten(training_data[dset, step]))
-
-    # Permute node and time series indices
-    G_mat = torch.reshape(torch.permute(G_mat, (2, 3, 0, 1)), (N, N, -1))
-    G_mat_transpose = torch.transpose(G_mat, 1, 2)
-
-    A_pred = torch.zeros(N, N)
-
-    # Perform regression analysis and keep track of time
-    start_time = time.time()
-    for n in range(N):
-
-        g = torch.cat((G_mat[n][:n, :], G_mat[n][n+1:, :]))
-        g_t = torch.transpose(g, 0, 1)
-        t = torch.matmul(G_mat[n], G_mat_transpose[n])
-        subsel = torch.cat((t[:n, :], t[n+1:, :]), dim=0)
-        subsel = torch.cat((subsel[:, :n], subsel[:, n+1:]), dim=1)
-
-        row_entry = np.matmul(torch.matmul(X_mat[n], g_t), np.linalg.inv(subsel))
-        A_pred[n, :] = torch.cat((row_entry[:n], torch.tensor([0]), row_entry[n:]))
-
-    prediction_time = time.time() - start_time
-
-    dset_prediction[:, :] = A_pred
-    dset_time[-1] = prediction_time

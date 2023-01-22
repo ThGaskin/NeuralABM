@@ -1,0 +1,1347 @@
+diff --git a/model_plots/HarrisWilson/prob_density.py b/model_plots/HarrisWilson/prob_density.py
+index 1398a56..65688a4 100644
+--- a/model_plots/HarrisWilson/prob_density.py
++++ b/model_plots/HarrisWilson/prob_density.py
+@@ -94,7 +94,7 @@ def plot_prob_density(
+             fb = hlpr.ax.fill_between(dset[x], y_vals_lower, y_vals_upper, linewidth=0, **plot_kwargs)
+ 
+         if label is not None:
+-            _handles.append(ebar[0] if yerr is None else (ebar, fb))
++            _handles.append(ebar if yerr is None else (ebar, fb))
+             _labels.append(label)
+ 
+     hlpr.track_handles_labels(_handles, _labels)
+diff --git a/model_plots/data_ops.py b/model_plots/data_ops.py
+index cd7c757..8160584 100644
+--- a/model_plots/data_ops.py
++++ b/model_plots/data_ops.py
+@@ -288,7 +288,7 @@ def marginal_of_density(vals: xr.DataArray, loss: xr.DataArray, *, coords: dict
+     hist_data = np.reshape(hist_data, (-1, n_bins))
+     n_samples = np.shape(hist_data)[0]
+ 
+-    loss_data = np.repeat(np.reshape(loss.data, (n_samples, 1)), n_bins, 1)
++    loss_data = np.repeat(np.reshape(np.exp(-loss.data), (n_samples, 1)), n_bins, 1)
+     loss_data = loss_data / np.sum(loss_data, axis=0)
+ 
+     # Calculate the mean of each bin
+@@ -303,9 +303,13 @@ def marginal_of_density(vals: xr.DataArray, loss: xr.DataArray, *, coords: dict
+     std = std/(np.sum(means) * dx)
+     coords.update(dict(bin_idx=np.arange(n_bins)))
+ 
++    MLE = hist_data[np.argmin(np.reshape(loss.data, (n_samples, 1)), axis=0)[0]]
++    MLE = MLE / (np.sum(MLE) * dx)
++
+     return xr.Dataset(
+         data_vars=dict(bin_center=("bin_idx", vals.coords['bin_center'].data),
+                        y=("bin_idx", means),
+-                       yerr=("bin_idx", std)),
++                       yerr=("bin_idx", std),
++                       MLE=("bin_idx", MLE)),
+         coords=coords
+     )
+\ No newline at end of file
+diff --git a/models/Kuramoto/Kuramoto_base_plots.yml b/models/Kuramoto/Kuramoto_base_plots.yml
+index 07195e2..1dbe822 100644
+--- a/models/Kuramoto/Kuramoto_base_plots.yml
++++ b/models/Kuramoto/Kuramoto_base_plots.yml
+@@ -127,6 +127,12 @@
+     - .plot.multiplot
+   compute_only: []
+ 
++.multiplot_multiverse:
++  based_on:
++    - .creator.multiverse
++    - .plot.multiplot
++  compute_only: []
++
+ .matrix:
+   based_on:
+     - .creator.universe
+@@ -140,6 +146,59 @@
+       1: *darkblue
+     continuous: true
+ 
++.plot.prob_density:
++  module: model_plots.HarrisWilson
++  plot_func: plot_prob_density
++
++.marginals_density:
++  dag_options:
++    define:
++      n_bins: 100
++      min_bin: -1
++      max_bin: 16
++      bw_method: 0.5
++      sigma: 6
++  to_plot:
++    - function: [model_plots.HarrisWilson, plot_prob_density]
++      args: [!dag_result data]
++      x: bin_center
++      y: y
++      yerr: yerr
++      label: $\hat{P}(k)$
++      smooth_kwargs:
++        enabled: True
++        sigma: !dag_result sigma
++      pass_helper: true
++      color: *darkblue
++    - function: [model_plots.HarrisWilson, plot_prob_density]
++      args: [!dag_result data]
++      x: bin_center
++      y: MLE
++      smooth_kwargs:
++        enabled: True
++        sigma: !dag_result sigma
++      pass_helper: true
++      color: black
++      linestyle: dotted
++      label: MLE
++    - function: [ seaborn, kdeplot ]
++      args: [ !dag_result true_param ]
++      gridsize: !dag_result n_bins
++      bw_method: !dag_result bw_method
++      label: $P(k)$
++      clip: [0, ~]
++      linestyle: dotted
++      color: *red
++  helpers:
++    set_legend:
++      use_legend: true
++    set_tick_locators:
++      x: &formatting
++        major:
++          name: MaxNLocator
++          integer: true
++          nbins: !dag_result num_agents
++
+ # ======================================================================================================================
+ #  ╦ ╦╔╗╔╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
+ #  ║ ║║║║║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
+@@ -279,10 +338,8 @@ clustering_over_time:
+         out_degree: data/predicted_network/_out_degree_weighted
+         triangles: data/predicted_network/_weighted_triangles
+       tag: clustering_weighted
+-    - operation: pd.Index
+-      args: [ [ 'clustering coefficient', 'weighted clustering coefficient'] ]
+-      kwargs:
+-        name: 'type'
++    - pd.Index: [ [ 'clustering coefficient', 'weighted clustering coefficient'] ]
++      kwargs: {name: 'type'}
+     - xr.concat: [[!dag_tag clustering, !dag_tag clustering_weighted], !dag_prev ]
+     - .mean: [!dag_prev , 'vertex_idx']
+     - div: [!dag_prev , 3]
+@@ -479,11 +536,8 @@ undirected_adjacency_matrix:
+       x: [ -1, !dag_result num_agents ]
+       y: [ !dag_result num_agents, -1 ]
+     set_tick_locators:
+-      x: &formatting
+-        major:
+-          name: MaxNLocator
+-          integer: true
+-          nbins: !dag_result num_agents
++      x:
++        <<: *formatting
+       y:
+         <<: *formatting
+   cmap:
+@@ -560,10 +614,11 @@ accuracy_on_false_edges:
+     - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
+       tag: data
+ 
+-marginals_uni:
+-  based_on: .creator.universe
+-  module: model_plots.HarrisWilson
+-  plot_func: plot_prob_density
++# Marginal density on a parameter
++marginals_parameter_uni:
++  based_on:
++    - .creator.universe
++    - .plot.prob_density
+   select:
+     param:
+       path: predicted_network/_in_degree
+@@ -597,156 +652,39 @@ marginals_uni:
+           linestyle: dashed
+           color: gray
+ 
++# Marginal density on a distribution
+ marginals_density_uni:
+   based_on:
+     - .multiplot_universe
+-  dag_options:
+-    define:
+-      n_bins: 100
+-      min_bin: -1
+-      max_bin: 16
+-      bw_method: 0.5
+-      sigma: 6
++    - .marginals_density
+   select:
+     num_agents:
+       path: true_network/_vertices
+       transform:
+         - .coords: [!dag_prev , 'vertex_idx']
+         - len: [!dag_prev ]
+-    coords:
+-      path: predicted_network/_in_degree
+-      transform:
+-        - .coords: [!dag_prev , 'time']
+-        - .isel: [!dag_prev , {time: !slice [~, -2]}]
+-    sel_idx:
+-      path: output_data/loss
+-      transform:
+-        - .idxmin: [!dag_prev ]
+-          kwargs: {dim: time}
+-        - .values: [!dag_prev ]
+-        - .item: [!dag_prev ]
+-    param:
+-      path: predicted_network/_in_degree
+-      transform:
+     param_binned:
+       path: predicted_network/_in_degree
+       transform:
+-        - .isel: [!dag_prev , {time: !slice [~, -2]}]
+         - np.linspace: [!dag_tag min_bin, !dag_tag max_bin, !dag_tag n_bins]
+         - .data: [ !dag_node -2 ]
+         - NeuralABM.hist: [!dag_prev ]
+           kwargs:
+             density: true
+             bins: !dag_node -2
+-    loss:
+-      path: output_data/loss
+-      transform:
+-        - np.maximum: [ !dag_prev , *loss_limit ]
+-        - log10: [ !dag_prev ]
+-        - mul: [ !dag_prev , -1 ]
+-        - np.exp: [!dag_prev ]
+     true_param:
+       path: true_network/_degree
+       transform:
+-        - .isel: [!dag_prev , {time: -1}]
+-          kwargs:
+-            drop: True
+         - .data: [!dag_prev ]
++    loss:
++      path: output_data/loss
++      transform:
++        - np.maximum: [ !dag_prev , *loss_limit ]
+   transform:
+-    - .sel: [!dag_tag loss , {time: !dag_tag coords }]
+     - NeuralABM.marginal_of_density: [!dag_tag param_binned ]
+       kwargs:
+         loss: !dag_prev
+       tag: data
+-    - .sel: [!dag_tag param , {time: !dag_tag sel_idx }]
+-      kwargs: {drop: true}
+-      tag: MLE
+-  to_plot:
+-    - function: [model_plots.HarrisWilson, plot_prob_density]
+-      args: [!dag_result data]
+-      x: bin_center
+-      y: y
+-      yerr: yerr
+-      label: $\hat{P}(k)$
+-      smooth_kwargs:
+-        enabled: True
+-        sigma: !dag_result sigma
+-      pass_helper: true
+-      color: *darkblue
+-    - function: [ seaborn, kdeplot ]
+-      args: [ !dag_result MLE ]
+-      gridsize: !dag_result n_bins
+-      color: black
+-      bw_method: !dag_result bw_method
+-      label: MLE
+-      legend: true
+-      clip: [0, ~]
+-    - function: [ seaborn, kdeplot ]
+-      args: [ !dag_result true_param ]
+-      gridsize: !dag_result n_bins
+-      bw_method: !dag_result bw_method
+-      label: $P(k)$
+-      clip: [0, ~]
+-      linestyle: dotted
+-      color: *red
+-
+-
+-  helpers:
+-    set_legend:
+-      use_legend: true
+-    set_tick_locators:
+-      x:
+-        <<: *formatting
+-
+-
+-marginals_density_mv:
+-  based_on:
+-    - .creator.multiverse
+-  module: model_plots.HarrisWilson
+-  plot_func: plot_prob_density
+-  select_and_combine:
+-    fields:
+-      coords:
+-        path: predicted_network/_in_degree
+-        transform:
+-          - .coords: [!dag_prev , 'time']
+-          - .isel: [!dag_prev , {time: !slice [~, -2]}]
+-      degrees:
+-        path: predicted_network/_in_degree
+-        transform:
+-          - .isel: [!dag_prev , {time: !slice [~, -2]}]
+-          - .coords: [!dag_prev , 'vertex_idx']
+-          - len: [!dag_prev ]
+-          - np.linspace: [0, !dag_prev , 10]
+-          - .data: [ !dag_node -4 ]
+-          - NeuralABM.hist: [!dag_prev ]
+-            kwargs: {bins: !dag_node -2 }
+-      loss:
+-        path: output_data/loss
+-        transform:
+-          - np.maximum: [ !dag_prev , *loss_limit ]
+-          - log10: [ !dag_prev ]
+-          - mul: [ !dag_prev , -1 ]
+-          - np.exp: [!dag_prev ]
+-  transform:
+-    - .isel: [!dag_tag coords, {seed: 0, num_layers: 0}]
+-      kwargs: {drop: true}
+-    - .sel: [!dag_tag loss , {time: !dag_prev }]
+-    - NeuralABM.marginal_of_density: [!dag_tag degrees ]
+-      kwargs:
+-        loss: !dag_prev
+-        along_dim: 'num_layers'
+-      tag: data
+-  x: bin_center
+-  y: y
+-  yerr: yerr
+-  hue: num_layers
+-  helpers:
+-    set_legend:
+-      use_legend: true
+-  smooth_kwargs:
+-    enabled: True
+-    sigma: 2
+ 
+ # ======================================================================================================================
+ #  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
+@@ -770,3 +708,46 @@ loss_stacked:
+       y: log
+     set_labels:
+       y: Training loss $J$
++
++marginals_density_mv:
++  based_on:
++    - .multiplot_multiverse
++    - .marginals_density
++  select_and_combine:
++    fields:
++      param_binned:
++        path: predicted_network/_in_degree
++        transform:
++          - np.linspace: [!dag_tag min_bin, !dag_tag max_bin, !dag_tag n_bins]
++          - .data: [ !dag_node -2 ]
++          - NeuralABM.hist: [!dag_prev ]
++            kwargs: {bins: !dag_node -2}
++      true_val:
++        path: true_network/_degree
++        transform:
++          - .isel: [ !dag_prev , { time: -1 } ]
++            kwargs:
++              drop: True
++          - .data: [ !dag_prev ]
++        subspace:
++          seed: 0
++      loss:
++        path: output_data/loss
++        transform:
++          - np.maximum: [ !dag_prev , *loss_limit ]
++      N:
++        path: true_network/_vertices
++        transform:
++          - .coords: [ !dag_prev , 'vertex_idx' ]
++          - len: [ !dag_prev ]
++        subspace:
++          seed: 0
++  transform:
++    - NeuralABM.marginal_of_density: [!dag_tag param_binned ]
++      kwargs:
++        loss: !dag_tag loss
++      tag: data
++    - .squeeze: [!dag_tag true_val]
++      tag: true_param
++    - .squeeze: [!dag_tag N]
++      tag: num_agents
+\ No newline at end of file
+diff --git a/models/Kuramoto/Kuramoto_cfg.yml b/models/Kuramoto/Kuramoto_cfg.yml
+index de33357..2483f51 100644
+--- a/models/Kuramoto/Kuramoto_cfg.yml
++++ b/models/Kuramoto/Kuramoto_cfg.yml
+@@ -35,6 +35,3 @@ Training:
+   true_parameters:
+     sigma: *sigma
+   device: cpu
+-
+-# Whether to write out the training time
+-write_time: False
+diff --git a/models/Kuramoto/cfgs/Data_generation/network.yml b/models/Kuramoto/cfgs/Data_generation/network.yml
+index e69de29..2f8ed0b 100644
+--- a/models/Kuramoto/cfgs/Data_generation/network.yml
++++ b/models/Kuramoto/cfgs/Data_generation/network.yml
+@@ -0,0 +1,25 @@
++---
++perform_sweep: True
++paths:
++  model_note: networks
++parameter_space:
++  seed: 1
++  num_epochs: 0
++  write_every: 1
++  write_predictions_every: -1
++  Kuramoto:
++    Data:
++      synthetic_data:
++        num_steps: 1
++        training_set_size: 1
++        N: !sweep
++          default: 16
++          values: [16, 100, 500, 1000]
++        network:
++          type: random
++          mean_degree: !coupled-sweep
++            target_name: N
++            values: [6, 20, 40, 150]
++          graph_props:
++            is_directed: False
++
+diff --git a/models/Kuramoto/cfgs/Noisy_run/eval.yml b/models/Kuramoto/cfgs/Noisy_run/eval.yml
+index 2080597..34bfad3 100644
+--- a/models/Kuramoto/cfgs/Noisy_run/eval.yml
++++ b/models/Kuramoto/cfgs/Noisy_run/eval.yml
+@@ -12,47 +12,191 @@
+ 
+   # Page widths in inches for latex documents: ensures easy integration into latex documents
+   page_widths:
+-    full_width:         &full_width         7.5
+-    half_width:         &half_width         !expr 7.5 / 2
+-    two_thirds_width:   &two_thirds_width   !expr 2 * 7.5 / 3
+-    third_width:        &third_width        !expr 7.5 / 3
+-    quarter_width:      &quarter_width      !expr 7.5 / 4
+-    fifth_width:        &fifth_width        !expr 7.5 / 5
+-    eighth_width:       &eighth_width       !expr 7.5 / 8
++    full_width:     &full_width         7.5
++    half_width:     &half_width         !expr 7.5 / 2
++    third_width:    &third_width        !expr 7.5 / 3
++    quarter_width:  &quarter_width      !expr 7.5 / 4
++    fifth_width:    &fifth_width        !expr 7.5 / 5
++    eighth_width:    &eighth_width      !expr 7.5 / 8
+ 
+-.matrix_defaults:
++# ======================================================================================================================
++
++# Training loss
++loss:
++  based_on: loss_stacked
++  transform:
++    - .mean: [!dag_tag values, 'seed']
++    - .assign_coords: [!dag_prev , {sigma: [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]}]
++      tag: data
++  x: time
++  hue: sigma
++  helpers:
++    set_scales:
++      y: log
++    set_legend:
++      custom_labels: [$1e-5$, $5e-5$, $1e-4$, $5e-4$, $1e-3$, $5e-3$, $1e-2$, $5e-2$, $1e-1$, $5e-1$]
++      ncol: 2
+   style:
+-    figure.figsize: [ *third_width, *third_width ]
+-    axes.grid: False
+-    axes.spines.top: True
+-    axes.spines.right: True
+-    axes.linewidth: 0.5
+-  vmax: 1
++    figure.figsize: [*half_width, *third_width]
++
++# Frobenius error
++frobenius_loss:
++  based_on: loss
++  select_and_combine:
++    fields:
++      values: output_data/frobenius_error
+   helpers:
+-    set_title:
+-      title: ''
+-    set_ticks:
+-      x:
+-        major: []
+-      y:
+-        major: []
+     set_labels:
+-      x: ' '
+-      y: ' '
+-    set_limits:
+-      y: [max, min]
+-      x: [min, max]
++      y: Frobenius error $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_\mathrm{Fr}$
++    set_legend:
++      use_legend: False
+ 
+-graphs/true_graph:
+-  based_on: graph
++# Network size comparison
++network_density:
++  based_on: .errorbands
++  select_and_combine:
++    fields:
++      sizes:
++        path: output_data/network_size
++        transform:
++          - .isel: [!dag_prev , {time: -1}]
++          - div: [!dag_prev , 240]
++      true_size:
++        path: true_network/_edge_weights
++        transform:
++          - .isel: [!dag_prev , {time: -1}]
++            kwargs: { drop: true }
++          - len: [ !dag_node -1 ]
++          - mul: [ !dag_node -1, 2 ]
++          - div: [!dag_prev , 240]
++  transform:
++    - .assign_coords: [!dag_tag sizes , {sigma: [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]}]
++    - .rename: [!dag_prev , {sigma: Noise}]
++      tag: sizes_reassigned
++    - .mean: [ !dag_prev ]
++      kwargs: { dim: seed }
++      tag: means
++    - .std: [ !dag_tag sizes_reassigned ]
++      kwargs: { dim: seed }
++    - xr.Dataset:
++      - y: !dag_tag means
++        yerr: !dag_prev
++      tag: data
++    - .isel: [!dag_tag true_size , { seed: -1, sigma: -1 }]
++      tag: nw_size
++  helpers:
++    set_hv_lines:
++      hlines:
++        - pos: !dag_result nw_size
++          color: *red
++          label: $\vert E \vert$
++          linestyle: dotted
++    set_labels:
++      y: Predicted network density
++    set_scales:
++      x: log
++  x: Noise
++  style:
++    figure.figsize: [ *half_width, *third_width ]
+ 
+-graphs/prediction:
+-  based_on: graph
+-  select:
+-    graph_group: predicted_network
++# Plot the average predicted weight on false edges
++accuracy_on_false_edges:
++  based_on: .errorbands
++  select_and_combine:
++    fields:
++      prediction:
++        path: output_data/predictions
++        transform:
++          - .isel: [!dag_prev , {time: -1}]
++            kwargs: {drop: true}
++      true_values:
++        path: true_network/_adjacency_matrix
++        transform: [.data]
++  transform:
++    - sub: [ !dag_tag prediction, !dag_tag true_values ]
++    - print: [!dag_prev ]
++    - np.abs: [ !dag_prev ]
++      tag: l1_accuracy
++    - ==: [!dag_tag true_values, 0]
++    - xr.where: [!dag_prev , 1, 0]
++    - mul: [!dag_tag prediction, !dag_prev ]
++    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
++    - .assign_coords: [!dag_prev , {sigma: [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]}]
++    - .rename: [!dag_prev , {sigma: Noise}]
++      tag: accuracies_reassigned
++    - .mean: [!dag_prev , ['seed', 'i', 'j'] ]
++      tag: means
++    - .std: [!dag_tag accuracies_reassigned, ['seed', 'i', 'j'] ]
++    - xr.Dataset:
++      - y: !dag_tag means
++        yerr: !dag_prev
++    - print: [!dag_prev ]
++      tag: data
++  x: Noise
++  style:
++    figure.figsize: [ *half_width, *third_width ]
++  helpers:
++    set_scales:
++      x: log
++      y: log
++    set_labels:
++      y: Average edge weight on $E_\wedge$
+ 
+-marginals/degree_distribution:
+-  based_on: marginals_density_uni
++loss_compared:
++  based_on: .line_multiverse
++  select_and_combine:
++    fields:
++      training_loss:
++        path: output_data/loss
++        transform:
++          - .isel: [!dag_prev , {time: -1}]
++            kwargs: {drop: true}
++      frobenius_loss:
++        path: output_data/frobenius_error
++        transform:
++          - .isel: [!dag_prev , {time: -1}]
++            kwargs: {drop: true}
++  transform:
++    - pd.Index: [ [ 'training loss', 'frobenius error'] ]
++      kwargs: {name: 'loss type'}
++    - xr.concat: [[!dag_tag training_loss, !dag_tag frobenius_loss], !dag_prev ]
++    - .mean: [!dag_prev , 'seed']
++    - .assign_coords: [ !dag_prev , { sigma: [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1 ] } ]
++      tag: data
++  x: sigma
++  hue: loss type
++  style:
++    figure.figsize: [ *half_width, *third_width ]
++  helpers:
++    set_scales:
++      x: log
++      y: log
++    set_labels:
++      x: $\sigma$
++      y: Final loss
++
++degree_distribution: !pspace
++  based_on: marginals_density_mv
++  select_and_combine:
++    fields:
++      N:
++        subspace:
++          sigma: /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni01/data.h5
++    subspace:
++      sigma: !sweep
++        default: /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni06/data.h5
++        values: [
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni01/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni02/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni03/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni04/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni05/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni06/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni07/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni08/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni09/data.h5,
++          /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni10/data.h5,
++        ]
+   dag_options:
+     define:
+       n_bins: 200
+@@ -66,66 +210,27 @@ marginals/degree_distribution:
+   style:
+     figure.figsize: [*half_width, *third_width]
+ 
+-marginals/clustering:
+-  based_on: marginals_density_uni
+-  dag_options:
+-    define:
+-      n_bins: 1000
+-      min_bin: -8
+-      max_bin: 257
+-      bw_method: 0.2
+-      sigma: 4
+-  select:
+-    coords:
+-      path: predicted_network/_triangles
+-    param:
+-      path: predicted_network/_triangles
+-    param_binned:
+-      path: predicted_network/_triangles
+-    true_param:
+-      path: true_network/_triangles
+-  helpers:
+-    set_title:
+-      title: Triangle distribution $P(c)$
+-    set_limits:
+-      x: [0, 40]
+-    set_labels:
+-      y: ' '
+-  style:
+-    figure.figsize: [ *half_width, *third_width ]
+-
+-matrices/comparison:
+-  based_on:
+-    - .matrix
+-    - .matrix_defaults
+-  select:
+-    true_matrix:
+-      path: true_network/_adjacency_matrix
+-      transform: [.data ]
+-    predicted_matrix:
+-      path: output_data/predictions
+-      transform:
+-        - .isel: [ !dag_prev , { time: -1 } ]
+-          kwargs: {drop: true}
++mean_degree:
++  based_on: .errorbands
++  select_and_combine:
++    fields:
++      degree:
++        path: predicted_network/_in_degree
++        transform:
++          - .isel: [!dag_prev , {time: -1}]
+   transform:
+-    - pd.Index: [ [ 'true', 'predicted' ] ]
+-      kwargs: {name: 'kind'}
+-    - xr.concat: [ [ !dag_tag true_matrix, !dag_tag predicted_matrix ], !dag_prev ]
++    - .mean: [!dag_tag degree , ['vertex_idx', 'seed']]
++      tag: mean
++    - .std: [!dag_tag degree , ['vertex_idx', 'seed']]
++    - xr.Dataset:
++      - y: !dag_tag mean
++        yerr: !dag_prev
++    - .assign_coords: [ !dag_prev , { sigma: [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1 ] } ]
+       tag: data
+-  col: kind
+-  aspect: ~
+-  size: ~
+-  figsize: [*two_thirds_width, *third_width]
+-  cbar_kwargs:
+-    label: ~
+-
+-matrices/error:
+-  based_on:
+-    - accuracy
+-    - .matrix_defaults
+-  norm:
+-    name: LogNorm
+-  vmin: 1e-7
+-  vmax: ~
+-  cbar_kwargs:
+-    label: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
++  y: y
++  yerr: yerr
++  helpers:
++    set_scales:
++      x: log
++  style:
++    figure.figsize: [ *half_width, *third_width ]
+\ No newline at end of file
+diff --git a/models/Kuramoto/cfgs/Noisy_run/run.yml b/models/Kuramoto/cfgs/Noisy_run/run.yml
+index 20af6c2..e76f588 100644
+--- a/models/Kuramoto/cfgs/Noisy_run/run.yml
++++ b/models/Kuramoto/cfgs/Noisy_run/run.yml
+@@ -1,39 +1,42 @@
+ ---
+-perform_sweep: False
++perform_sweep: True
+ paths:
+-  model_note: Sample_run
++  model_note: noisy_run
+ parameter_space:
+   seed: !sweep
+-    default: 2
+-    values: [1, 2]
+-  num_epochs: 500
++    default: 1
++    range: [10]
++  num_epochs: 200
+   write_every: 10
+-  write_predictions_every: 20
++  write_predictions_every: 10
+   Kuramoto:
+     Data:
+       write_adjacency_matrix: True
+       load_from_dir:
+         copy_data: True
+         network: /Users/thomasgaskin/utopya_output/Kuramoto/network/data/uni0/data.h5
+-        training_data: /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni7/data.h5
++        training_data: !sweep
++          default: /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni06/data.h5
++          values: [
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni01/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni02/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni03/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni04/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni05/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni06/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni07/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni08/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni09/data.h5,
++            /Users/thomasgaskin/utopya_output/Kuramoto/noisy_training_data/data/uni10/data.h5,
++          ]
++          name: sigma
+         eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/network/data/uni0/data.h5
+       synthetic_data:
+-        num_steps: 10
+-        training_set_size: 20
+         N: 16
+-        sigma: &sigma 0.0
+-        network:
+-          type: random
+-          mean_degree: 6
+-          graph_props:
+-            is_directed: False
+-            WattsStrogatz:
+-              p_rewire: 0.5
+         dt: 0.02
++
+     NeuralNet:
+-      num_layers: !sweep
+-        default: 5
+-        values: [4, 5]
++      num_layers: 5
+       nodes_per_layer:
+         default: 20
+       activation_funcs:
+@@ -49,5 +52,4 @@ parameter_space:
+       loss_function:
+         name: MSELoss
+       true_parameters:
+-        sigma: *sigma
+-
++        sigma: 0.0
+diff --git a/models/Kuramoto/cfgs/Sample_run/eval.yml b/models/Kuramoto/cfgs/Sample_run/eval.yml
+index 2080597..8a0d154 100644
+--- a/models/Kuramoto/cfgs/Sample_run/eval.yml
++++ b/models/Kuramoto/cfgs/Sample_run/eval.yml
+@@ -45,14 +45,16 @@
+ 
+ graphs/true_graph:
+   based_on: graph
++  universes:
++    seed: 0
+ 
+ graphs/prediction:
+-  based_on: graph
++  based_on: graphs/true_graph
+   select:
+     graph_group: predicted_network
+ 
+ marginals/degree_distribution:
+-  based_on: marginals_density_uni
++  based_on: marginals_density_mv
+   dag_options:
+     define:
+       n_bins: 200
+@@ -67,7 +69,7 @@ marginals/degree_distribution:
+     figure.figsize: [*half_width, *third_width]
+ 
+ marginals/clustering:
+-  based_on: marginals_density_uni
++  based_on: marginals_density_mv
+   dag_options:
+     define:
+       n_bins: 1000
+@@ -75,15 +77,14 @@ marginals/clustering:
+       max_bin: 257
+       bw_method: 0.2
+       sigma: 4
+-  select:
+-    coords:
+-      path: predicted_network/_triangles
+-    param:
+-      path: predicted_network/_triangles
+-    param_binned:
+-      path: predicted_network/_triangles
+-    true_param:
+-      path: true_network/_triangles
++  select_and_combine:
++    fields:
++      param:
++        path: predicted_network/_triangles
++      param_binned:
++        path: predicted_network/_triangles
++      true_val:
++        path: true_network/_triangles
+   helpers:
+     set_title:
+       title: Triangle distribution $P(c)$
+@@ -129,3 +130,87 @@ matrices/error:
+   vmax: ~
+   cbar_kwargs:
+     label: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
++
++
++avg_var:
++  based_on:
++    - .creator.multiverse
++    - .plot.prob_density
++  dag_options:
++    define:
++      n_bins: 100
++      min_bin: -1
++      max_bin: 16
++      bw_method: 0.5
++      sigma: 6
++  select_and_combine:
++    fields:
++      coords:
++        path: predicted_network/_in_degree
++        transform:
++          - .coords: [!dag_prev , 'time']
++          - .isel: [!dag_prev , {time: !slice [~, -2]}]
++      degrees:
++        path: predicted_network/_in_degree
++        transform:
++          - .isel: [!dag_prev , {time: !slice [~, -2]}]
++          - .coords: [!dag_prev , 'vertex_idx']
++          - len: [!dag_prev ]
++          - np.linspace: [!dag_tag min_bin, !dag_tag max_bin, !dag_tag n_bins]
++          - .data: [ !dag_node -4 ]
++          - NeuralABM.hist: [!dag_prev ]
++            kwargs: {bins: !dag_node -2}
++      loss:
++        path: output_data/loss
++        transform:
++          - np.maximum: [ !dag_prev , 1e-17 ]
++#          - mul: [ !dag_prev , -1 ]
++#          - np.exp: [!dag_prev ]
++      t:
++        path: true_network/_degree
++        transform:
++          - .isel: [ !dag_prev , { time: -1 } ]
++            kwargs:
++              drop: True
++          - .data: [ !dag_prev ]
++        subspace:
++          seed: 0
++      na:
++        path: true_network/_vertices
++        transform:
++          - .coords: [ !dag_prev , 'vertex_idx' ]
++          - len: [ !dag_prev ]
++        subspace:
++          seed: 0
++  x: bin_center
++  y: yerr
++  transform:
++    - .isel: [!dag_tag coords, {seed: 0}]
++      kwargs: {drop: true}
++    - .sel: [!dag_tag loss , {time: !dag_prev }]
++    - NeuralABM.marginal_of_density: [!dag_tag degrees ]
++      kwargs:
++        loss: !dag_prev
++      tag: data
++    - getitem: [!dag_prev , 'yerr']
++    - .mean: [!dag_prev ]
++      tag: mean
++  smooth_kwargs:
++    enabled: True
++    sigma: !dag_result sigma
++  helpers:
++    set_legend:
++      use_legend: true
++    set_hv_lines:
++      hlines:
++        - pos: !dag_result mean
++          linestyle: dashed
++          color: *red
++    set_tick_locators:
++      x:
++        major:
++          name: MaxNLocator
++          integer: true
++          nbins: 16
++  style:
++    figure.figsize: [ *half_width, *third_width ]
+diff --git a/models/Kuramoto/cfgs/Sample_run/run.yml b/models/Kuramoto/cfgs/Sample_run/run.yml
+index 20af6c2..ba4ce82 100644
+--- a/models/Kuramoto/cfgs/Sample_run/run.yml
++++ b/models/Kuramoto/cfgs/Sample_run/run.yml
+@@ -1,14 +1,14 @@
+ ---
+-perform_sweep: False
++perform_sweep: True
+ paths:
+   model_note: Sample_run
+ parameter_space:
+   seed: !sweep
+     default: 2
+-    values: [1, 2]
++    range: [10]
+   num_epochs: 500
+   write_every: 10
+-  write_predictions_every: 20
++  write_predictions_every: 10
+   Kuramoto:
+     Data:
+       write_adjacency_matrix: True
+@@ -31,9 +31,7 @@ parameter_space:
+               p_rewire: 0.5
+         dt: 0.02
+     NeuralNet:
+-      num_layers: !sweep
+-        default: 5
+-        values: [4, 5]
++      num_layers: 5
+       nodes_per_layer:
+         default: 20
+       activation_funcs:
+diff --git a/models/Kuramoto/cfgs/Size_comparison/eval.yml b/models/Kuramoto/cfgs/Size_comparison/eval.yml
+index bb5ea75..eb03095 100644
+--- a/models/Kuramoto/cfgs/Size_comparison/eval.yml
++++ b/models/Kuramoto/cfgs/Size_comparison/eval.yml
+@@ -43,13 +43,61 @@
+       y: [max, min]
+       x: [min, max]
+ 
+-graphs/true_graph:
+-  based_on: graph
++frobenius_loss:
++  based_on: .line_multiverse
++  select_and_combine:
++    fields:
++      data: output_data/frobenius_error
++  hue: num_vertices
++  helpers:
++    set_scales:
++      y: log
+ 
+-graphs/prediction:
+-  based_on: graph
++loss:
++  based_on: .line_multiverse
++  select_and_combine:
++    fields:
++      data: output_data/loss
++  hue: num_vertices
++  helpers:
++    set_scales:
++      y: log
++
++matrices/comparison:
++  based_on:
++    - .matrix
++    - .matrix_defaults
+   select:
+-    graph_group: predicted_network
++    true_matrix:
++      path: true_network/_adjacency_matrix
++      transform: [.data ]
++    predicted_matrix:
++      path: output_data/predictions
++      transform:
++        - .isel: [ !dag_prev , { time: -1 } ]
++          kwargs: {drop: true}
++  transform:
++    - pd.Index: [ [ 'true', 'predicted' ] ]
++      kwargs: {name: 'kind'}
++    - xr.concat: [ [ !dag_tag true_matrix, !dag_tag predicted_matrix ], !dag_prev ]
++      tag: data
++  col: kind
++  aspect: ~
++  size: ~
++  figsize: [*two_thirds_width, *third_width]
++  cbar_kwargs:
++    label: ~
++
++matrices/error:
++  based_on:
++    - accuracy
++    - .matrix_defaults
++  norm:
++    name: LogNorm
++  vmin: 1e-7
++  vmax: ~
++  cbar_kwargs:
++    label: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
+ 
+ marginals/degree_distribution:
+   based_on: marginals_density_uni
+@@ -92,48 +140,4 @@ marginals/clustering:
+     set_labels:
+       y: ' '
+   style:
+-    figure.figsize: [ *half_width, *third_width ]
+-
+-matrices/comparison:
+-  based_on:
+-    - .matrix
+-    - .matrix_defaults
+-  select:
+-    true_matrix:
+-      path: true_network/_adjacency_matrix
+-      transform: [.data ]
+-    predicted_matrix:
+-      path: output_data/predictions
+-      transform:
+-        - .isel: [ !dag_prev , { time: -1 } ]
+-          kwargs: {drop: true}
+-  transform:
+-    - pd.Index: [ [ 'true', 'predicted' ] ]
+-      kwargs: {name: 'kind'}
+-    - xr.concat: [ [ !dag_tag true_matrix, !dag_tag predicted_matrix ], !dag_prev ]
+-      tag: data
+-  col: kind
+-  aspect: ~
+-  size: ~
+-  figsize: [*two_thirds_width, *third_width]
+-  cbar_kwargs:
+-    label: ~
+-
+-matrices/error:
+-  based_on:
+-    - accuracy
+-    - .matrix_defaults
+-  norm:
+-    name: LogNorm
+-  vmin: 1e-7
+-  vmax: ~
+-  cbar_kwargs:
+-    label: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
+-
+-phases_lines:
+-  based_on: phases_lines
+-
+-loss:
+-  based_on: loss
+-  select:
+-    data: output_data/frobenius_error
+\ No newline at end of file
++    figure.figsize: [ *half_width, *third_width ]
+\ No newline at end of file
+diff --git a/models/Kuramoto/cfgs/Size_comparison/run.yml b/models/Kuramoto/cfgs/Size_comparison/run.yml
+index 0a9dab5..350ed0d 100644
+--- a/models/Kuramoto/cfgs/Size_comparison/run.yml
++++ b/models/Kuramoto/cfgs/Size_comparison/run.yml
+@@ -1,14 +1,12 @@
+ ---
+-perform_sweep: False
++perform_sweep: True
+ paths:
+-  model_note: Noisy_run
++  model_note: Size_comparison
+ parameter_space:
+-  seed: !sweep
+-    default: 2
+-    values: [1, 2]
+-  num_epochs: 500
+-  write_every: 10
+-  write_predictions_every: 20
++  seed: 1
++  num_epochs: 30
++  write_every: 2
++  write_predictions_every: 1000
+   Kuramoto:
+     Data:
+       write_adjacency_matrix: True
+@@ -18,22 +16,26 @@ parameter_space:
+ #        training_data: /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni7/data.h5
+ #        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/network/data/uni0/data.h5
+       synthetic_data:
+-        num_steps: 200
+-        training_set_size: 1
+-        N: 16
+-        sigma: &sigma 0.05
++        num_steps: 10
++        training_set_size: 100
++        N: !sweep
++          default: 500
++          values: [50, 100, 150, 500, 1000]
++          name: num_vertices
++        sigma: &sigma 0.0
+         network:
+           type: random
+-          mean_degree: 6
++          mean_degree: !coupled-sweep
++            default: 50
++            values: [10, 20, 30, 100, 200]
++            target_name: num_vertices
+           graph_props:
+             is_directed: False
+             WattsStrogatz:
+               p_rewire: 0.5
+         dt: 0.02
+     NeuralNet:
+-      num_layers: !sweep
+-        default: 5
+-        values: [4, 5]
++      num_layers: 5
+       nodes_per_layer:
+         default: 20
+       activation_funcs:
+@@ -43,7 +45,7 @@ parameter_space:
+       biases:
+         default: ~
+     Training:
+-      batch_size: 10
++      batch_size: 2
+       optimizer: Adam
+       learning_rate: 0.002
+       loss_function:
+diff --git a/models/Kuramoto/run.py b/models/Kuramoto/run.py
+index b1f44e7..50672ae 100755
+--- a/models/Kuramoto/run.py
++++ b/models/Kuramoto/run.py
+@@ -44,7 +44,6 @@ class Kuramoto_NN:
+         write_predictions_every: int = 1,
+         write_start: int = 1,
+         num_steps: int = 3,
+-        write_time: bool = False,
+         **__,
+     ):
+         """Initialize the model instance with a previously constructed RNG and
+@@ -62,7 +61,6 @@ class Kuramoto_NN:
+             write_predictions_every: write out predicted parameters every iteration
+             write_start: iteration at which to start writing
+             num_steps: number of iterations of the ABM
+-            write_time: whether to write out the training time into a dataset
+         """
+         self._name = name
+         self._time = 0
+@@ -85,7 +83,6 @@ class Kuramoto_NN:
+         self._write_predictions_every = write_predictions_every
+         self._write_start = write_start
+         self._num_steps = num_steps
+-        self._write_time = write_time
+ 
+         # Current training loss, Frobenius error, and current predictions
+         self.current_loss = torch.tensor(0.0)
+@@ -129,7 +126,7 @@ class Kuramoto_NN:
+         self._dset_predictions.attrs["coords_mode__time"] = "start_and_step"
+         self._dset_predictions.attrs["coords__time"] = [
+             write_start,
+-            self._write_predictions_every,
++            max(self._write_predictions_every, 1),
+         ]
+         self._dset_predictions.attrs["coords_mode__i"] = "trivial"
+         self._dset_predictions.attrs["coords_mode__j"] = "trivial"
+@@ -180,14 +177,14 @@ class Kuramoto_NN:
+         self._dset_edge_weights.attrs["coords_mode__time"] = "start_and_step"
+         self._dset_edge_weights.attrs["coords__time"] = [
+             write_start,
+-            write_predictions_every,
++            self._write_predictions_every,
+         ]
+         self._dset_edge_weights.attrs["coords_mode__edge_idx"] = "trivial"
+ 
+         # In-degree
+         self._dset_in_degree = predicted_nw_group.create_dataset(
+             "_in_degree",
+-            (1, self.num_agents),
++            (0, self.num_agents),
+             maxshape=(None, self.num_agents),
+             chunks=True,
+             compression=3,
+@@ -203,7 +200,7 @@ class Kuramoto_NN:
+         # Weighted in-degree
+         self._dset_in_degree_w = predicted_nw_group.create_dataset(
+             "_in_degree_weighted",
+-            (1, self.num_agents),
++            (0, self.num_agents),
+             maxshape=(None, self.num_agents),
+             chunks=True,
+             compression=3,
+@@ -219,7 +216,7 @@ class Kuramoto_NN:
+         # Out-degree
+         self._dset_out_degree = predicted_nw_group.create_dataset(
+             "_out_degree",
+-            (1, self.num_agents),
++            (0, self.num_agents),
+             maxshape=(None, self.num_agents),
+             chunks=True,
+             compression=3,
+@@ -235,7 +232,7 @@ class Kuramoto_NN:
+         # Weighted out-degree
+         self._dset_out_degree_w = predicted_nw_group.create_dataset(
+             "_out_degree_weighted",
+-            (1, self.num_agents),
++            (0, self.num_agents),
+             maxshape=(None, self.num_agents),
+             chunks=True,
+             compression=3,
+@@ -251,7 +248,7 @@ class Kuramoto_NN:
+         # Clustering coefficients
+         self._dset_triangles = predicted_nw_group.create_dataset(
+             "_triangles",
+-            (1, self.num_agents),
++            (0, self.num_agents),
+             maxshape=(None, self.num_agents),
+             chunks=True,
+             compression=3,
+@@ -267,7 +264,7 @@ class Kuramoto_NN:
+         # Weighted clustering coefficients
+         self._dset_triangles_w = predicted_nw_group.create_dataset(
+             "_weighted_triangles",
+-            (1, self.num_agents),
++            (0, self.num_agents),
+             maxshape=(None, self.num_agents),
+             chunks=True,
+             compression=3,
+@@ -331,7 +328,7 @@ class Kuramoto_NN:
+                 # Penalise the trace (cannot be learned)
+                 loss = loss + torch.trace(pred_adj_matrix)
+ 
+-                loss = loss + torch.nn.MSELoss()(
++                loss = loss + self.loss_function(
+                     pred_adj_matrix, torch.transpose(pred_adj_matrix, 0, 1)
+                 )
+ 
+@@ -351,9 +348,8 @@ class Kuramoto_NN:
+                 self.write_data()
+                 self.write_predictions()
+ 
+-        if self._write_time:
+-            self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
+-            self.dset_time[-1, :] = time.time() - start_time
++        self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
++        self.dset_time[-1, :] = time.time() - start_time
+ 
+     def write_data(self):
+         """Write the current loss and predicted network size into the state dataset.
+@@ -384,16 +380,13 @@ class Kuramoto_NN:
+         extend the dataset size prior to writing; this way, the newly written
+         data is always in the last row of the dataset.
+         """
+-
+         if self._write_predictions_every == -1 and not write_final:
+             pass
+ 
+-        elif self._write_predictions_every != -1:
+-            if self._time % self._write_predictions_every != 0:
+-                pass
++        else:
++            if self._time >= self._write_start and self._time % self._write_predictions_every == 0:
+ 
+-            else:
+-                log.info("    Writing prediction data ... ")
++                log.debug(f"    Writing prediction data ... ")
+                 self._dset_predictions.resize(
+                     self._dset_predictions.shape[0] + 1, axis=0
+                 )
+@@ -401,7 +394,6 @@ class Kuramoto_NN:
+ 
+                 # Write predicted network structure and edge weights, corresponding to the probability of that
+                 # edge existing. Write topological properties.
+-
+                 curr_edges = torch.nonzero(self.current_adjacency_matrix).numpy()
+                 edge_weights = torch.flatten(
+                     self.current_predictions[torch.nonzero(self.current_predictions)]
+@@ -558,8 +550,7 @@ if __name__ == "__main__":
+         num_steps=training_data.shape[1],
+         write_every=cfg["write_every"],
+         write_predictions_every=write_predictions_every,
+-        write_start=cfg["write_start"],
+-        write_time=model_cfg.get("write_time", False),
++        write_start=cfg["write_start"]
+     )
+ 
+     log.info(f"   Initialized model '{model_name}'.")
+@@ -574,7 +565,10 @@ if __name__ == "__main__":
+             f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}"
+         )
+ 
+-    model.write_predictions(write_final=write_predictions_every == -1)
++    if write_predictions_every == -1:
++        model.write_predictions(write_final=True)
++
++    print(len(model._dset_in_degree), len(model._dset_loss))
+ 
+     log.info("   Simulation run finished.")
+     log.info("   Wrapping up ...")

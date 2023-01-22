@@ -1,0 +1,27 @@
+---
+dirty: true
+git_diff: /Users/thomasgaskin/utopya_output/Kuramoto/221201-165933_networks/config/git_diff_project.patch
+git_status:
+- [M, model_plots/HarrisWilson/prob_density.py]
+- ['', M model_plots/data_ops.py]
+- ['', M models/Kuramoto/Kuramoto_base_plots.yml]
+- ['', M models/Kuramoto/Kuramoto_cfg.yml]
+- [AM, models/Kuramoto/cfgs/Data_generation/network.yml]
+- [A, ' models/Kuramoto/cfgs/Data_generation/training_data_noiseless.yml']
+- [A, ' models/Kuramoto/cfgs/Data_generation/training_data_noisy.yml']
+- [AM, models/Kuramoto/cfgs/Noisy_run/eval.yml]
+- [AM, models/Kuramoto/cfgs/Noisy_run/run.yml]
+- ['', M models/Kuramoto/cfgs/Sample_run/eval.yml]
+- ['', M models/Kuramoto/cfgs/Sample_run/run.yml]
+- [AM, models/Kuramoto/cfgs/Size_comparison/eval.yml]
+- [AM, models/Kuramoto/cfgs/Size_comparison/run.yml]
+- ['', M models/Kuramoto/run.py]
+have_git_repo: true
+latest_commit: {author: Thomas Gaskin <tgaskin@live.co.uk>, author_date: '2022-11-15
+    14:13:12', commit: fe668d5919b3f591a71f84f65b98896f7404187e, gitdir: /Users/thomasgaskin/NeuralABM/.git,
+  message: Modify data ops and prob_density plot to allow for marginals on densities
+    and errorbands, parent: a06adcf6e743f72cb73506cb1a13a40e491ebed9, refs: add_Kuramoto_model,
+  tree: 79d0db89885b68d827ed10c219dc3265cb386ea1}
+project_base_dir: /Users/thomasgaskin/NeuralABM
+project_name: NeuralABM
+

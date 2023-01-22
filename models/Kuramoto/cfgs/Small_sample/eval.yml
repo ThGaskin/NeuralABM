@@ -1,3 +1,9 @@
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+
 .variables:
   colors: &colors
     yellow:       &yellow       '#F5DDA9'
@@ -43,7 +49,19 @@
       y: [max, min]
       x: [min, max]
 
-comparison:
+# ======================================================================================================================
+# ╔═╗╦  ╔═╗╔╦╗╔═╗
+# ╠═╝║  ║ ║ ║ ╚═╗
+# ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+
+# Plot the training and Frobenius loss
+losses:
+  based_on: losses_combined
+  figsize: [*half_width, *third_width]
+
+# Plot the true and predicted adjacency matrices
+matrix_comparison:
   based_on:
     - .matrix
     - .matrix_defaults
@@ -68,6 +86,7 @@ comparison:
   cbar_kwargs:
     label: ~
 
+# Plot the prediction error on the matrices
 error:
   based_on:
     - accuracy
@@ -77,14 +96,9 @@ error:
   vmin: 1e-7
   vmax: ~
   cbar_kwargs:
-    label: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
+    label: $\vert \hat{a}_{ij} - a_{ij} \vert$
   cmap:
     from_values:
       0: white
       0.5: *yellow
       1: *red
-
-loss:
-  based_on: loss
-  color: black
-  figsize: [*half_width, *third_width]
