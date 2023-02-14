@@ -174,18 +174,23 @@ class HarrisWilson_NN:
             if batches[-1] != training_data.shape[1] - 1:
                 batches = np.append(batches, training_data.shape[1] - 1)
 
+        # Track the number of gradient descent updates
+        counter = 0
+
+        # Make an initial prediction
+        predicted_parameters = self.neural_net(torch.flatten(training_data[0, 0]))
+        pred_adj_matrix = torch.reshape(
+            predicted_parameters, (self.n_origin, self.n_dest)
+        )
+
+        loss = torch.tensor(0.0, requires_grad=True)
+
         for batch_no, batch_idx in enumerate(batches[:-1]):
 
             for i, dset in enumerate(training_data):
 
-                predicted_parameters = self.neural_net(torch.flatten(dset[batch_idx]))
-                pred_adj_matrix = torch.reshape(
-                    predicted_parameters, (self.n_origin, self.n_dest)
-                )
                 current_values = dset[batch_idx].clone()
                 current_values.requires_grad_(True)
-
-                loss = torch.tensor(0.0, requires_grad=True)
 
                 for ele in range(batch_idx + 1, batches[batch_no + 1] + 1):
 
@@ -199,27 +204,43 @@ class HarrisWilson_NN:
                     )
 
                     # Calculate the loss
-                    loss = loss + (
-                        self.loss_function(current_values, dset[ele])
-                        + self.loss_function(
-                            torch.sum(pred_adj_matrix, axis=1),
-                            torch.ones(self.n_origin),
-                        )
-                    ) / (batches[batch_no + 1] - batch_idx + 1)
+                    loss = loss + (self.loss_function(current_values, dset[ele])) / (
+                        batches[batch_no + 1] - batch_idx + 1
+                    )
 
-                loss.backward()
-                self.neural_net.optimizer.step()
-                self.neural_net.optimizer.zero_grad()
-                self.current_loss += loss.clone().detach().numpy().item()
-                self.current_frob_error += (
-                    torch.nn.functional.mse_loss(self.true_network, pred_adj_matrix)
-                    .clone()
-                    .detach()
-                    .numpy()
-                    .item()
-                )
-                self.current_predictions = predicted_parameters.clone().detach()
-                self.current_adjacency_matrix = pred_adj_matrix.clone().detach()
+                    counter += 1
+
+                if counter % batch_size == 0:
+
+                    # Enforce row sum normalisation
+                    loss = loss + self.loss_function(
+                        torch.sum(pred_adj_matrix, dim=1),
+                        torch.ones(self.n_origin),
+                    )
+
+                    loss.backward()
+                    self.neural_net.optimizer.step()
+                    self.neural_net.optimizer.zero_grad()
+                    self.current_loss = loss.clone().detach().numpy().item()
+                    self.current_frob_error = (
+                        torch.nn.functional.mse_loss(self.true_network, pred_adj_matrix)
+                        .clone()
+                        .detach()
+                        .numpy()
+                        .item()
+                    )
+                    self.current_predictions = predicted_parameters.clone().detach()
+                    self.current_adjacency_matrix = pred_adj_matrix.clone().detach()
+
+                    predicted_parameters = self.neural_net(
+                        torch.flatten(dset[batches[batch_no + 1]])
+                    )
+                    pred_adj_matrix = torch.reshape(
+                        predicted_parameters, (self.n_origin, self.n_dest)
+                    )
+
+                    del loss
+                    loss = torch.tensor(0.0, requires_grad=True)
 
         self._time += 1
         self.write_data()
