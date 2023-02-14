@@ -33,12 +33,12 @@ class HarrisWilsonABM:
         self.M = M
 
         # Model parameters
-        self.alpha = torch.tensor(alpha).to(device)
-        self.beta = torch.tensor(beta).to(device)
-        self.kappa = torch.tensor(kappa).to(device)
-        self.sigma = torch.tensor(sigma).to(device)
-        self.epsilon = torch.tensor(epsilon).to(device)
-        self.dt = torch.tensor(dt).to(device)
+        self.alpha = torch.tensor(alpha, dtype=torch.float).to(device)
+        self.beta = torch.tensor(beta, dtype=torch.float).to(device)
+        self.kappa = torch.tensor(kappa, dtype=torch.float).to(device)
+        self.sigma = torch.tensor(sigma, dtype=torch.float).to(device)
+        self.epsilon = torch.tensor(epsilon, dtype=torch.float).to(device)
+        self.dt = torch.tensor(dt, dtype=torch.float).to(device)
         self.device = device
 
     # ... Model run functions ..........................................................................................

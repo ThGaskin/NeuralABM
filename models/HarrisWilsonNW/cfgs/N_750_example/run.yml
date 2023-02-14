@@ -1,26 +1,28 @@
 ---
+paths:
+  model_note: N_750_example
 parameter_space:
-  num_epochs: 250
+  num_epochs: 40
   write_predictions_every: 2
   write_every: 2
-  write_start: 50
+  write_start: 1
   seed: 39
   HarrisWilsonNW:
     Data:
-      num_training_steps: 200
-      training_set_size: 25
+      num_training_steps: 100
+      training_set_size: 100
       synthetic_data:
         N_origin: 700
         N_destination: 50
         dt: &dt 0.001
-        alpha: &alpha 0.2
-        beta: &beta 1.4
-        kappa: &kappa 4
-        sigma: &sigma 0.0
-        epsilon: &epsilon 10
+        alpha: &alpha 0.8
+        beta: &beta 1.2
+        kappa: &kappa 70
+        sigma: &sigma 1e-2
+        epsilon: &epsilon 1
         write_start: 1
         write_every: 1
-        num_steps: 600
+        num_steps: 500
         origin_size_std: 0.1
     Training:
       batch_size: 10
@@ -28,11 +30,6 @@ parameter_space:
         alpha: *alpha
         beta: *beta
         kappa: *kappa
-        sigma: *sigma
+        sigma: 0
         epsilon: *epsilon
         dt: *dt
-      learning_rate: 0.05
-    NeuralNet:
-      activation_funcs:
-        layer_specific:
-          -1: HardSigmoid

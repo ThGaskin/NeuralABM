@@ -19,6 +19,7 @@
     quarter_width:  &quarter_width      !expr 7.5 / 4
     fifth_width:    &fifth_width        !expr 7.5 / 5
     eighth_width:    &eighth_width      !expr 7.5 / 8
+    two_thirds_width:    &two_thirds_width      !expr 2* 7.5 / 3
 
 loss:
   based_on: loss
@@ -95,7 +96,7 @@ degree:
   dag_options:
     meta_operations:
       hist:
-        - np.linspace: [ 0, 100, 400 ]
+        - np.linspace: [ 0, 50, 1000 ]
         - NeuralABM.hist: [ !arg 0 ]
           kwargs: { bins: !dag_node -1, axis: 1 }
   select:
@@ -143,15 +144,11 @@ degree:
     - .coords: [!dag_tag loss , 'epoch']
     - len: [!dag_prev ]
       tag: n_steps
-    - .isel: [!dag_tag loss , {epoch: -1}]
-      kwargs: {drop: true}
-    - .argmax: [!dag_prev ]
-    - mul: [!dag_prev , !dag_tag n_steps]
-    - sub: [!dag_prev , 1]
+    - .argmax: [!dag_tag loss ]
     - NeuralABM.marginal_of_density: [ !dag_tag samples ]
       kwargs:
         loss: !dag_tag loss_normalised
-        error: standard
+        error: Hellinger
         MLE_index: !dag_prev
       tag: data
     - div: [!dag_tag loss_flattened , 20 ]
@@ -165,8 +162,8 @@ degree:
 #      args: [ !dag_result distributions ]
 #      y: y
 #      hue: sample
-#      alpha: !dag_result losses
-#      lw: !dag_result loss_normalised
+#      alpha: 0.3 #!dag_result losses
+#      lw: 0.3 #!dag_result losses
 #      suppress_labels: true
 #      color: *darkblue
 #      pass_helper: True
@@ -177,7 +174,7 @@ degree:
       yerr: yerr
       label: $\hat{P}(k)$
       pass_helper: true
-      color: *grey
+      color: *darkblue
     - function: [model_plots.HarrisWilson, plot_prob_density]
       args: [ !dag_result true_param ]
       y: y
@@ -188,12 +185,12 @@ degree:
   x: bin_center
   smooth_kwargs:
     enabled: True
-    sigma: 2
+    sigma: 2.8
   helpers:
     set_limits:
-      x: [0, 25]
+      x: [10, 20]
     set_labels:
-      x: $k$
+      x: Weighted degree $k$
       y: $P(k)$
   style:
-    figure.figsize: [*half_width, *quarter_width]
+    figure.figsize: [*two_thirds_width, *third_width]

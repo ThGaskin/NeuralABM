@@ -51,7 +51,7 @@
   helpers:
     save_figure:
       dpi: 900
-  file_ext: png
+  file_ext: pdf
 
 .calculate_clustering_coefficient:
   dag_options:
@@ -219,6 +219,28 @@ loss:
   select:
     data: output_data/training_loss
   helpers:
+    set_scales:
+      y: log
+
+losses_combined:
+  based_on: .line_universe
+  select:
+    training_loss:
+      path: output_data/training_loss
+      transform: [.data]
+    Frobenius_error:
+      path: output_data/frobenius_error
+      transform: [.data]
+  transform:
+    - pd.Index: [ [ 'Training loss', 'Frobenius error' ] ]
+      kwargs: {name: 'loss type'}
+    - xr.concat: [[!dag_tag training_loss, !dag_tag Frobenius_error], !dag_prev ]
+      tag: data
+  hue: loss type
+  helpers:
+    set_labels:
+      x: iteration
+      y: loss
     set_scales:
       y: log
 

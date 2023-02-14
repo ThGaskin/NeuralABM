@@ -12,16 +12,32 @@ Data:
     sigma: !is-positive-or-zero &sigma 0
     epsilon: !is-positive &epsilon 10
     dt: !is-positive &dt 0.01
-    init_weights:
-      mean: !param
-        default: 1.2
-        limits: [0, ~]
-        dtype: float
-      std: !param
-        default: 1.2
-        limits: [0, ~]
-        dtype: float
+
+    # Initialisation of the network weights
+    init_network_weights:
+      distribution: normal
+      parameters:
+        mean: 1.2
+        std: 1.2
+
+    # Initialisation of the origin sizes
+    init_origin_sizes:
+      distribution: normal
+      parameters:
+        mean: 0.01
+        std: 0.001
+
+    # Fluctuations of the origin zones over time
     origin_size_std: 0.0
+
+    # Initialisation of the destination sizes
+    init_dest_sizes:
+      distribution: normal
+      parameters:
+        mean: 0.1
+        std: 0.01
+
+  # Number of independently training sets to use
   training_data_size: 1
 
 # Settings for the neural net architecture
@@ -31,6 +47,8 @@ NeuralNet:
     default: !is-positive-int 20
   activation_funcs:
     default: sigmoid
+    layer_specific:
+      -1: HardSigmoid
   biases:
     default: ~
   learning_rate: !is-positive 0.002
