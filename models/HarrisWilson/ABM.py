@@ -140,7 +140,7 @@ class HarrisWilsonABM:
                 epsilon * (demand - kappa * curr_vals)
                 + sigma
                 * 1
-                / torch.sqrt(torch.tensor(2 * torch.pi * dt, dtype=torch.float)).to(
+                / torch.sqrt(torch.tensor(2, dtype=torch.float) * torch.pi * dt).to(
                     self.device
                 )
                 * torch.normal(0, 1, size=(self.M, 1)).to(self.device),

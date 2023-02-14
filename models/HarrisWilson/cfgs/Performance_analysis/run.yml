@@ -49,6 +49,3 @@ parameter_space:
       batch_size: 1
       true_parameters:
         sigma: 0
-
-    # Write out the training time for each epoch
-    write_time: True

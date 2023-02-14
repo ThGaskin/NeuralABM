@@ -12,6 +12,31 @@ Data:
     sigma: !is-positive-or-zero 0
     epsilon: !is-positive 10
     dt: !is-positive 0.01
+    origin_sizes:
+      init_mean: !param
+        default: 0.1
+        limits: [0, ~]
+        dtype: float
+        description: mean of the initial origin size distribution
+      init_std: !param
+        default: 0.01
+        limits: [0, ~]
+        dtype: float
+        description: variance of the initial origin size distribution
+      temporal_std: !param
+        default: 0.0
+        limits: [0, ~]
+        dtype: float
+        description: variance of the origin size temporal fluctuations
+    init_dest_sizes:
+      mean: !param
+        default: 0.1
+        limits: [ 0, ~ ]
+        dtype: float
+      std: !param
+        default: 0.01
+        limits: [ 0, ~ ]
+        dtype: float
     init_weights:
       mean: !param
         default: 1.2
@@ -43,6 +68,8 @@ Training:
     name: MSELoss
   batch_size: !is-positive-int 1
   device: cpu
+  epsilon: 1
+
 
 # Whether to write out the computation time for each epoch
 write_time: False
