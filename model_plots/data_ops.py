@@ -335,6 +335,16 @@ def marginal_of_density(
     error: str = "standard",
 ) -> xr.Dataset:
 
+    """Calculates the marginal density over a family of distributions.
+
+    :param vals: the family of distributions
+    :param loss: the normalised probability associated with each family
+    :param coords:
+    :param MLE_index:
+    :param error:
+    :return:
+    """
+
     n_samples, n_bins = list(vals.sizes.values())[:]
 
     # Calculate the mean of each bin
@@ -368,8 +378,53 @@ def marginal_of_density(
         coords=coords,
     )
 
+
 @is_operation("NeuralABM.triangles")
 def triangles(ds: xr.DataArray, *args, **kwargs):
 
+    """Calculates the number of triangles on each node, given an adjacency matrix"""
     res = xr.apply_ufunc(np.linalg.matrix_power, ds, 3, *args, **kwargs)
-    return xr.apply_ufunc(np.diagonal, res, 0, 1, 2, input_core_dims=[['j'], [], [], []])
+    return xr.apply_ufunc(
+        np.diagonal, res, 0, 1, 2, input_core_dims=[["j"], [], [], []]
+    )
+
+
+@is_operation("NeuralABM.largest_entry_indices")
+def largest_entry_indices(
+    ds: xr.DataArray, n: int, *, symmetric: bool = True
+) -> tuple[Sequence, Sequence, Sequence]:
+
+    """Returns the 2d-indices of the n largest entries in an adjacency matrix, as well as the corresponding values.
+    If the matrix is symmetric, only the upper triangle is considered. Sorted from highest to lowest."""
+
+    if symmetric:
+        indices_i, indices_j = np.unravel_index(
+            np.argsort(np.triu(ds.data).ravel()), np.shape(ds)
+        )
+    else:
+        indices_i, indices_j = np.unravel_index(
+            np.argsort(ds.data.ravel()), np.shape(ds)
+        )
+
+    i, j = indices_i[-n:][::-1], indices_j[-n:][::-1]
+    vals = ds.data[i, j]
+
+    return i, j, vals
+
+
+@is_operation("NeuralABM.sel_matrix_indices")
+def matrix_indices_sel(
+    ds: xr.DataArray, indices: tuple[Sequence, Sequence], dims: str = "edge_idx"
+) -> xr.DataArray:
+
+    """Returns the predictions on the weights of the entries given by indices"""
+    return ds.isel(
+        i=(
+            xr.DataArray(
+                indices[0], dims=dims, coords=dict(edge_idx=np.arange(len(indices[0])))
+            )
+        ),
+        j=xr.DataArray(
+            indices[1], dims=dims, coords=dict(edge_idx=np.arange(len(indices[0])))
+        ),
+    )
