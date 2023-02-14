@@ -218,7 +218,7 @@ NeuralNet:
       1: cosine
       2: tanh
       -1: abs
-  bias:
+  biases:
     default: [0, 4]
     layer_specific:
       1: [-1, 1]
@@ -241,12 +241,12 @@ NeuralNet:
   nodes_per_layer: 20
   activation_funcs:
     default:
-        name: Hardtanh
-        args:
-          - -2 # min_value
-          - +2 # max_value
-        kwargs:
-          # any kwargs here ...
+      name: Hardtanh
+      args:
+        - -2 # min_value
+        - +2 # max_value
+      kwargs:
+        # any kwargs here ...
 ```
 
 ## Training settings
