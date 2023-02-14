@@ -1,12 +1,20 @@
 import logging
+import sys
+from os.path import dirname as up
 from typing import Tuple
 
 import h5py as h5
 import numpy as np
 import pandas as pd
 import torch
+from dantro._import_tools import import_module_from_path
 
 from .ABM import HarrisWilsonABM
+
+sys.path.append(up(up(up(__file__))))
+
+base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include")
+
 
 """ Load a dataset or generate synthetic data on which to train the neural net """
 
@@ -82,17 +90,15 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
     network: torch.tensor = torch.exp(
         -1
         * torch.abs(
-            torch.normal(
-                data_cfg["init_weights"]["mean"],
-                data_cfg["init_weights"]["std"],
-                size=(N_origin, N_destination),
+            base.random_tensor(
+                **data_cfg.get("init_network_weights"), size=(N_origin, N_destination)
             )
         )
     )
-    network = network * torch.bernoulli(network)
+    network = network * torch.bernoulli(network)  # what if we turn this off?
 
     # Normalise the rowsums
-    norms = torch.sum(network, axis=1, keepdim=True)
+    norms = torch.sum(network, dim=1, keepdim=True)
     network /= torch.where(norms != 0, norms, 1)
 
     # Extract the underlying parameters from the config
@@ -110,7 +116,7 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
         M=data_cfg["N_destination"],
         dt=data_cfg["dt"],
         device="cpu",
-        **true_parameters
+        **true_parameters,
     )
     origin_sizes, dest_sizes = [], []
 
@@ -118,11 +124,17 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
 
         # Generate the initial destination zone sizes
         init_dest_sizes = torch.abs(
-            torch.normal(1, 0.1, size=(data_cfg["N_destination"], 1))
+            base.random_tensor(
+                **data_cfg.get("init_dest_sizes"), size=(data_cfg["N_destination"], 1)
+            )
         )
 
         # Generate the origin sizes time series
-        or_sizes = torch.abs(torch.normal(1, 0.1, size=(1, N_origin, 1)))
+        or_sizes = torch.abs(
+            base.random_tensor(
+                **data_cfg.get("init_origin_sizes"), size=(1, N_origin, 1)
+            )
+        )
 
         if data_cfg["origin_size_std"] == 0:
             or_sizes = or_sizes.repeat(num_steps, 1, 1)
