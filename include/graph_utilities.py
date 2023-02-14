@@ -1,7 +1,8 @@
-import numpy as np
-import networkx as nx
 import h5py as h5
+import networkx as nx
+import numpy as np
 
+""" General graph utility functions """
 
 def save_nw(
     network: nx.Graph, nw_group: h5.Group, write_adjacency_matrix: bool = False

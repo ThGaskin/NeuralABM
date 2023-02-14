@@ -1,3 +1,5 @@
+import logging
+
 import torch
 
 """ The Kuramoto model of synchronised oscillation """
@@ -5,14 +7,7 @@ import torch
 # --- The Kuramoto ABM ------------------------------------------------------------------------------------------
 class Kuramoto_ABM:
     def __init__(
-        self,
-        *,
-        N: int,
-        sigma: float = 0,
-        dt: float = 0.01,
-        gamma: float = 1,
-        eigen_frequencies: torch.Tensor,
-        **__
+        self, *, N: int, sigma: float, dt: float, gamma: float, device: str, **__
     ):
 
         """The Kuramoto model numerical solver, for first and second-order dynamics.
@@ -21,7 +16,6 @@ class Kuramoto_ABM:
         :param sigma: the default noise variance
         :param dt: the time differential to use
         :param gamma: the parameter used for the second-order model
-        :param eigen_frequencies: the eigenfrequencies of the oscillators
         :param **__: other kwargs (ignored)
         """
 
@@ -29,12 +23,11 @@ class Kuramoto_ABM:
         self.N = N
 
         # Scalar parameter: noise variance
-        self.sigma = sigma
-        self.dt = dt
-        self.gamma = gamma
+        self.sigma = torch.tensor(sigma, device=device, dtype=torch.float)
+        self.dt = torch.tensor(dt, device=device, dtype=torch.float)
+        self.gamma = torch.tensor(gamma, device=device, dtype=torch.float)
 
-        # Initialise the opinions uniformly at random on the unit interval
-        self.eigen_frequencies = eigen_frequencies
+        self.device = device
 
     def run_single(
         self,
@@ -42,6 +35,7 @@ class Kuramoto_ABM:
         current_phases: torch.tensor,
         current_velocities: torch.tensor = None,
         adjacency_matrix: torch.tensor,
+        eigen_frequencies: torch.tensor,
         sigma: float = None,
         requires_grad: bool = True,
     ):
@@ -59,35 +53,43 @@ class Kuramoto_ABM:
         """
 
         sigma = self.sigma if sigma is None else sigma
-
         new_phases = current_phases.clone().detach().requires_grad_(requires_grad)
+
         diffs = torch.sin(current_phases - torch.reshape(current_phases, (self.N,)))
 
         # First-order dynamics
         if current_velocities is None:
+
             new_phases = (
                 new_phases
                 + (
-                    self.eigen_frequencies
+                    eigen_frequencies
                     + torch.reshape(
                         torch.matmul(adjacency_matrix, diffs).diag(), (self.N, 1)
                     )
                 )
                 * self.dt
-                + torch.normal(0.0, sigma, (self.N, 1))
+                + torch.normal(0.0, sigma, (self.N, 1), device=self.device)
             )
 
         # Second-order dynamics
         else:
+
             new_phases = (
-                    new_phases
-                    + ((self.eigen_frequencies
+                new_phases
+                + (
+                    (
+                        eigen_frequencies
                         + torch.reshape(
-                        torch.matmul(adjacency_matrix, diffs).diag(), (self.N, 1)
+                            torch.matmul(adjacency_matrix, diffs).diag(), (self.N, 1)
+                        )
+                        - self.gamma * current_velocities
                     )
-                        - self.gamma * current_velocities) * self.dt + current_velocities
-                       ) * self.dt
-                    + torch.normal(0.0, sigma, (self.N, 1))
+                    * self.dt
+                    + current_velocities
+                )
+                * self.dt
+                + torch.normal(0.0, sigma, (self.N, 1))
             )
 
         return new_phases

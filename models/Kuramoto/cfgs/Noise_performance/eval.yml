@@ -396,6 +396,8 @@ degree_error:
     set_labels:
       x: $\sigma$
       y: ''
+    set_scales:
+      x: log
   style:
     figure.figsize: [*half_width, *quarter_width]
 

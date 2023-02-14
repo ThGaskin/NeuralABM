@@ -7,33 +7,19 @@ parameter_space:
     default: 1
     range: [10]
   num_epochs: !coupled-sweep
-    target_name: training_data
-    default: 700
-    values: [700, 700, 700, 700, 700, 700, 350]
+    target_name: 700
   write_every: 10
   write_predictions_every: -1
   Kuramoto:
     Data:
-      write_adjacency_matrix: True
-      load_from_dir:
-        copy_data: True
-        network: /Users/thomasgaskin/utopya_output/Kuramoto/networks/N_16/uni0/data.h5
-        training_data: !sweep
-          default: /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni7/data.h5
-          values: [
-            /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni1/data.h5,
-            /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni2/data.h5,
-            /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni3/data.h5,
-            /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni4/data.h5,
-            /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni5/data.h5,
-            /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni6/data.h5,
-            /Users/thomasgaskin/utopya_output/Kuramoto/training_data/data/uni7/data.h5
-          ]
-        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/networks/N_16/uni0/data.h5
       synthetic_data:
         N: 16
         sigma: &sigma 0.0
-        dt: 0.02
+        training_set_size: !sweep
+          default: 10
+        num_steps: !coupled-sweep
+
+      dt: 0.02
 
     NeuralNet:
       num_layers: 5
@@ -47,8 +33,6 @@ parameter_space:
         default: ~
     Training:
       batch_size: 10
-      optimizer: Adam
-      learning_rate: 0.002
       loss_function:
         name: MSELoss
       true_parameters:

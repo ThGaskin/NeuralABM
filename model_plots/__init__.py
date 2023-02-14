@@ -18,6 +18,7 @@ import pandas as pd
 import xarray as xr
 
 import model_plots.HarrisWilson
+import model_plots.Kuramoto
 from utopya.eval import register_operation
 
 register_operation(name="pd.Index", func=pd.Index)
@@ -35,4 +36,8 @@ register_operation(name="np.nonzero", func=np.nonzero)
 register_operation(name="xr.where", func=xr.where)
 register_operation(name="xr.apply_ufunc", func=xr.apply_ufunc)
 register_operation(name=".to_dataset", func=lambda d, *a, **k: d.to_dataset(*a, **k))
+register_operation(name="sin", func=np.sin)
+register_operation(name="cos", func=np.cos)
+register_operation(name="zip", func=zip)
+register_operation(name="np.around", func=np.around)
 from .data_ops import *

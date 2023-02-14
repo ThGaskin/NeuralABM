@@ -10,8 +10,8 @@ parameter_space:
   Kuramoto:
     Data:
       load_from_dir:
-        network: /Users/thomasgaskin/utopya_output/Kuramoto/networks/data/N_100/data.h5
-        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/networks/data/N_100/data.h5
+        network: /Users/thomasgaskin/utopya_output/Kuramoto/networks/data/N_100_example/data.h5
+        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/networks/data/N_100_example/data.h5
       synthetic_data:
         num_steps: 10
         training_set_size: 200

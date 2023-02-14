@@ -1,0 +1,13 @@
+phases:
+  based_on: phases_lines
+  style:
+    figure.figsize: [2.775, 2.5]
+  alpha: 0.2
+  lw: 0.4
+  helpers:
+    set_limits:
+      x: [0, ~]
+      y: [0, ~]
+    set_labels:
+      x: $t$
+      y: $\varphi(t)$

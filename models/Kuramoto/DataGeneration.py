@@ -21,10 +21,16 @@ log = logging.getLogger(__name__)
 
 
 def get_data(
-    cfg, h5file: h5.File, h5group: h5.Group, *, seed: int, device: str, second_order: bool,
+    cfg,
+    h5file: h5.File,
+    h5group: h5.Group,
+    *,
+    seed: int,
+    device: str,
+    second_order: bool,
 ) -> (torch.Tensor, Union[nx.Graph, None]):
 
-    """ Either loads data from an external file or synthetically generates Kuramoto data (including the network)
+    """Either loads data from an external file or synthetically generates Kuramoto data (including the network)
     from a configuration file.
 
     :param cfg: The configuration file containing either the paths to files to be loaded or the configuration settings
@@ -35,6 +41,7 @@ def get_data(
     :param device: the training device to which to move the data
     :return: the training data and, if given, the network
     """
+
     load_from_dir = cfg.pop("load_from_dir", {})
     write_adjacency_matrix = cfg.pop("write_adjacency_matrix", load_from_dir == {})
 
@@ -47,7 +54,7 @@ def get_data(
 
             # Load the training data
             training_data = torch.from_numpy(
-                np.array(f["training_data"]["training_data"])
+                np.array(f["training_data"]["phases"])
             ).float()
 
     if load_from_dir.get("network", None) is not None:
@@ -86,13 +93,21 @@ def get_data(
 
             # Load the network
             eigen_frequencies = torch.from_numpy(
-                np.array(f["true_network"]["_eigen_frequencies"])
+                np.array(f["training_data"]["eigen_frequencies"])
             ).float()
-            eigen_frequencies = torch.reshape(eigen_frequencies, (-1, 1))
+
+            print(eigen_frequencies.shape)
 
     # Get the config and number of agents
+    dt = cfg.get("dt")
+    gamma = cfg.get("gamma", 1)
     cfg = cfg.get("synthetic_data")
     nw_cfg = cfg.pop("network", {})
+
+    # If network was loaded, set the number of nodes to be the network size
+    if network is not None:
+        cfg.update(dict(N=network.number_of_nodes()))
+    cfg.update(dict(dt=dt, gamma=gamma))
     N: int = cfg["N"]
 
     # If network was not loaded, generate the network
@@ -105,13 +120,21 @@ def get_data(
     if eigen_frequencies is None:
 
         log.info("   Generating eigenfrequencies  ...")
-        eigen_frequencies = 2 * torch.rand((N, 1), dtype=torch.float) + 1
 
-    nx.set_node_attributes(
-        network,
-        {idx: val for idx, val in enumerate(eigen_frequencies)},
-        "eigen_frequency",
-    )
+        num_steps: int = cfg.get("num_steps")
+        training_set_size: int = cfg.get("training_set_size")
+
+        # If set, generate a time series of i.i.d distributed eigenfrequencies
+        if cfg.get("eigen_frequencies")["time_series"]:
+            eigen_frequencies = base.random_tensor(
+                **cfg.get("eigen_frequencies"),
+                size=(training_set_size, num_steps + 1, N, 1),
+                device=device,
+            )
+        else:
+            eigen_frequencies = base.random_tensor(
+                **cfg.get("eigen_frequencies"), size=(1, 1, N, 1), device=device
+            ).repeat(training_set_size, num_steps + 1, 1, 1)
 
     # If training data was not loaded, generate
     if training_data is None:
@@ -119,34 +142,45 @@ def get_data(
         log.info("   Generating training data ...")
         num_steps: int = cfg.get("num_steps")
         training_set_size = cfg.get("training_set_size")
-        training_data = torch.empty((training_set_size, num_steps + 1, N, 1))
+        training_data = torch.empty(
+            (training_set_size, num_steps + 1, N, 1), device=device
+        )
 
-        adj_matrix = torch.from_numpy(nx.to_numpy_matrix(network)).float()
+        adj_matrix = torch.from_numpy(nx.to_numpy_matrix(network)).float().to(device)
 
-        ABM = Kuramoto_ABM(**cfg, eigen_frequencies=eigen_frequencies)
+        ABM = Kuramoto_ABM(**cfg, device=device)
 
         for idx in range(training_set_size):
 
-            training_data[idx, 0, :, :] = 2 * torch.pi * torch.rand(N, 1)
-            i_0 = 0
+            training_data[idx, 0, :, :] = base.random_tensor(
+                **cfg.get("init_phases"), size=(N, 1), device=device
+            )
 
             # For the second-order dynamics, the initial velocities must also be given
             if second_order:
-                training_data[idx, 1, :, :] = training_data[idx, 0, :, :] + torch.rand(N, 1)
-                i_0 = 1
+                training_data[idx, 1, :, :] = training_data[idx, 0, :, :] + torch.rand(
+                    N, 1
+                )
+
+            # Second order dynamics require an additional initial condition and so start one step later
+            t_0 = 0 if not second_order else 1
 
             # Run the ABM for n iterations and write the data
-            for i in range(i_0, num_steps):
+            for i in range(t_0, num_steps):
                 training_data[idx, i + 1] = ABM.run_single(
                     current_phases=training_data[idx, i],
-                    current_velocities=(training_data[idx, i] - training_data[idx, i-1])/ABM.dt if second_order else None,
+                    current_velocities=(
+                        training_data[idx, i] - training_data[idx, i - 1]
+                    )
+                    / ABM.dt
+                    if second_order
+                    else None,
                     adjacency_matrix=adj_matrix,
+                    eigen_frequencies=eigen_frequencies[idx, i],
                     requires_grad=False,
                 )
 
         log.info("   Training data generated.")
-
-        del ABM
 
     # Save the data. If data was loaded, data can be copied if specified
     if load_from_dir.get("copy_data", True):
@@ -156,49 +190,54 @@ def get_data(
         nw_group.attrs["content"] = "graph"
         nw_group.attrs["allows_parallel"] = False
         nw_group.attrs["is_directed"] = network.is_directed()
-
-        # Save the network
         base.save_nw(network, nw_group, write_adjacency_matrix)
+        log.info("   Network generated and saved.")
 
-        # Vertex properties: eigenfrequencies
-        eigen_frequencies = nw_group.create_dataset(
-            "_eigen_frequencies",
-            (1, network.number_of_nodes()),
+        # Save the eigenfrequencies
+        dset_eigen_frequencies = h5group.create_dataset(
+            "eigen_frequencies",
+            eigen_frequencies.shape,
             chunks=True,
             compression=3,
             dtype=float,
         )
-        eigen_frequencies.attrs["dim_names"] = ["time", "vertex_idx"]
-        eigen_frequencies.attrs["coords_mode__vertex_idx"] = "trivial"
-
-        # Write node properties
-        eigen_frequencies[0, :] = (
-            torch.stack(list(nx.get_node_attributes(network, "eigen_frequency").values()))
-                .numpy()
-                .flatten()
-        )
-        log.info("   Network generated and saved.")
-
-        # Save training data
-        dset_training_data = h5group.create_dataset(
-            "training_data",
-            training_data.shape,
-            chunks=True,
-            compression=3,
-        )
-        dset_training_data.attrs["dim_names"] = [
-            "runs",
+        dset_eigen_frequencies.attrs["dim_names"] = [
+            "training_set",
             "time",
             "vertex_idx",
             "dim_name__0",
         ]
-        dset_training_data.attrs["coords_mode__runs"] = "trivial"
-        dset_training_data.attrs["coords_mode__time"] = "start_and_step"
-        dset_training_data.attrs["coords__time"] = [1, 1]
-        dset_training_data.attrs["coords_mode__vertex_idx"] = "trivial"
+        dset_eigen_frequencies.attrs["coords_mode__training_set"] = "trivial"
+        dset_eigen_frequencies.attrs["coords_mode__time"] = "values"
+        dset_eigen_frequencies.attrs["coords__time"] = [
+            0 + n * dt for n in range(training_data.shape[1])
+        ]
+        dset_eigen_frequencies.attrs["coords_mode__vertex_idx"] = "values"
+        dset_eigen_frequencies.attrs["coords__vertex_idx"] = network.nodes()
+        dset_eigen_frequencies[:, :] = eigen_frequencies.cpu()
 
-        dset_training_data[:, :] = training_data
+        # Save training data
+        dset_phases = h5group.create_dataset(
+            "phases",
+            training_data.shape,
+            chunks=True,
+            compression=3,
+        )
+        dset_phases.attrs["dim_names"] = [
+            "training_set",
+            "time",
+            "vertex_idx",
+            "dim_name__0",
+        ]
+        dset_phases.attrs["coords_mode__training_set"] = "trivial"
+        dset_phases.attrs["coords_mode__time"] = "values"
+        dset_phases.attrs["coords__time"] = [
+            0 + n * dt for n in range(training_data.shape[1])
+        ]
+        dset_phases.attrs["coords_mode__vertex_idx"] = "values"
+        dset_phases.attrs["coords__vertex_idx"] = network.nodes()
+
+        dset_phases[:, :] = training_data.cpu()
 
     # Return the training data and the network
-    return training_data.to(device), network
-
+    return training_data, eigen_frequencies, network

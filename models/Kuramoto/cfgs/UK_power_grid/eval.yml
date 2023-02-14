@@ -1,0 +1,215 @@
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+
+.variables:
+  colors: &colors
+    yellow:       &yellow       '#F5DDA9'
+    darkblue:     &darkblue     '#2F7194'
+    red:          &red          '#ec7070'
+    skyblue:      &skyblue      '#97c3d0'
+    green:        &green        '#48675A'
+    lightbrown:   &lightbrown   '#C6BFA2'
+    orange:       &orange       '#EC9F7E'
+    lightgreen:   &lightgreen   '#AFD8BC'
+    grey:         &grey         '#3D4244'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:         &full_width         7.5
+    half_width:         &half_width         !expr 7.5 / 2
+    two_thirds_width:   &two_thirds_width   !expr 2 * 7.5 / 3
+    third_width:        &third_width        !expr 7.5 / 3
+    quarter_width:      &quarter_width      !expr 7.5 / 4
+    fifth_width:        &fifth_width        !expr 7.5 / 5
+    eighth_width:       &eighth_width       !expr 7.5 / 8
+
+.matrix_defaults:
+  style:
+    figure.figsize: [ *third_width, *third_width ]
+    axes.grid: False
+    axes.spines.top: True
+    axes.spines.right: True
+    axes.linewidth: 0.5
+  vmax: 1
+  helpers:
+    set_title:
+      title: ''
+    set_ticks:
+      x:
+        major: []
+      y:
+        major: []
+    set_labels:
+      x: ' '
+      y: ' '
+    set_limits:
+      y: [max, min]
+      x: [min, max]
+
+# ======================================================================================================================
+# ╔═╗╦  ╔═╗╔╦╗╔═╗
+# ╠═╝║  ║ ║ ║ ╚═╗
+# ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+
+# Plot the training and Frobenius loss
+losses:
+  based_on: losses_combined
+  figsize: [*half_width, *third_width]
+
+# Plot the true and predicted adjacency matrices
+matrix_comparison:
+  based_on:
+    - .matrix
+    - .matrix_defaults
+  select:
+    true_matrix:
+      path: true_network/_adjacency_matrix
+      transform: [.data ]
+    predicted_matrix:
+      path: output_data/predictions
+      transform:
+        - .isel: [ !dag_prev , { time: -1 } ]
+          kwargs: {drop: true}
+  transform:
+    - pd.Index: [ [ 'true', 'predicted' ] ]
+      kwargs: {name: 'kind'}
+    - xr.concat: [ [ !dag_tag true_matrix, !dag_tag predicted_matrix ], !dag_prev ]
+      tag: data
+  col: kind
+  aspect: ~
+  size: ~
+  figsize: [*two_thirds_width, *third_width]
+  cbar_kwargs:
+    label: ~
+
+# Plot the prediction error on the matrices
+error:
+  based_on:
+    - accuracy
+    - .matrix_defaults
+  norm:
+    name: LogNorm
+  vmin: 1e-7
+  vmax: ~
+  cbar_kwargs:
+    label: $\vert \hat{a}_{ij} - a_{ij} \vert$
+  cmap:
+    from_values:
+      0: white
+      0.5: *yellow
+      1: *red
+
+accuracy_on_true_edges: !pspace
+  based_on:
+    - .creator.universe
+    - .marginals
+  select:
+    predictions: output_data/predictions
+    true_values:
+      path: true_network/_adjacency_matrix
+      transform:
+        - .isel: [!dag_prev , {time: -1}]
+          kwargs: {drop: true}
+    loss:
+      path: output_data/Training loss
+      transform:
+        - mul: [ !dag_prev , -1 ]
+        - np.exp: [ !dag_prev ]
+  transform:
+
+    # Define a sweep over the first four edges
+    - define: !sweep
+        default: 0
+        values: [0, 1, 2, 3]
+      tag: idx
+    - .isel: [!dag_tag predictions, {time: -1}]
+      kwargs: {drop: true}
+      tag: prediction
+    - sub: [!dag_prev , !dag_tag true_values]
+    - np.abs: [!dag_prev ]
+      tag: l1_accuracy
+    - pass: [!dag_tag true_values]
+
+    # Filter by edges where predictions are below the unperturbed network value
+    - sub: [!dag_tag true_values, !dag_tag prediction]
+    - create_mask: [!dag_prev , '>=', 0]
+    - xr.where: [!dag_prev , !dag_tag l1_accuracy, 0]
+      tag: errors_on_true_edges
+
+    # Normalise to the unperturbed edge weight values
+    - pass: [ !dag_tag true_values ]
+    - xr.where: [ !dag_prev ^= 0, !dag_tag true_values, 1]
+    - div: [!dag_tag errors_on_true_edges, !dag_prev ]
+
+    # Get the 4 edges with the highest error
+    - NeuralABM.largest_entry_indices: [!dag_prev , 4]
+      kwargs: {symmetric: true}
+      tag: indices_and_errors
+
+    # Get calculate the marginals on those edges
+    - NeuralABM.sel_matrix_indices: [!dag_tag predictions, !dag_prev ]
+    - .squeeze: [!dag_prev ]
+      kwargs: {drop: true}
+    - xr.Dataset:
+      - param1: !dag_prev
+        loss: !dag_tag loss
+    - NeuralABM.compute_marginals: [!dag_prev ]
+      kwargs:
+        bins: 1000
+        along_dim: edge_idx
+    - .sel: [!dag_prev , {edge_idx: !dag_tag idx}]
+      kwargs: {drop: true}
+      tag: data
+
+    # Format the title for each plot
+    - NeuralABM.sel_matrix_indices: [ !dag_tag true_values, !dag_tag indices_and_errors ]
+      tag: true_vals
+    - getitem: [!dag_tag indices_and_errors, -1 ]
+    - getitem: [!dag_prev , !dag_tag idx]
+    - np.around: [!dag_prev , 3]
+    - str: [!dag_prev ]
+      tag: error
+    - .coords: [!dag_tag true_vals, 'i']
+    - .data: [!dag_prev ]
+      tag: i
+    - .coords: [!dag_tag true_vals, 'j']
+    - .data: [!dag_prev ]
+    - zip: [!dag_tag i, !dag_prev ]
+    - list: [!dag_prev ]
+      tag: edges
+    - getitem: [!dag_prev , !dag_tag idx]
+    - .format: ["edge: {} \n relative error: {}", !dag_prev , !dag_tag error ]
+      tag: title
+
+    # Get the unperturbed value to plot as a dashed line
+    - getitem: [ !dag_tag true_vals , !dag_tag idx ]
+      tag: unperturbed_value
+
+  x: param1
+  y: prob
+  smooth_kwargs:
+    enabled: true
+    sigma: 10
+  helpers:
+    set_labels:
+      x: ' '
+      y: ' '
+    set_title:
+      title: !dag_result title
+    set_hv_lines:
+      vlines:
+        - pos: !dag_result unperturbed_value
+          color: *red
+          linestyle: dotted
+  style:
+    figure.figsize: [*quarter_width, *quarter_width]
+
+phases_lines:
+  based_on: phases_lines
+
+oscillations:
+  based_on: oscillations

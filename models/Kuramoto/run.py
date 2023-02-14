@@ -83,8 +83,7 @@ class Kuramoto_NN:
 
         # Current training loss, Frobenius error, and current predictions
         self.current_loss = torch.tensor(0.0)
-        self.current_frob_error = torch.tensor(0.0)
-        self.current_predictions = torch.zeros(self.nw_size)
+        self.current_prediction_error = torch.tensor(0.0)
         self.current_adjacency_matrix = torch.zeros(self.num_agents, self.num_agents)
 
         # Store the neural net training loss
@@ -100,16 +99,16 @@ class Kuramoto_NN:
         self._dset_loss.attrs["coords__time"] = [write_start, write_every]
 
         # Store the prediction error
-        self._dset_frob_error = self._output_data_group.create_dataset(
-            "Frobenius error",
-            (0, ),
-            maxshape=(None, ),
+        self._dset_prediction_error = self._output_data_group.create_dataset(
+            "Prediction error",
+            (0,),
+            maxshape=(None,),
             chunks=True,
             compression=3,
         )
-        self._dset_frob_error.attrs["dim_names"] = ["time"]
-        self._dset_frob_error.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_frob_error.attrs["coords__time"] = [write_start, write_every]
+        self._dset_prediction_error.attrs["dim_names"] = ["time"]
+        self._dset_prediction_error.attrs["coords_mode__time"] = "start_and_step"
+        self._dset_prediction_error.attrs["coords__time"] = [write_start, write_every]
 
         # Store the neural net output, possibly less regularly than the loss
         self._dset_predictions = self._output_data_group.create_dataset(
@@ -131,22 +130,25 @@ class Kuramoto_NN:
         # Store the computation time
         self.dset_time = self._output_data_group.create_dataset(
             "computation_time",
-            (0, 1),
-            maxshape=(None, 1),
+            (0, ),
+            maxshape=(None, ),
             chunks=True,
             compression=3,
         )
-        self.dset_time.attrs["dim_names"] = ["epoch", "training_time"]
+        self.dset_time.attrs["dim_names"] = ["epoch"]
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
-        self.dset_time.attrs["coords_mode__training_time"] = "trivial"
 
-    def epoch(self, *, training_data, batch_size: int, second_order: bool):
+    def epoch(
+        self, *, training_data, eigen_frequencies, batch_size: int, second_order: bool
+    ):
 
         """Trains the model for a single epoch.
 
         :param training_data: the training data to use
+        :param eigen_frequencies: the time series of the nodes' eigenfrequencies
         :param batch_size: the number of training data time frames to process before updating the neural net
             parameters
+        :param second_order: whether the dynamics are second order
         """
 
         # Track the start time
@@ -160,22 +162,27 @@ class Kuramoto_NN:
             if batches[-1] != training_data.shape[1] - 1:
                 batches = np.append(batches, training_data.shape[1] - 1)
 
+        # Track the total number of processed time series frames
+        counter = 0
+
+        # Make an initial prediction
+        predicted_adj_matrix = torch.reshape(
+            self.neural_net(torch.flatten(training_data[0, 0])), (self.num_agents, self.num_agents)
+        )
+
+        loss = torch.tensor(0.0, requires_grad=True)
+
         # Process the training data in batches
         for batch_no, batch_idx in enumerate(batches[:-1]):
 
             for i, dset in enumerate(training_data):
 
-                predicted_parameters = self.neural_net(torch.flatten(dset[batch_idx]))
-                pred_adj_matrix = torch.reshape(
-                    predicted_parameters, (self.num_agents, self.num_agents)
-                )
                 current_values = dset[batch_idx].clone()
                 current_values.requires_grad_(True)
 
                 # Calculate the current velocities if the dynamics are second order
-                current_velocities = (dset[batch_idx].clone() - dset[batch_idx - 1].clone()) / self.ABM.dt if second_order else None
-
-                loss = torch.tensor(0.0, requires_grad=True)
+                current_velocities = (dset[batch_idx].clone() - dset[
+                    batch_idx - 1].clone()) / self.ABM.dt if second_order else None
 
                 for ele in range(batch_idx + 1, batches[batch_no + 1] + 1):
 
@@ -183,50 +190,68 @@ class Kuramoto_NN:
                     new_values = self.ABM.run_single(
                         current_phases=current_values,
                         current_velocities=current_velocities,
-                        adjacency_matrix=pred_adj_matrix,
+                        adjacency_matrix=predicted_adj_matrix,
+                        eigen_frequencies=eigen_frequencies[i, ele-1],
                         requires_grad=True,
                     )
 
                     # Calculate loss
                     loss = loss + self.loss_function(new_values, dset[ele]) / (
-                        batches[batch_no + 1] - batch_idx
+                            batches[batch_no + 1] - batch_idx
                     )
 
-                    # Update the velocities, if required
-                    if second_order:
-                        current_velocities = (new_values - current_values)/self.ABM.dt
+                    counter += 1
 
-                    current_values = new_values.clone().detach()
+                    if counter % batch_size == 0:
 
-                # Penalise the trace (which cannot be learned)
-                loss = loss + torch.trace(pred_adj_matrix)
+                        # Penalise the trace (which cannot be learned)
+                        loss = loss + torch.trace(predicted_adj_matrix)
 
-                # Enforce symmetry of the predicted adjacency matrix
-                loss = loss + self.loss_function(
-                    pred_adj_matrix, torch.transpose(pred_adj_matrix, 0, 1)
-                )
+                        # Enforce symmetry of the predicted adjacency matrix
+                        loss = loss + self.loss_function(
+                            predicted_adj_matrix, torch.transpose(predicted_adj_matrix, 0, 1)
+                        )
 
-                # Perform a gradient descent step
-                loss.backward()
-                self.neural_net.optimizer.step()
-                self.neural_net.optimizer.zero_grad()
+                        # Perform a gradient descent step
+                        loss.backward()
+                        self.neural_net.optimizer.step()
+                        self.neural_net.optimizer.zero_grad()
 
-                # Write the data
-                self.current_loss = loss.clone().detach().numpy().item()
-                self.current_frob_error = (
-                    torch.nn.functional.mse_loss(self.true_network, pred_adj_matrix.clone().detach()
-                    )
-                    .numpy()
-                    .item()
-                )
-                self.current_predictions = predicted_parameters.clone().detach()
-                self.current_adjacency_matrix = pred_adj_matrix.clone().detach()
-                self._time += 1
-                self.write_data()
-                self.write_predictions()
+                        # Write the data
+                        self.current_loss = loss.clone().detach()
+                        self.current_prediction_error = (
+                            torch.nn.functional.l1_loss(self.true_network, predicted_adj_matrix.clone().detach()
+                                                         )
+                                .numpy()
+                                .item()
+                        )
+                        self.current_adjacency_matrix = predicted_adj_matrix.clone().detach()
+                        self._time += 1
+                        self.write_data()
+                        self.write_predictions()
+
+                        predicted_adj_matrix = torch.reshape(
+                            self.neural_net(torch.flatten(dset[batches[batch_no + 1]])),
+                            (self.num_agents, self.num_agents)
+                        )
+
+                        del loss
+                        loss = torch.tensor(0.0, requires_grad=True)
+
+                        if second_order:
+                            current_velocities = dset[ele] - dset[ele-1]
+                        current_values = dset[ele]
+
+                    else:
+
+                        # Update the velocities, if required
+                        if second_order:
+                            current_velocities = (new_values - current_values) / self.ABM.dt
+
+                        current_values = new_values.clone().detach()
 
         self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
-        self.dset_time[-1, :] = time.time() - start_time
+        self.dset_time[-1] = time.time() - start_time
 
     def write_data(self):
 
@@ -240,10 +265,10 @@ class Kuramoto_NN:
 
             if self._time % self._write_every == 0:
                 self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
-                self._dset_loss[-1] = self.current_loss
+                self._dset_loss[-1] = self.current_loss.cpu().numpy()
 
-                self._dset_frob_error.resize(self._dset_frob_error.shape[0] + 1, axis=0)
-                self._dset_frob_error[-1] = self.current_frob_error
+                self._dset_prediction_error.resize(self._dset_prediction_error.shape[0] + 1, axis=0)
+                self._dset_prediction_error[-1] = self.current_prediction_error
 
     def write_predictions(self, *, write_final: bool = False):
 
@@ -266,7 +291,7 @@ class Kuramoto_NN:
                 self._dset_predictions.resize(
                     self._dset_predictions.shape[0] + 1, axis=0
                 )
-                self._dset_predictions[-1, :] = self.current_adjacency_matrix
+                self._dset_predictions[-1, :] = self.current_adjacency_matrix.cpu()
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -318,29 +343,35 @@ if __name__ == "__main__":
     training_data_group = h5file.create_group("training_data")
     output_data_group = h5file.create_group("output_data")
 
-    second_order = model_cfg.get('second_order', False)
+    second_order = model_cfg.get("second_order", False)
 
     # Get the training data and the network, if synthetic data is used
     log.info("   Generating training data ...")
-    training_data, network = Kuramoto.DataGeneration.get_data(
-        model_cfg["Data"], h5file, training_data_group, seed=seed, device=device, second_order=second_order
+    training_data, eigen_frequencies, network = Kuramoto.DataGeneration.get_data(
+        model_cfg["Data"],
+        h5file,
+        training_data_group,
+        seed=seed,
+        device=device,
+        second_order=second_order,
     )
 
-    # Get the eigen frequencies of the nodes
-    eigen_frequencies = torch.stack(
-        list(nx.get_node_attributes(network, "eigen_frequency").values())
-    )
-
-    # Generate the h5group for the predicted network, if it is to be learned
+    # Initialise the neural net
     num_agents = training_data.shape[2]
     output_size = num_agents**2
 
     log.info(
         f"   Initializing the neural net; input size: {num_agents}, output size: {output_size} ..."
     )
+
     net = base.NeuralNet(
         input_size=num_agents, output_size=output_size, **model_cfg["NeuralNet"]
-    )
+    ).to(device)
+
+    # Set the neural net to an initial state, if given
+    if model_cfg["NeuralNet"].get("initial_state", None) is not None:
+        net.load_state_dict(torch.load(model_cfg["NeuralNet"].get("initial_state")))
+        net.eval()
 
     # Get the true parameters
     true_parameters = model_cfg["Training"]["true_parameters"]
@@ -348,9 +379,10 @@ if __name__ == "__main__":
     # Initialise the ABM
     ABM = Kuramoto.Kuramoto_ABM(
         N=num_agents,
-        dt=model_cfg["Data"]["synthetic_data"]["dt"],
-        gamma=model_cfg["Data"]["synthetic_data"]["gamma"],
-        eigen_frequencies=eigen_frequencies,
+        dt=model_cfg["Data"]["dt"],
+        gamma=model_cfg["Data"]["gamma"],
+        **true_parameters,
+        device=device,
     )
 
     # Calculate the frequency with which to write out the model predictions
@@ -374,18 +406,26 @@ if __name__ == "__main__":
         write_start=cfg["write_start"],
     )
 
-    log.info(f"   Initialized model '{model_name}'.")
+    log.info(f"   Initialized model '{model_name}'. Now commencing training for {num_epochs} epochs ...")
 
     # Train the neural net
-    log.info(f"   Now commencing training for {num_epochs} epochs ...")
-
     for i in range(num_epochs):
-        model.epoch(training_data=training_data.to(device), batch_size=batch_size, second_order=second_order)
+        model.epoch(
+            training_data=training_data.to(device),
+            eigen_frequencies=eigen_frequencies.to(device),
+            batch_size=batch_size,
+            second_order=second_order,
+        )
 
         log.progress(
             f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}; "
-            f"current Frobenius error: {model.current_frob_error}"
+            f"current L1 prediction error:  {model.current_prediction_error}；"
+            f"epoch training time: {model.dset_time[-1]} s"
         )
+
+        # Save neural net, if specified
+        if model_cfg["NeuralNet"].get("save_to", None) is not None:
+            torch.save(net.state_dict(), model_cfg["NeuralNet"].get("save_to"))
 
     if write_predictions_every == -1:
         model.write_predictions(write_final=True)
@@ -395,12 +435,13 @@ if __name__ == "__main__":
     # If specified, perform an OLS regression on the training data
     if cfg.get("perform_regression", False):
         log.info("   Performing regression ... ")
-        base.Kuramoto_regression(
+        Kuramoto.regression(
             training_data,
             eigen_frequencies,
             h5file,
             model_cfg["Data"]["synthetic_data"]["dt"],
-            second_order=second_order
+            second_order=second_order,
+            gamma=model_cfg["Data"]["gamma"]
         )
 
     log.info("   Wrapping up ...")
