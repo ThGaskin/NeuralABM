@@ -7,7 +7,7 @@ import torch
 # --- The Kuramoto ABM ------------------------------------------------------------------------------------------
 class Kuramoto_ABM:
     def __init__(
-        self, *, N: int, sigma: float, dt: float, gamma: float, device: str, **__
+        self, *, N: int, sigma: float, dt: float, gamma: float, kappa: float, device: str, **__
     ):
 
         """The Kuramoto model numerical solver, for first and second-order dynamics.
@@ -16,17 +16,26 @@ class Kuramoto_ABM:
         :param sigma: the default noise variance
         :param dt: the time differential to use
         :param gamma: the parameter used for the second-order model
+        :param kappa: the scaling value used for the network coupling
         :param **__: other kwargs (ignored)
         """
 
         # The number agents (nodes in the network)
         self.N = N
 
-        # Scalar parameter: noise variance
+        # Noise variance
         self.sigma = torch.tensor(sigma, device=device, dtype=torch.float)
+
+        # Time differential
         self.dt = torch.tensor(dt, device=device, dtype=torch.float)
+
+        # Dampening coefficient (second order only)
         self.gamma = torch.tensor(gamma, device=device, dtype=torch.float)
 
+        # Scaling value for network coupling
+        self.kappa = torch.tensor(kappa, device=device, dtype=torch.float)
+
+        # Training device to use
         self.device = device
 
     def run_single(
@@ -39,7 +48,6 @@ class Kuramoto_ABM:
         sigma: float = None,
         requires_grad: bool = True,
     ):
-
         """Runs the model for a single iteration.
 
         :param current_phases: the current phases of the oscillators
@@ -65,7 +73,7 @@ class Kuramoto_ABM:
                 + (
                     eigen_frequencies
                     + torch.reshape(
-                        torch.matmul(adjacency_matrix, diffs).diag(), (self.N, 1)
+                        torch.matmul(self.kappa * adjacency_matrix, diffs).diag(), (self.N, 1)
                     )
                 )
                 * self.dt
@@ -81,7 +89,7 @@ class Kuramoto_ABM:
                     (
                         eigen_frequencies
                         + torch.reshape(
-                            torch.matmul(adjacency_matrix, diffs).diag(), (self.N, 1)
+                            torch.matmul(self.kappa * adjacency_matrix, diffs).diag(), (self.N, 1)
                         )
                         - self.gamma * current_velocities
                     )
