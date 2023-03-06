@@ -18,11 +18,14 @@ log = logging.getLogger(__name__)
     required_dag_tags=(
         "loss_data",
         "time_data",
+        "regression_time"
     ),
 )
-def time_and_loss(hlpr: PlotHelper, *, data: dict, loss_color: str, time_color: str):
+def time_and_loss(hlpr: PlotHelper, *, data: dict, loss_color: str, time_color: str, regression_color: str):
+    """ Plots a comparison of time and loss values onto two axes """
     loss_data: xr.Dataset = data["loss_data"]
     time_data: xr.Dataset = data["time_data"]
+    regression_time: xr.Dataset = data["regression_time"]
 
     ax1 = hlpr.ax
 
@@ -50,3 +53,4 @@ def time_and_loss(hlpr: PlotHelper, *, data: dict, loss_color: str, time_color: 
         color=time_color,
         lw=0,
     )
+    regression_time.plot(color=regression_color, ax=ax1, linestyle='dotted')
