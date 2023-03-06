@@ -15,6 +15,7 @@ def regression(
         *,
         second_order: bool,
         gamma: float = None,
+        kappa: float = 1,
 ):
     """Estimates the network from first- or second-order dynamics via an OLS-regression, and stores the predictions in
     an h5.File.
@@ -25,6 +26,7 @@ def regression(
     :param dt: the time differential of the forward Euler method
     :param second_order: whether to use second order dynamics
     :param gamma: the coefficient of the first derivative used in the second-order dynamics
+    :param kappa: the network coupling coefficient
     """
 
     # Extract the number of nodes from the training data
@@ -100,7 +102,7 @@ def regression(
         subsel = torch.cat((subsel[:, :n], subsel[:, n + 1:]), dim=1)
 
         row_entry = np.matmul(torch.matmul(X[n], g_t), np.linalg.inv(subsel))
-        A[n, :] = torch.cat((row_entry[:n], torch.tensor([0]), row_entry[n:]))
+        A[n, :] = 1/kappa * torch.cat((row_entry[:n], torch.tensor([0]), row_entry[n:]))
 
     # Write out the time it took to run OLS
     prediction_time = time.time() - start_time
