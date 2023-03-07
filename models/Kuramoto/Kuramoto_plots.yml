@@ -59,3 +59,10 @@ Training_data/line_phases:
 # Oscillations of the nodes
 Training_data/oscillations:
   based_on: oscillations
+
+predicted_time_series:
+  based_on: phases_lines
+  select:
+    data:
+      path: output_data/predicted phases
+      transform: ~
