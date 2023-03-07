@@ -230,6 +230,8 @@ giving the default value, applied to all layers. An optional ``layer_specific`` 
 controls any deviations from the default on specific layers; in the above example,
 all layers have 20 nodes by default, use a sigmoid activation function, and have a bias
 which is initialised uniformly at random on [0, 4]. Layer-specific settings are then provided.
+You can also set the bias initialisation interval to `default`: this will initialise the bias using the [pytorch default](https://github.com/pytorch/pytorch/blob/9a575e77ca8a0be7a3f3625c4dfdc6321d2a0c2d/torch/nn/modules/linear.py#L72)
+Xavier uniform distribution.
 
 Any [pytorch activation function](https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity)
 is supported, such as ``relu``, ``linear``, ``tanh``, ``sigmoid``, etc. Some activation functions take arguments and
