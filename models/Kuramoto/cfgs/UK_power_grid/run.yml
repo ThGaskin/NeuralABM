@@ -2,32 +2,38 @@
 paths:
   model_note: UK_power_grid
 parameter_space:
-  num_epochs: 1000
-  write_every: 20
-  seed: 2
-  write_predictions_every: 20
-  write_start: 50
+  num_epochs: 20
+  write_every: 10
+  seed: 69
+  write_predictions_every: 10
+  write_start: 1
   Kuramoto:
     second_order: true
     Data:
       write_adjacency_matrix: true
       load_from_dir:
-        network: data/Kuramoto/UK_power_grid/UK_power_grid_weighted.h5
-        eigen_frequencies: /Users/thomasgaskin/utopya_output/Kuramoto/perturbed_data_second_order_weighted/data/uni0/data.h5
-        training_data: /Users/thomasgaskin/utopya_output/Kuramoto/perturbed_data_second_order_weighted/data/uni0/data.h5
+        network: data/Kuramoto/UK_power_grid/nw_unperturbed_weighted.h5
+        eigen_frequencies: data/Kuramoto/Power_cut_response_data/data/uni0/data.h5
+        training_data: data/Kuramoto/Power_cut_response_data/data/uni0/data.h5
         copy_data: True
       synthetic_data:
-        num_steps: 2
-        training_set_size: 400
-        sigma: &sigma 0.0
+        num_steps: 20000
+        training_set_size: 1
+        sigma: 0
         eigen_frequencies:
-          distribution: normal
+          distribution: uniform
           parameters:
-            mean: 50
-            std: 1.25
-          time_series: true
-      dt: 0.02
-      gamma: 3
+            lower: -1
+            upper: 1
+          time_series: false
+        init_phases:
+          distribution: uniform
+          parameters:
+            lower: 1
+            upper: 1
+      dt: 0.01
+      gamma: 0.1
+      kappa: 30
     NeuralNet:
       num_layers: 5
       nodes_per_layer:
@@ -36,11 +42,19 @@ parameter_space:
         default: tanh
         layer_specific:
           -1: Hardsigmoid
+      biases:
+        default: ~
+      initial_state: data/initial_complete_network
     Training:
-      batch_size: 5
-      optimizer: Adam
-      learning_rate: 0.002
+      batch_size: 2
       loss_function:
         name: MSELoss
       true_parameters:
-        sigma: *sigma
+        sigma: 0
+    Power_grid:
+      training_start: 300
+      training_stop: 500
+      training_write_phase: [0, 2]
+      init_writes: 2
+      init_prediction_writes: 2
+
