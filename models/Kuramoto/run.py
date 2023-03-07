@@ -73,7 +73,7 @@ class Kuramoto_NN:
         )
 
         self.num_agents = num_agents
-        self.nw_size = num_agents**2
+        self.nw_size = num_agents ** 2
         self.true_network = true_network
 
         self._write_every = write_every
@@ -81,34 +81,31 @@ class Kuramoto_NN:
         self._write_start = write_start
         self._num_steps = num_steps
 
-        # Current training loss, Frobenius error, and current predictions
-        self.current_loss = torch.tensor(0.0)
-        self.current_prediction_error = torch.tensor(0.0)
+        # Store the current losses: current total training loss, prediction loss on the data, symmetry loss, trace loss,
+        # and current prediction error  on the adjacency matrix
+        self.current_total_loss = torch.tensor(0.0, dtype=torch.float)
+        self.current_prediction_loss = torch.tensor(0.0, dtype=torch.float)
+        self.current_symmetry_loss = torch.tensor(0.0, dtype=torch.float)
+        self.current_trace_loss = torch.tensor(0.0, dtype=torch.float)
+        self.current_prediction_error = torch.tensor(0.0, dtype=torch.float)
+
+        # Current predicted network
         self.current_adjacency_matrix = torch.zeros(self.num_agents, self.num_agents)
 
-        # Store the neural net training loss
+        # Store the losses and errors
         self._dset_loss = self._output_data_group.create_dataset(
-            "Training loss",
-            (0,),
-            maxshape=(None,),
+            "Loss",
+            (0, 5),
+            maxshape=(None, 5),
             chunks=True,
             compression=3,
         )
-        self._dset_loss.attrs["dim_names"] = ["time"]
+        self._dset_loss.attrs["dim_names"] = ["time", "kind"]
         self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
         self._dset_loss.attrs["coords__time"] = [write_start, write_every]
-
-        # Store the prediction error
-        self._dset_prediction_error = self._output_data_group.create_dataset(
-            "Prediction error",
-            (0,),
-            maxshape=(None,),
-            chunks=True,
-            compression=3,
-        )
-        self._dset_prediction_error.attrs["dim_names"] = ["time"]
-        self._dset_prediction_error.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_prediction_error.attrs["coords__time"] = [write_start, write_every]
+        self._dset_loss.attrs["coords_mode__kind"] = "values"
+        self._dset_loss.attrs["coords__kind"] = ["Total loss", "Data loss", "Symmetry loss", "Trace loss",
+                                                 "L1 prediction error"]
 
         # Store the neural net output, possibly less regularly than the loss
         self._dset_predictions = self._output_data_group.create_dataset(
@@ -130,8 +127,8 @@ class Kuramoto_NN:
         # Store the computation time
         self.dset_time = self._output_data_group.create_dataset(
             "computation_time",
-            (0, ),
-            maxshape=(None, ),
+            (0,),
+            maxshape=(None,),
             chunks=True,
             compression=3,
         )
@@ -139,7 +136,7 @@ class Kuramoto_NN:
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
 
     def epoch(
-        self, *, training_data, eigen_frequencies, batch_size: int, second_order: bool
+            self, *, training_data, eigen_frequencies, batch_size: int, second_order: bool
     ):
 
         """Trains the model for a single epoch.
@@ -170,7 +167,7 @@ class Kuramoto_NN:
             self.neural_net(torch.flatten(training_data[0, 0])), (self.num_agents, self.num_agents)
         )
 
-        loss = torch.tensor(0.0, requires_grad=True)
+        data_loss = torch.tensor(0.0, requires_grad=True)
 
         # Process the training data in batches
         for batch_no, batch_idx in enumerate(batches[:-1]):
@@ -191,12 +188,12 @@ class Kuramoto_NN:
                         current_phases=current_values,
                         current_velocities=current_velocities,
                         adjacency_matrix=predicted_adj_matrix,
-                        eigen_frequencies=eigen_frequencies[i, ele-1],
+                        eigen_frequencies=eigen_frequencies[i, ele - 1],
                         requires_grad=True,
                     )
 
-                    # Calculate loss
-                    loss = loss + self.loss_function(new_values, dset[ele]) / (
+                    # Calculate loss on the data
+                    data_loss = data_loss + self.loss_function(new_values, dset[ele]) / (
                             batches[batch_no + 1] - batch_idx
                     )
 
@@ -204,42 +201,60 @@ class Kuramoto_NN:
 
                     if counter % batch_size == 0:
 
-                        # Penalise the trace (which cannot be learned)
-                        loss = loss + torch.trace(predicted_adj_matrix)
-
                         # Enforce symmetry of the predicted adjacency matrix
-                        loss = loss + self.loss_function(
+                        symmetry_loss = self.loss_function(
                             predicted_adj_matrix, torch.transpose(predicted_adj_matrix, 0, 1)
-                        )
+                        ).clone().detach()
+
+                        # Penalise the trace (which cannot be learned)
+                        trace_loss = torch.trace(predicted_adj_matrix)
+
+                        # Add losses
+                        loss = data_loss + symmetry_loss + trace_loss
+
+                        # --- POWER GRID ONLY --------------------------------------------------------------------------
+                        # This cutoff should depend on the behaviour of the training loss?
+                        # if self._time < 1000: # 1000 for L=400, 2000 for L=200
+                        #     loss = loss + self.loss_function(predicted_adj_matrix, self.true_network)
+                        # ----------------------------------------------------------------------------------------------
 
                         # Perform a gradient descent step
                         loss.backward()
                         self.neural_net.optimizer.step()
                         self.neural_net.optimizer.zero_grad()
 
-                        # Write the data
-                        self.current_loss = loss.clone().detach()
-                        self.current_prediction_error = (
-                            torch.nn.functional.l1_loss(self.true_network, predicted_adj_matrix.clone().detach()
-                                                         )
-                                .numpy()
-                                .item()
-                        )
+                        # Store the losses
+                        self.current_prediction_loss = data_loss.clone().detach()
+                        self.current_symmetry_loss = symmetry_loss.clone().detach()
+                        self.current_trace_loss = trace_loss.clone().detach()
+                        self.current_total_loss = loss.clone().detach()
+
+                        # Store the current prediction
                         self.current_adjacency_matrix = predicted_adj_matrix.clone().detach()
+
+                        # Store the prediction error
+                        self.current_prediction_error = (
+                            torch.nn.functional.l1_loss(self.true_network, self.current_adjacency_matrix)
+                        )
+
+                        # Write the data and the predictions
                         self._time += 1
                         self.write_data()
                         self.write_predictions()
 
+                        # Make a new prediction
                         predicted_adj_matrix = torch.reshape(
                             self.neural_net(torch.flatten(dset[batches[batch_no + 1]])),
                             (self.num_agents, self.num_agents)
                         )
 
-                        del loss
-                        loss = torch.tensor(0.0, requires_grad=True)
+                        # Wipe the loss
+                        del data_loss
+                        data_loss = torch.tensor(0.0, requires_grad=True)
 
+                        # Update the current phases and phase velocities to the true values
                         if second_order:
-                            current_velocities = dset[ele] - dset[ele-1]
+                            current_velocities = dset[ele] - dset[ele - 1]
                         current_values = dset[ele]
 
                     else:
@@ -261,14 +276,13 @@ class Kuramoto_NN:
         extend the dataset size prior to writing; this way, the newly written
         data is always in the last row of the dataset.
         """
-        if self._time >= self._write_start:
-
-            if self._time % self._write_every == 0:
-                self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
-                self._dset_loss[-1] = self.current_loss.cpu().numpy()
-
-                self._dset_prediction_error.resize(self._dset_prediction_error.shape[0] + 1, axis=0)
-                self._dset_prediction_error[-1] = self.current_prediction_error
+        if self._time >= self._write_start and self._time % self._write_every == 0:
+            self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
+            self._dset_loss[-1, 0] = self.current_total_loss.cpu().numpy()
+            self._dset_loss[-1, 1] = self.current_prediction_loss.cpu().numpy()
+            self._dset_loss[-1, 2] = self.current_symmetry_loss.cpu().numpy()
+            self._dset_loss[-1, 3] = self.current_trace_loss.cpu().numpy()
+            self._dset_loss[-1, 4] = self.current_prediction_error.cpu().numpy()
 
     def write_predictions(self, *, write_final: bool = False):
 
@@ -283,10 +297,9 @@ class Kuramoto_NN:
 
         else:
             if (
-                self._time >= self._write_start
-                and self._time % self._write_predictions_every == 0
+                    self._time >= self._write_start
+                    and self._time % self._write_predictions_every == 0
             ):
-
                 log.debug(f"    Writing prediction data ... ")
                 self._dset_predictions.resize(
                     self._dset_predictions.shape[0] + 1, axis=0
@@ -345,7 +358,7 @@ if __name__ == "__main__":
 
     second_order = model_cfg.get("second_order", False)
 
-    # Get the training data and the network, if synthetic data is used
+    # Get the training data and the network
     log.info("   Generating training data ...")
     training_data, eigen_frequencies, network = Kuramoto.DataGeneration.get_data(
         model_cfg["Data"],
@@ -358,7 +371,7 @@ if __name__ == "__main__":
 
     # Initialise the neural net
     num_agents = training_data.shape[2]
-    output_size = num_agents**2
+    output_size = num_agents ** 2
 
     log.info(
         f"   Initializing the neural net; input size: {num_agents}, output size: {output_size} ..."
@@ -379,8 +392,7 @@ if __name__ == "__main__":
     # Initialise the ABM
     ABM = Kuramoto.Kuramoto_ABM(
         N=num_agents,
-        dt=model_cfg["Data"]["dt"],
-        gamma=model_cfg["Data"]["gamma"],
+        **model_cfg["Data"],
         **true_parameters,
         device=device,
     )
@@ -410,18 +422,48 @@ if __name__ == "__main__":
 
     # Train the neural net
     for i in range(num_epochs):
+
+        # --- POWER GRID ONLY ------------------------------------------------------------------------------------------
+        # if model_cfg["Power_grid"].get("training_write_phase")[0] <= i < model_cfg["Power_grid"].get("training_write_phase")[1]:
+        #     model._write_every = model_cfg["Power_grid"].get("init_writes")
+        #     model._write_predictions_every = model_cfg["Power_grid"].get("init_prediction_writes")
+        # if i == model_cfg["Power_grid"].get("training_write_phase")[1]:
+        #     model._write_every = cfg["write_every"]
+        #     model._write_predictions_every = write_predictions_every
+        # --------------------------------------------------------------------------------------------------------------
+
         model.epoch(
+ #           training_data=training_data.to(device)[:, model_cfg["Power_grid"].get("training_start", None):model_cfg["Power_grid"].get("training_stop", None), :, :],  # --- POWER GRID ONLY ------------------------------------------------------------------------------------------
+ #           eigen_frequencies=eigen_frequencies.to(device)[:, model_cfg["Power_grid"].get("training_start", None):model_cfg["Power_grid"].get("training_stop", None), :, :],  # --- POWER GRID ONLY ------------------------------------------------------------------------------------------
             training_data=training_data.to(device),
             eigen_frequencies=eigen_frequencies.to(device),
             batch_size=batch_size,
             second_order=second_order,
         )
 
+        # Print progress message
         log.progress(
-            f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}; "
-            f"current L1 prediction error:  {model.current_prediction_error}；"
-            f"epoch training time: {model.dset_time[-1]} s"
+            f"   Completed epoch {i + 1} / {num_epochs} in {model.dset_time[-1]} s \n"
+            f"            ----------------------------------------------------------------- \n"
+            f"            Loss components: data:     {model.current_prediction_loss} \n"
+            f"                             symmetry: {model.current_symmetry_loss}\n"
+            f"                             trace:    {model.current_trace_loss}\n"
+            f"                             total:    {model.current_total_loss}\n"
+            f"            L1 prediction error: {model.current_prediction_error} \n"
         )
+
+        # --- POWER GRID ONLY ------------------------------------------------------------------------------------------
+        # log.progress(
+        #     f"   Prediction on edge (245, 250): {model.current_adjacency_matrix[245, 250]}; "
+        #     f"(unperturbed value: {model.true_network[245, 250]}) \n"
+        #     f"            Prediction on edge (250, 245): {model.current_adjacency_matrix[250, 245]}"
+        #     f" (unperturbed value: {model.true_network[250, 245]}) \n"
+        #     f"            Prediction on edge (244, 246): {model.current_adjacency_matrix[244, 246]}"
+        #     f" (unperturbed value: {model.true_network[244, 246]}) \n"
+        #     f"            Prediction on edge (246, 244): {model.current_adjacency_matrix[246, 244]}"
+        #     f" (unperturbed value: {model.true_network[246, 244]}) \n"
+        # )
+        # --------------------------------------------------------------------------------------------------------------
 
         # Save neural net, if specified
         if model_cfg["NeuralNet"].get("save_to", None) is not None:
@@ -432,6 +474,40 @@ if __name__ == "__main__":
 
     log.info("   Simulation run finished.")
 
+    # Generate a complete dataset using the predicted parameters
+    log.progress("   Generating predicted dataset ...")
+    predicted_time_series = training_data[0, :, :, :].clone()
+    for step in range(1 if second_order else 0, training_data.shape[1] - 1):
+        predicted_time_series[step + 1, :, :] = ABM.run_single(
+            current_phases=predicted_time_series[step, :],
+            current_velocities=(predicted_time_series[step, :, :] - predicted_time_series[step - 1, :, :]) / ABM.dt
+            if second_order
+            else None,
+            adjacency_matrix=model.current_adjacency_matrix,
+            eigen_frequencies=eigen_frequencies[0, step, :, :],
+            requires_grad=False,
+        )
+
+    # Save prediction
+    dset_phases = output_data_group.create_dataset(
+        "predicted phases",
+        predicted_time_series.shape,
+        chunks=True,
+        compression=3,
+    )
+    dset_phases.attrs["dim_names"] = [
+        "time",
+        "vertex_idx",
+        "dim_name__0",
+    ]
+    dset_phases.attrs["coords_mode__time"] = "trivial"
+    # dset_phases.attrs["coords__time"] = [
+    #     np.around(0 + n * dt, 4) for n in range(training_data.shape[1])
+    # ]
+    dset_phases.attrs["coords_mode__vertex_idx"] = "values"
+    dset_phases.attrs["coords__vertex_idx"] = network.nodes()
+    dset_phases[:, :] = predicted_time_series.cpu()
+
     # If specified, perform an OLS regression on the training data
     if cfg.get("perform_regression", False):
         log.info("   Performing regression ... ")
@@ -439,9 +515,10 @@ if __name__ == "__main__":
             training_data,
             eigen_frequencies,
             h5file,
-            model_cfg["Data"]["synthetic_data"]["dt"],
+            model_cfg["Data"]["dt"],
             second_order=second_order,
-            gamma=model_cfg["Data"]["gamma"]
+            gamma=model_cfg["Data"]["gamma"],
+            kappa=model_cfg["Data"]["kappa"]
         )
 
     log.info("   Wrapping up ...")
