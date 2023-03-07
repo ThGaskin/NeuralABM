@@ -150,13 +150,6 @@ def get_data(
 
         ABM = Kuramoto_ABM(**data_cfg, device=device)
 
-        # ---- POWERCUT SIMULATION -------------------------------------------------------------------------------------
-        # nodelist = list(network.nodes())
-        # edges_to_cut = [(256, 261), (255, 257)]
-        # edge_indices = [(nodelist.index(e[0]), nodelist.index(e[1])) for e in edges_to_cut]
-        # power_cut_index = 15000
-        # --------------------------------------------------------------------------------------------------------------
-
         for idx in range(training_set_size):
 
             training_data[idx, 0, :, :] = base.random_tensor(
@@ -188,19 +181,7 @@ def get_data(
                     requires_grad=False,
                 )
 
-                # ---- POWERCUT SIMULATION -----------------------------------------------------------------------------
-                # if i == power_cut_index:
-                #     for j, e in enumerate(edges_to_cut):
-                #         network.remove_edge(e[0], e[1])
-                #     adj_matrix = torch.from_numpy(nx.to_numpy_array(network)).float().to(device)
-                # ------------------------------------------------------------------------------------------------------
-
         log.info("   Training data generated.")
-
-    # ---- POWERCUT SIMULATION -----------------------------------------------------------------------------------------
-    # training_data = training_data[:, power_cut_index+1:, :, :]
-    # eigen_frequencies = eigen_frequencies[:, power_cut_index+1:, :, :]
-    # ------------------------------------------------------------------------------------------------------------------
 
     # Save the data. If data was loaded, data can be copied if specified
     if load_from_dir.get("copy_data", True):

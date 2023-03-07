@@ -60,6 +60,7 @@ Training_data/line_phases:
 Training_data/oscillations:
   based_on: oscillations
 
+# Plot a predicted time series
 predicted_time_series:
   based_on: phases_lines
   select:

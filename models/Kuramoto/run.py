@@ -212,12 +212,6 @@ class Kuramoto_NN:
                         # Add losses
                         loss = data_loss + symmetry_loss + trace_loss
 
-                        # --- POWER GRID ONLY --------------------------------------------------------------------------
-                        # This cutoff should depend on the behaviour of the training loss?
-                        # if self._time < 1000: # 1000 for L=400, 2000 for L=200
-                        #     loss = loss + self.loss_function(predicted_adj_matrix, self.true_network)
-                        # ----------------------------------------------------------------------------------------------
-
                         # Perform a gradient descent step
                         loss.backward()
                         self.neural_net.optimizer.step()
@@ -423,18 +417,7 @@ if __name__ == "__main__":
     # Train the neural net
     for i in range(num_epochs):
 
-        # --- POWER GRID ONLY ------------------------------------------------------------------------------------------
-        # if model_cfg["Power_grid"].get("training_write_phase")[0] <= i < model_cfg["Power_grid"].get("training_write_phase")[1]:
-        #     model._write_every = model_cfg["Power_grid"].get("init_writes")
-        #     model._write_predictions_every = model_cfg["Power_grid"].get("init_prediction_writes")
-        # if i == model_cfg["Power_grid"].get("training_write_phase")[1]:
-        #     model._write_every = cfg["write_every"]
-        #     model._write_predictions_every = write_predictions_every
-        # --------------------------------------------------------------------------------------------------------------
-
         model.epoch(
- #           training_data=training_data.to(device)[:, model_cfg["Power_grid"].get("training_start", None):model_cfg["Power_grid"].get("training_stop", None), :, :],  # --- POWER GRID ONLY ------------------------------------------------------------------------------------------
- #           eigen_frequencies=eigen_frequencies.to(device)[:, model_cfg["Power_grid"].get("training_start", None):model_cfg["Power_grid"].get("training_stop", None), :, :],  # --- POWER GRID ONLY ------------------------------------------------------------------------------------------
             training_data=training_data.to(device),
             eigen_frequencies=eigen_frequencies.to(device),
             batch_size=batch_size,
@@ -451,19 +434,6 @@ if __name__ == "__main__":
             f"                             total:    {model.current_total_loss}\n"
             f"            L1 prediction error: {model.current_prediction_error} \n"
         )
-
-        # --- POWER GRID ONLY ------------------------------------------------------------------------------------------
-        # log.progress(
-        #     f"   Prediction on edge (245, 250): {model.current_adjacency_matrix[245, 250]}; "
-        #     f"(unperturbed value: {model.true_network[245, 250]}) \n"
-        #     f"            Prediction on edge (250, 245): {model.current_adjacency_matrix[250, 245]}"
-        #     f" (unperturbed value: {model.true_network[250, 245]}) \n"
-        #     f"            Prediction on edge (244, 246): {model.current_adjacency_matrix[244, 246]}"
-        #     f" (unperturbed value: {model.true_network[244, 246]}) \n"
-        #     f"            Prediction on edge (246, 244): {model.current_adjacency_matrix[246, 244]}"
-        #     f" (unperturbed value: {model.true_network[246, 244]}) \n"
-        # )
-        # --------------------------------------------------------------------------------------------------------------
 
         # Save neural net, if specified
         if model_cfg["NeuralNet"].get("save_to", None) is not None:
@@ -501,9 +471,6 @@ if __name__ == "__main__":
         "dim_name__0",
     ]
     dset_phases.attrs["coords_mode__time"] = "trivial"
-    # dset_phases.attrs["coords__time"] = [
-    #     np.around(0 + n * dt, 4) for n in range(training_data.shape[1])
-    # ]
     dset_phases.attrs["coords_mode__vertex_idx"] = "values"
     dset_phases.attrs["coords__vertex_idx"] = network.nodes()
     dset_phases[:, :] = predicted_time_series.cpu()
