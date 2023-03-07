@@ -5,7 +5,6 @@ from typing import Tuple
 
 import h5py as h5
 import numpy as np
-import pandas as pd
 import torch
 from dantro._import_tools import import_module_from_path
 
@@ -15,224 +14,171 @@ sys.path.append(up(up(up(__file__))))
 
 base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include")
 
-
 """ Load a dataset or generate synthetic data on which to train the neural net """
 
 log = logging.getLogger(__name__)
 
 
-def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor]:
-
-    """Loads Harris-Wilson data from a directory.
-
-    :returns the origin sizes, network, and the time series
-    """
-
-    log.note("   Loading data ...")
-
-    # If data is to be loaded, check whether a single h5 file, a folder containing csv files, or
-    # a dictionary pointing to specific csv files has been passed.
-    if isinstance(dir, str):
-
-        # If data is in h5 format
-        if dir.lower().endswith(".h5"):
-            with h5.File(dir, "r") as f:
-                origins = np.array(f["HarrisWilson"]["origin_sizes"])[0]
-                training_data = np.array(f["HarrisWilson"]["training_data"])
-
-        # If data is a folder, load csv files
-        else:
-            origins = pd.read_csv(
-                dir + "/origin_sizes.csv", header=0, index_col=0
-            ).to_numpy()
-            training_data = pd.read_csv(
-                dir + "/training_data.csv", header=0, index_col=0
-            ).to_numpy()
-
-    # If a dictionary is passed, load data from individual locations
-    elif isinstance(dir, dict):
-
-        origins = pd.read_csv(dir["origin_zones"], header=0, index_col=0).to_numpy()
-        training_data = pd.read_csv(
-            dir["destination_zones"], header=0, index_col=0
-        ).to_numpy()
-
-    # Reshape the origin zone sizes
-    or_sizes = torch.tensor(origins, dtype=torch.float)
-    N_origin = len(or_sizes)
-    or_sizes = torch.reshape(or_sizes, (1, N_origin, 1))
-
-    # Reshape the time series of the destination zone sizes
-    time_series = torch.tensor(training_data, dtype=torch.float)
-    N_destination = training_data.shape[1]
-    time_series = torch.reshape(time_series, (1, len(time_series), N_destination, 1))
-
-    # Return all three datasets
-    return or_sizes, time_series
-
-
-def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
-
+def get_data(cfg, h5file: h5.File, h5group: h5.Group, device: str = 'cpu') -> Tuple[
+    torch.tensor, torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
     """Generates synthetic Harris-Wilson using a numerical solver.
 
     :param cfg: the configuration file
     :returns the origin sizes, network, and the time series
     """
 
-    log.note("   Generating synthetic data ...")
+    load_from_dir = cfg.pop("load_from_dir", {})
+    write_adjacency_matrix = cfg.pop("write_adjacency_matrix", load_from_dir == {})
+
+    origin_sizes, network, destination_sizes = None, None, None
+
+    if load_from_dir.get("origin_zones", None) is not None:
+        log.info("   Loading origin sizes ... ")
+        with h5.File(load_from_dir["origin_zones"], "r") as f:
+            # Load the origin sizes
+            origin_sizes = torch.from_numpy(
+                np.array(f["training_data"]["origin_sizes"])
+            ).float()
+
+    if load_from_dir.get("destination_zones", None) is not None:
+        log.info("   Loading destination zones ...")
+        with h5.File(load_from_dir["destination_zones"], "r") as f:
+            # Load the training data
+            destination_sizes = torch.from_numpy(
+                np.array(f["training_data"]["destination_sizes"])
+            ).float()
+
+    if load_from_dir.get("network", None) is not None:
+        log.info("   Loading network ... ")
+        with h5.File(load_from_dir["network"], "r") as f:
+            # Load the network
+            network = torch.from_numpy(
+                np.array(f["true_network"]["_adjacency_matrix"])
+            ).float()
 
     # Get run configuration properties
     data_cfg = cfg["synthetic_data"]
+    if network is not None:
+        data_cfg.update(dict(N_origin=network.shape[0]))
+        data_cfg.update(dict(N_destination=network.shape[1]))
     N_origin, N_destination = data_cfg["N_origin"], data_cfg["N_destination"]
     num_steps = data_cfg["num_steps"]
 
-    # Generate the network
-    network: torch.tensor = torch.exp(
-        -1
-        * torch.abs(
-            base.random_tensor(
-                **data_cfg.get("init_network_weights"), size=(N_origin, N_destination)
-            )
-        )
-    )
-    network = network * torch.bernoulli(network)  # what if we turn this off?
+    # If origin sizes were not loaded, generate them
+    if origin_sizes is None:
 
-    # Normalise the rowsums
-    norms = torch.sum(network, dim=1, keepdim=True)
-    network /= torch.where(norms != 0, norms, 1)
+        log.info("   Generating origin sizes  ...")
+        num_steps: int = data_cfg.get("num_steps")
+        training_set_size: int = cfg.get("training_set_size")
 
-    # Extract the underlying parameters from the config
-    true_parameters = {
-        "alpha": data_cfg["alpha"],
-        "beta": data_cfg["beta"],
-        "kappa": data_cfg["kappa"],
-        "sigma": data_cfg["sigma"],
-        "epsilon": data_cfg["epsilon"],
-    }
-
-    # Initialise the ABM
-    ABM = HarrisWilsonABM(
-        N=data_cfg["N_origin"],
-        M=data_cfg["N_destination"],
-        dt=data_cfg["dt"],
-        device="cpu",
-        **true_parameters,
-    )
-    origin_sizes, dest_sizes = [], []
-
-    for _ in range(cfg["training_set_size"]):
-
-        # Generate the initial destination zone sizes
-        init_dest_sizes = torch.abs(
-            base.random_tensor(
-                **data_cfg.get("init_dest_sizes"), size=(data_cfg["N_destination"], 1)
-            )
+        origin_sizes = torch.empty(
+            (training_set_size, num_steps + 1, N_origin, 1), device=device
         )
 
-        # Generate the origin sizes time series
-        or_sizes = torch.abs(
-            base.random_tensor(
-                **data_cfg.get("init_origin_sizes"), size=(1, N_origin, 1)
-            )
-        )
+        for idx in range(training_set_size):
 
-        if data_cfg["origin_size_std"] == 0:
-            or_sizes = or_sizes.repeat(num_steps, 1, 1)
-        else:
-            for __ in range(num_steps):
-                or_sizes = torch.cat(
-                    (
-                        or_sizes,
-                        torch.abs(
-                            or_sizes[-1]
-                            + torch.normal(
-                                0, data_cfg["origin_size_std"], size=(1, N_origin, 1)
-                            )
-                        ),
-                    ),
-                    dim=0,
+            origin_sizes[idx, 0, :, :] = torch.abs(
+                base.random_tensor(
+                    **data_cfg.get("init_origin_sizes"), size=(1, N_origin, 1)
                 )
+            )
 
-        origin_sizes.append(or_sizes)
+            for __ in range(1, num_steps+1):
+                origin_sizes[idx, __, :, :] = torch.abs(origin_sizes[idx, __ - 1, :, :] + torch.normal(
+                    0, data_cfg["origin_size_std"], size=(N_origin, 1)
+                ))
 
-        # Run the ABM for n iterations, generating the entire time series
-        dest_sizes.append(
-            ABM.run(
-                init_data=init_dest_sizes,
+    # If network was not loaded, generate the network
+    if network is None:
+
+        # Generate the network
+        network: torch.tensor = torch.exp(
+            -1
+            * torch.abs(
+                base.random_tensor(
+                    **data_cfg.get("init_network_weights"), size=(N_origin, N_destination)
+                )
+            )
+        )
+        network = network * torch.bernoulli(network)  # what if we turn this off?
+
+        # Normalise the rowsums
+        norms = torch.sum(network, dim=1, keepdim=True)
+        network /= torch.where(norms != 0, norms, 1)
+
+    # If time series was not loaded, generate
+    if destination_sizes is None:
+
+        # Extract the underlying parameters from the config
+        true_parameters = {
+            "alpha": data_cfg["alpha"],
+            "beta": data_cfg["beta"],
+            "kappa": data_cfg["kappa"],
+            "sigma": data_cfg["sigma"],
+            "epsilon": data_cfg["epsilon"],
+        }
+
+        # Initialise the ABM
+        ABM = HarrisWilsonABM(
+            N=data_cfg["N_origin"],
+            M=data_cfg["N_destination"],
+            dt=data_cfg["dt"],
+            device="cpu",
+            **true_parameters,
+        )
+
+        training_set_size = cfg["training_set_size"]
+        destination_sizes = torch.empty(
+            (training_set_size, num_steps + 1, N_destination, 1), device=device
+        )
+        for idx in range(training_set_size):
+            # Generate the initial destination zone sizes
+            destination_sizes[idx, 0, :, :] = torch.abs(
+                base.random_tensor(
+                    **data_cfg.get("init_dest_sizes"), size=(data_cfg["N_destination"], 1)
+                )
+            )
+
+            # Run the ABM for n iterations, generating the entire time series
+            destination_sizes[idx, :, :, :] = ABM.run(
+                init_data=destination_sizes[idx, 0, :, :],
                 adjacency_matrix=network,
                 n_iterations=num_steps,
-                origin_sizes=or_sizes,
+                origin_sizes=origin_sizes[idx, :],
                 generate_time_series=True,
             )
-        )
-
-    dest_sizes = torch.stack(dest_sizes)
-    origin_sizes = torch.stack(origin_sizes)
-
-    # Return all three
-    return origin_sizes, dest_sizes, network
-
-
-def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
-
-    """Gets the data for the Harris-Wilson model. If no path to a dataset is passed, synthetic data is generated using
-    the config settings
-
-    :param cfg: the data configuration
-    :param h5file: the h5 File to use. Needed to add a network group.
-    :param h5group: the h5 Group to write data to
-    :return: the origin zone sizes, the training data, and the network
-    """
-
-    data_dir = cfg.get("load_from_dir", None)
-
-    # Get the origin sizes, time series, and network data
-    or_sizes, dest_sizes, network = (
-        load_from_dir(data_dir)
-        if data_dir is not None
-        else generate_synthetic_data(cfg=cfg)
-    )
-
-    N_origin = or_sizes.shape[2]
-    N_destination = dest_sizes.shape[2]
-
-    time_series = dest_sizes
-
-    # If time series has a single frame, double it to enable visualisation.
-    # This does not affect the training data
-    num_training_steps = cfg.get("num_training_steps", time_series.shape[1])
-    if time_series.shape[1] == 1:
-        time_series = torch.stack([time_series, time_series], dim=2)
 
     # Set up dataset for complete synthetic time series
-    dset_time_series = h5group.create_dataset(
-        "time_series",
-        time_series.shape,
-        maxshape=time_series.shape,
+    dset_dest_zones = h5group.create_dataset(
+        "destination_sizes",
+        destination_sizes.shape,
+        maxshape=destination_sizes.shape,
         chunks=True,
         compression=3,
     )
-    dset_time_series.attrs["dim_names"] = [
+    dset_dest_zones.attrs["dim_names"] = [
         "training_set",
         "time",
         "zone_id",
         "dim_name__0",
     ]
-    dset_time_series.attrs["coords_mode__training_set"] = "trivial"
-    dset_time_series.attrs["coords_mode__time"] = "trivial"
-    dset_time_series.attrs["coords_mode__zone_id"] = "values"
-    dset_time_series.attrs["coords__zone_id"] = np.arange(
+    dset_dest_zones.attrs["coords_mode__training_set"] = "trivial"
+    dset_dest_zones.attrs["coords_mode__time"] = "trivial"
+    dset_dest_zones.attrs["coords_mode__zone_id"] = "values"
+    dset_dest_zones.attrs["coords__zone_id"] = np.arange(
         N_origin, N_origin + N_destination, 1
     )
 
     # Write the time series data
-    dset_time_series[:, :] = time_series
+    dset_dest_zones[:, ] = destination_sizes
 
     # Training time series
     # Extract the training data from the time series data and save
+    num_training_steps = cfg.get("num_training_steps")
+
     training_or_sizes, training_dset_sizes = (
-        or_sizes[:, -num_training_steps:],
-        dest_sizes[:, -num_training_steps:],
+        origin_sizes[:, -num_training_steps:, :, :],
+        destination_sizes[:, -num_training_steps:],
     )
     dset_training_data = h5group.create_dataset(
         "training_data",
@@ -258,8 +204,8 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
     # Origin zone sizes
     dset_origin_sizes = h5group.create_dataset(
         "origin_sizes",
-        or_sizes.shape,
-        maxshape=or_sizes.shape,
+        origin_sizes.shape,
+        maxshape=origin_sizes.shape,
         chunks=True,
         compression=3,
     )
@@ -274,8 +220,8 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
     dset_origin_sizes.attrs["coords_mode__zone_id"] = "values"
     dset_origin_sizes.attrs["coords__zone_id"] = np.arange(0, N_origin, 1)
     dset_origin_sizes[
-        :,
-    ] = or_sizes
+    :,
+    ] = origin_sizes
 
     # Create a network group
     nw_group = h5file.create_group("true_network")
@@ -332,19 +278,19 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
     # Adjacency matrix: only written out if explicity specified
     adjacency_matrix = nw_group.create_dataset(
         "_adjacency_matrix",
-        [1] + list(np.shape(network)),
+        network.shape,
         chunks=True,
         compression=3,
     )
-    adjacency_matrix.attrs["dim_names"] = ["time", "i", "j"]
+    adjacency_matrix.attrs["dim_names"] = ["i", "j"]
     adjacency_matrix.attrs["coords_mode__i"] = "trivial"
     adjacency_matrix.attrs["coords_mode__j"] = "trivial"
-    adjacency_matrix[-1, :] = network
+    adjacency_matrix[:, :] = network
 
     return (
-        or_sizes.to(device),
+        origin_sizes.to(device),
         training_dset_sizes.to(device),
         training_or_sizes.to(device),
         network.to(device),
-        time_series,
+        destination_sizes,
     )
