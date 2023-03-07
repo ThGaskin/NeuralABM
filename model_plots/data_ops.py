@@ -428,3 +428,16 @@ def matrix_indices_sel(
             indices[1], dims=dims, coords=dict(edge_idx=np.arange(len(indices[0])))
         ),
     )
+
+@is_operation("NeuralABM.compute_p_values")
+@apply_along_dim
+def p_values(
+        data: xr.DataArray, *_, t: float, x: str = 'param1', y: str = 'prob', coords: dict = None
+):
+    dx = data[x][1] - data[x][0]
+    mu = (data[x] * data[y]).sum('bin_idx')*dx
+    t_index = (np.abs(data[x]-t).argmin()).item()
+    if t >= mu:
+        return (data[y][t_index:].sum('bin_idx') * dx).data, mu
+    else:
+        return (data[y][:t_index].sum('bin_idx') * dx).data, mu
