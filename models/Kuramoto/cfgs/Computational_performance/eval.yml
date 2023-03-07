@@ -72,6 +72,8 @@ time_and_loss:
           - .isel: [!dag_prev , {time: -1}]
             kwargs: {drop: true}
       time: output_data/computation_time
+      time_regression:
+        path: regression_data/computation_time
   transform:
     - .mean: [!dag_tag loss, 'seed' ]
       tag: mean_loss
@@ -92,27 +94,41 @@ time_and_loss:
       - y: !dag_tag mean_time
         yerr: !dag_prev
       tag: time_data
-  compute_only: [loss_data, time_data]
+    - .mean: [!dag_tag time_regression, 'seed']
+      tag: regression_time
+  compute_only: [loss_data, time_data, regression_time]
   helpers:
     set_labels:
       x: $N$
-      y: 'Time per epoch [s]'
+      y: 'Time [s]'
     set_texts:
       texts:
-        - x: 420
-          y: 42
-          s: 'CPU time'
+        - x: 40
+          y: 60
+          s: 'OLS (CPU)'
+          color: 'black'
+#          fontsize: 8
+        - x: 250
+          y: 80
+          s: 'Neural (CPU)'
           color: *green
           zorder: 10
-        - x: 70
-          y: 22
+#          fontsize: 8
+        - x: 300
+          y: 0.4
           s: '$L1$ error'
           color: *darkblue
+#          fontsize: 8
     set_title:
       title: ~
+    set_scales:
+      y: log
+    set_limits:
+      x: [min, max]
   file_ext: pdf
   loss_color: *darkblue
   time_color: *green
+  regression_color: 'black'
   style:
     axes.spines.right: True
-    figure.figsize: [*half_width, *quarter_width]
+    figure.figsize: [*third_width, *third_width]

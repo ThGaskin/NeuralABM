@@ -26,7 +26,7 @@
     text.usetex:        True
     mathtext.fontset:   cm
     font.family:        serif
-    font.size:          &font_size 9
+    font.size:          &font_size 10
     axes.titlesize:     *font_size
     axes.labelsize:     *font_size
     legend.fontsize:    *font_size
@@ -49,11 +49,6 @@
     axes.spines.right:  False
     savefig.transparent: False
 
-  helpers:
-    save_figure:
-      dpi: 900
-    set_legend:
-      facecolor: None
   file_ext: pdf
 
 
@@ -138,22 +133,15 @@
 loss:
   based_on: .line_universe
   select:
-    training_loss:
-      path: output_data/Training loss
-      transform: [.data]
-    Frobenius_error:
-      path: output_data/Prediction error
-      transform: [.data]
-  transform:
-    - pd.Index: [ [ 'Training loss', 'Prediction error' ] ]
-      kwargs: {name: 'loss type'}
-    - xr.concat: [[!dag_tag training_loss, !dag_tag Frobenius_error], !dag_prev ]
-      tag: data
-  hue: loss type
+    data:
+      path: output_data/Loss
+      transform:
+        - .sel: [!dag_prev , {kind: [Total loss, Data loss, L1 prediction error]}]
+  hue: kind
   helpers:
     set_labels:
-      x: iteration
-      y: loss
+      x: Iteration
+      y: Loss
     set_scales:
       y: log
 
@@ -164,7 +152,7 @@ phases:
     - .plot.facet_grid.scatter
   select:
     phases:
-      path: training_data/training_data
+      path: training_data/phases
       transform:
         - .isel: [!dag_prev , {time: [0, -1], training_set: 0}]
           kwargs: {drop: true}
@@ -183,7 +171,6 @@ phases:
   col: time
   subplot_kws:
     projection: polar
-  figsize: [7.5, 2.5]
   cmap:
     from_values:
       0: *darkblue
@@ -202,10 +189,10 @@ phases:
     set_ticks:
       x:
         major:
-          locs: [0.0, 0.7853981633974483, 1.5707963267948966, 2.356194490192345, 3.141592653589793, 3.9269908169872414, 4.71238898038469, 5.497787143782138]
+          locs: [0.0, 0.785, 1.570, 2.356, 3.141, 3.926, 4.712, 5.497]
           labels: [0, $\pi/4$, $\pi/2$, $3\pi/4$, $\pi$, $5\pi/4$, $3\pi/2$, $7\pi/4$]
         minor:
-          locs: [0.39269908169872414, 1.1780972450961724, 1.9634954084936207, 2.748893571891069, 3.5342917352885173, 4.319689898685965, 5.105088062083414, 5.890486225480862]
+          locs: [0.392, 1.178, 1.963, 2.748, 3.534, 4.319, 5.105, 5.890]
       y:
         major: []
         labels: []
@@ -228,8 +215,7 @@ phases_lines:
       path: training_data/phases
       transform:
         - .isel: [ !dag_prev , { training_set: 0 } ]
-          kwargs:
-            drop: True
+          kwargs: {drop: True}
   x: time
   hue: vertex_idx
   color: black
@@ -237,6 +223,7 @@ phases_lines:
     set_legend:
       use_legend: False
 
+# Plot the complete state equation for each vertex (sin(\Omega t + \varphi(t)))
 oscillations:
   based_on:
     - .creator.universe
@@ -261,24 +248,22 @@ oscillations:
     - mul: [!dag_prev , !dag_tag t ]
     - add: [!dag_tag eigen_frequencies , !dag_prev ]
     - sin: [!dag_prev ]
-#    - .isel: [!dag_prev , {vertex_idx: [0, 1, 255]}]
       tag: data
   x: time
   hue: vertex_idx
-#  color: black
+  color: black
+  alpha: 0.5
   helpers:
     set_legend:
-      use_legend: True
-#    set_limits:
-#      x: [2.5, 5.5]
+      use_legend: False
 
 # ======================================================================================================================
 #  ╔╗╔╔═╗╔╦╗╦ ╦╔═╗╦═╗╦╔═  ╔═╗╦  ╔═╗╔╦╗╔═╗
 #  ║║║║╣  ║ ║║║║ ║╠╦╝╠╩╗  ╠═╝║  ║ ║ ║ ╚═╗
 #  ╝╚╝╚═╝ ╩ ╚╩╝╚═╝╩╚═╩ ╩  ╩  ╩═╝╚═╝ ╩ ╚═╝
 # ======================================================================================================================
-# Graph plot
-graph:
+# network plot
+network:
   based_on:
     - .creator.universe
     - .plot.graph
@@ -301,93 +286,14 @@ graph:
         from_property: _edge_weights
         scale_to_interval: [0, 1]
 
-# Adjacency matrix from edge data of an undirected graph
-undirected_adjacency_matrix:
-  based_on:
-    - .creator.universe
-    - .plot.facet_grid.scatter
-  select:
-    edges: true_network/_edges
-    edge_weights: true_network/_edge_weights
-    num_agents:
-      path: cfg
-      transform:
-        - recursive_getitem: [ !dag_prev , [ "Kuramoto", "Data", "synthetic_data", "N" ] ]
-  transform:
-    - .isel: [ !dag_tag edges , { time: -1, vertex_idx: 0 } ]
-      kwargs:
-        drop: true
-      tag: edges_i
-    - .isel: [ !dag_tag edges , { time: -1, vertex_idx: 1 } ]
-      kwargs:
-        drop: true
-      tag: edges_j
-    - .isel: [!dag_tag edge_weights , { time: -1 } ]
-      tag: weights
-    - xr.Dataset:
-      - i: !dag_tag edges_i
-        j: !dag_tag edges_j
-        weight: !dag_prev
-      tag: lower
-    - xr.Dataset:
-        - i: !dag_tag edges_j
-          j: !dag_tag edges_i
-          weight: !dag_tag weights
-    - xr.concat: [[!dag_tag lower, !dag_prev ], 'edge_idx']
-      tag: data
-  x: i
-  y: j
-  hue: weight
-  marker: s
-  helpers:
-    set_title:
-      title: ' '
-    set_limits:
-      x: [ -1, !dag_result num_agents ]
-      y: [ !dag_result num_agents, -1 ]
-    set_tick_locators:
-      x: &formatting
-        major:
-          name: MaxNLocator
-          integer: true
-          nbins: !dag_result num_agents
-      y:
-        <<: *formatting
-  cmap:
-    from_values:
-      0: *darkblue
-      1: *red
-    continuous: true
-  vmin: 0
-  vmax: 1
-
-# Adjacency matrix from edge data of a directed graph
-directed_adjacency_matrix:
-  based_on: undirected_adjacency_matrix
-  transform:
-    - .isel: [ !dag_tag edges , { time: -1, vertex_idx: 0 } ]
-      kwargs:
-        drop: true
-      tag: edges_i
-    - .isel: [ !dag_tag edges , { time: -1, vertex_idx: 1 } ]
-      kwargs:
-        drop: true
-      tag: edges_j
-    - .isel: [!dag_tag edge_weights , { time: -1 } ]
-    - xr.Dataset:
-      - i: !dag_tag edges_i
-        j: !dag_tag edges_j
-        weight: !dag_prev
-      tag: data
-
 # Adjacency matrix from matrix data
 adjacency_matrix:
   based_on: .matrix
   select:
     data: true_network/_adjacency_matrix
 
-# Accuracy of the prediction, using an L1 norm
-accuracy:
+# L1 prediction error on each edge
+error:
   based_on: .matrix
   select:
     prediction:
@@ -402,89 +308,3 @@ accuracy:
     - sub: [!dag_tag prediction, !dag_tag true_values]
     - np.abs: [!dag_prev ]
       tag: data
-
-# Accuracy of the prediction on the true edges
-accuracy_on_true_edges:
-  based_on: accuracy
-  transform:
-    - sub: [ !dag_tag prediction, !dag_tag true_values ]
-    - np.abs: [ !dag_prev ]
-      tag: l1_accuracy
-    - mul: [!dag_tag prediction, !dag_tag true_values]
-    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
-      tag: data
-
-# Accuracy of the prediction on false edges
-accuracy_on_false_edges:
-  based_on: accuracy
-  transform:
-    - sub: [ !dag_tag prediction, !dag_tag true_values ]
-    - np.abs: [ !dag_prev ]
-      tag: l1_accuracy
-    - ==: [!dag_tag true_values, 0]
-    - xr.where: [!dag_prev , 1, 0]
-    - mul: [!dag_tag prediction, !dag_prev ]
-    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
-      tag: data
-
-# Marginal density on a parameter
-marginals_parameter_uni:
-  based_on:
-    - .creator.universe
-    - .plot.prob_density
-  select:
-    param:
-      path: predicted_network/_in_degree
-      transform:
-        - .mean: [!dag_prev ]
-          kwargs: {dim: vertex_idx}
-    true_param:
-      path: true_network/_degree
-      transform:
-        - .mean: [!dag_prev ]
-          kwargs: {dim: vertex_idx}
-    loss:
-      path: output_data/loss
-      transform:
-        - np.maximum: [ !dag_prev , *loss_limit ]
-        - log10: [ !dag_prev ]
-        - mul: [ !dag_prev , -1 ]
-        - np.exp: [!dag_prev ]
-  transform:
-    - xr.Dataset:
-      - param1: !dag_tag param
-        loss: !dag_tag loss
-    - NeuralABM.compute_marginals: [ !dag_prev ]
-      kwargs:
-        bins: 200
-      tag: data
-  helpers:
-    set_hv_lines:
-      vlines:
-        - pos: !dag_result true_param
-          linestyle: dashed
-          color: gray
-
-
-# ======================================================================================================================
-#  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
-#  ║║║║ ║║  ║ ║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
-#  ╩ ╩╚═╝╩═╝╩ ╩ ╚╝ ╚═╝╩╚═╚═╝╚═╝  ╩  ╩═╝╚═╝ ╩ ╚═╝
-# ======================================================================================================================
-loss_stacked:
-  based_on: .line_multiverse
-  expected_multiverse_ndim: [1, 2, 3, 4, 5]
-  select_and_combine:
-    fields:
-      values: output_data/training_loss
-  transform:
-    - .mean: [!dag_tag values]
-      kwargs:
-        dim: seed
-      tag: data
-  x: time
-  helpers:
-    set_scales:
-      y: log
-    set_labels:
-      y: Training loss $J$

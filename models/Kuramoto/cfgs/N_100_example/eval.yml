@@ -57,7 +57,7 @@
 
 # Plot the training and Frobenius loss
 losses:
-  based_on: losses_combined
+  based_on: loss
   figsize: [*half_width, *third_width]
 
 # Plot the true adjacency matrix

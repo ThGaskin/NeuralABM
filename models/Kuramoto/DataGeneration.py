@@ -96,19 +96,18 @@ def get_data(
                 np.array(f["training_data"]["eigen_frequencies"])
             ).float()
 
-            print(eigen_frequencies.shape)
-
     # Get the config and number of agents
     dt = cfg.get("dt")
-    gamma = cfg.get("gamma", 1)
-    cfg = cfg.get("synthetic_data")
-    nw_cfg = cfg.pop("network", {})
+    gamma = cfg.get("gamma")
+    kappa = cfg.get("kappa")
+    data_cfg = cfg.get("synthetic_data")
+    nw_cfg = data_cfg.pop("network", {})
 
     # If network was loaded, set the number of nodes to be the network size
     if network is not None:
-        cfg.update(dict(N=network.number_of_nodes()))
-    cfg.update(dict(dt=dt, gamma=gamma))
-    N: int = cfg["N"]
+        data_cfg.update(dict(N=network.number_of_nodes()))
+    data_cfg.update(dict(dt=dt, gamma=gamma, kappa=kappa))
+    N: int = data_cfg["N"]
 
     # If network was not loaded, generate the network
     if network is None:
@@ -121,39 +120,47 @@ def get_data(
 
         log.info("   Generating eigenfrequencies  ...")
 
-        num_steps: int = cfg.get("num_steps")
-        training_set_size: int = cfg.get("training_set_size")
+        num_steps: int = data_cfg.get("num_steps")
+        training_set_size: int = data_cfg.get("training_set_size")
 
         # If set, generate a time series of i.i.d distributed eigenfrequencies
-        if cfg.get("eigen_frequencies")["time_series"]:
+        if data_cfg.get("eigen_frequencies")["time_series"]:
             eigen_frequencies = base.random_tensor(
-                **cfg.get("eigen_frequencies"),
+                **data_cfg.get("eigen_frequencies"),
                 size=(training_set_size, num_steps + 1, N, 1),
                 device=device,
             )
         else:
+
             eigen_frequencies = base.random_tensor(
-                **cfg.get("eigen_frequencies"), size=(1, 1, N, 1), device=device
+                **data_cfg.get("eigen_frequencies"), size=(1, 1, N, 1), device=device
             ).repeat(training_set_size, num_steps + 1, 1, 1)
 
     # If training data was not loaded, generate
     if training_data is None:
 
         log.info("   Generating training data ...")
-        num_steps: int = cfg.get("num_steps")
-        training_set_size = cfg.get("training_set_size")
+        num_steps: int = data_cfg.get("num_steps")
+        training_set_size = data_cfg.get("training_set_size")
         training_data = torch.empty(
             (training_set_size, num_steps + 1, N, 1), device=device
         )
 
-        adj_matrix = torch.from_numpy(nx.to_numpy_matrix(network)).float().to(device)
+        adj_matrix = torch.from_numpy(nx.to_numpy_array(network)).float().to(device)
 
-        ABM = Kuramoto_ABM(**cfg, device=device)
+        ABM = Kuramoto_ABM(**data_cfg, device=device)
+
+        # ---- POWERCUT SIMULATION -------------------------------------------------------------------------------------
+        # nodelist = list(network.nodes())
+        # edges_to_cut = [(256, 261), (255, 257)]
+        # edge_indices = [(nodelist.index(e[0]), nodelist.index(e[1])) for e in edges_to_cut]
+        # power_cut_index = 15000
+        # --------------------------------------------------------------------------------------------------------------
 
         for idx in range(training_set_size):
 
             training_data[idx, 0, :, :] = base.random_tensor(
-                **cfg.get("init_phases"), size=(N, 1), device=device
+                **data_cfg.get("init_phases"), size=(N, 1), device=device
             )
 
             # For the second-order dynamics, the initial velocities must also be given
@@ -167,6 +174,7 @@ def get_data(
 
             # Run the ABM for n iterations and write the data
             for i in range(t_0, num_steps):
+
                 training_data[idx, i + 1] = ABM.run_single(
                     current_phases=training_data[idx, i],
                     current_velocities=(
@@ -180,7 +188,19 @@ def get_data(
                     requires_grad=False,
                 )
 
+                # ---- POWERCUT SIMULATION -----------------------------------------------------------------------------
+                # if i == power_cut_index:
+                #     for j, e in enumerate(edges_to_cut):
+                #         network.remove_edge(e[0], e[1])
+                #     adj_matrix = torch.from_numpy(nx.to_numpy_array(network)).float().to(device)
+                # ------------------------------------------------------------------------------------------------------
+
         log.info("   Training data generated.")
+
+    # ---- POWERCUT SIMULATION -----------------------------------------------------------------------------------------
+    # training_data = training_data[:, power_cut_index+1:, :, :]
+    # eigen_frequencies = eigen_frequencies[:, power_cut_index+1:, :, :]
+    # ------------------------------------------------------------------------------------------------------------------
 
     # Save the data. If data was loaded, data can be copied if specified
     if load_from_dir.get("copy_data", True):
@@ -208,10 +228,7 @@ def get_data(
             "dim_name__0",
         ]
         dset_eigen_frequencies.attrs["coords_mode__training_set"] = "trivial"
-        dset_eigen_frequencies.attrs["coords_mode__time"] = "values"
-        dset_eigen_frequencies.attrs["coords__time"] = [
-            0 + n * dt for n in range(training_data.shape[1])
-        ]
+        dset_eigen_frequencies.attrs["coords_mode__time"] = "trivial"
         dset_eigen_frequencies.attrs["coords_mode__vertex_idx"] = "values"
         dset_eigen_frequencies.attrs["coords__vertex_idx"] = network.nodes()
         dset_eigen_frequencies[:, :] = eigen_frequencies.cpu()
@@ -230,10 +247,7 @@ def get_data(
             "dim_name__0",
         ]
         dset_phases.attrs["coords_mode__training_set"] = "trivial"
-        dset_phases.attrs["coords_mode__time"] = "values"
-        dset_phases.attrs["coords__time"] = [
-            0 + n * dt for n in range(training_data.shape[1])
-        ]
+        dset_phases.attrs["coords_mode__time"] = "trivial"
         dset_phases.attrs["coords_mode__vertex_idx"] = "values"
         dset_phases.attrs["coords__vertex_idx"] = network.nodes()
 
