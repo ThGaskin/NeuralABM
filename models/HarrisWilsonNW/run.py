@@ -83,15 +83,14 @@ class HarrisWilson_NN:
         self._write_start = write_start
         self._num_steps = num_steps
 
-        # Current training loss, Frobenius error, and current predictions
+        # Current training loss, Prediction error, and current predictions
         self.current_loss = torch.tensor(0.0)
-        self.current_frob_error = torch.tensor(0.0)
-        self.current_predictions = torch.zeros(self.nw_size)
+        self.current_prediction_error = torch.tensor(0.0)
         self.current_adjacency_matrix = torch.zeros(self.n_origin, self.n_dest)
 
         # Store the neural net training loss
         self._dset_loss = self._training_group.create_dataset(
-            "training_loss",
+            "Training loss",
             (0,),
             maxshape=(None,),
             chunks=True,
@@ -102,16 +101,16 @@ class HarrisWilson_NN:
         self._dset_loss.attrs["coords__epoch"] = [write_start, write_every]
 
         # Store the prediction error
-        self._dset_frob_error = self._training_group.create_dataset(
-            "frobenius_error",
+        self._dset_prediction_error = self._training_group.create_dataset(
+            "Prediction error",
             (0,),
             maxshape=(None,),
             chunks=True,
             compression=3,
         )
-        self._dset_frob_error.attrs["dim_names"] = ["epoch"]
-        self._dset_frob_error.attrs["coords_mode__epoch"] = "start_and_step"
-        self._dset_frob_error.attrs["coords__epoch"] = [write_start, write_every]
+        self._dset_prediction_error.attrs["dim_names"] = ["epoch"]
+        self._dset_prediction_error.attrs["coords_mode__epoch"] = "start_and_step"
+        self._dset_prediction_error.attrs["coords__epoch"] = [write_start, write_every]
 
         # Store the neural net output, possibly less regularly than the loss
         self._dset_predictions = self._training_group.create_dataset(
@@ -132,14 +131,13 @@ class HarrisWilson_NN:
 
         self.dset_time = self._training_group.create_dataset(
             "computation_time",
-            (0, 1),
-            maxshape=(None, 1),
+            (0,),
+            maxshape=(None,),
             chunks=True,
             compression=3,
         )
-        self.dset_time.attrs["dim_names"] = ["epoch", "training_time"]
+        self.dset_time.attrs["dim_names"] = ["epoch"]
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
-        self.dset_time.attrs["coords_mode__training_time"] = "trivial"
 
     def epoch(
         self,
@@ -178,9 +176,8 @@ class HarrisWilson_NN:
         counter = 0
 
         # Make an initial prediction
-        predicted_parameters = self.neural_net(torch.flatten(training_data[0, 0]))
         pred_adj_matrix = torch.reshape(
-            predicted_parameters, (self.n_origin, self.n_dest)
+            self.neural_net(torch.flatten(training_data[0, 0])), (self.n_origin, self.n_dest)
         )
 
         loss = torch.tensor(0.0, requires_grad=True)
@@ -222,21 +219,19 @@ class HarrisWilson_NN:
                     self.neural_net.optimizer.step()
                     self.neural_net.optimizer.zero_grad()
                     self.current_loss = loss.clone().detach().numpy().item()
-                    self.current_frob_error = (
-                        torch.nn.functional.mse_loss(self.true_network, pred_adj_matrix)
+                    self.current_prediction_error = (
+                        torch.nn.functional.l1_loss(self.true_network, pred_adj_matrix)
                         .clone()
                         .detach()
                         .numpy()
                         .item()
                     )
-                    self.current_predictions = predicted_parameters.clone().detach()
                     self.current_adjacency_matrix = pred_adj_matrix.clone().detach()
 
-                    predicted_parameters = self.neural_net(
-                        torch.flatten(dset[batches[batch_no + 1]])
-                    )
                     pred_adj_matrix = torch.reshape(
-                        predicted_parameters, (self.n_origin, self.n_dest)
+                        self.neural_net(
+                            torch.flatten(dset[batches[batch_no + 1]])
+                        ), (self.n_origin, self.n_dest)
                     )
 
                     del loss
@@ -247,7 +242,7 @@ class HarrisWilson_NN:
         self.write_predictions()
 
         self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
-        self.dset_time[-1, :] = time.time() - start_time
+        self.dset_time[-1] = time.time() - start_time
 
     def write_data(self):
         """Write the current loss and predicted network size into the state dataset.
@@ -262,8 +257,8 @@ class HarrisWilson_NN:
                 self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
                 self._dset_loss[-1] = self.current_loss
 
-                self._dset_frob_error.resize(self._dset_frob_error.shape[0] + 1, axis=0)
-                self._dset_frob_error[-1] = self.current_frob_error
+                self._dset_prediction_error.resize(self._dset_prediction_error.shape[0] + 1, axis=0)
+                self._dset_prediction_error[-1] = self.current_prediction_error
 
     def write_predictions(self, *, write_final: bool = False):
 
@@ -342,7 +337,7 @@ if __name__ == "__main__":
     log.info("   Generating training data ...")
 
     # Get the datasets
-    or_sizes, dest_sizes, training_or_sizes, network, time_series = HW.get_HW_data(
+    or_sizes, dest_sizes, training_or_sizes, network, time_series = HW.get_data(
         model_cfg["Data"], h5file, training_data_group, device=device
     )
 
@@ -396,8 +391,9 @@ if __name__ == "__main__":
         )
 
         log.progress(
-            f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}, "
-            f"current Frobenius error: {model.current_frob_error}"
+            f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}; "
+            f"current L1 prediction error:  {model.current_prediction_error}；"
+            f"epoch training time: {model.dset_time[-1]} s"
         )
 
     if write_predictions_every == -1:

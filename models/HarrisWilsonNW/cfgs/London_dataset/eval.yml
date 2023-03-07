@@ -1,0 +1,188 @@
+---
+.variables:
+  colors: &colors
+    yellow:       &yellow       '#F5DDA9'
+    darkblue:     &darkblue     '#2F7194'
+    red:          &red          '#ec7070'
+    skyblue:      &skyblue      '#97c3d0'
+    green:        &green        '#48675A'
+    lightbrown:   &lightbrown   '#C6BFA2'
+    orange:       &orange       '#EC9F7E'
+    lightgreen:   &lightgreen   '#AFD8BC'
+    grey:         &grey         '#3D4244'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:     &full_width         7.5
+    half_width:     &half_width         !expr 7.5 / 2
+    third_width:    &third_width        !expr 7.5 / 3
+    quarter_width:  &quarter_width      !expr 7.5 / 4
+    fifth_width:    &fifth_width        !expr 7.5 / 5
+    eighth_width:    &eighth_width      !expr 7.5 / 8
+    two_thirds_width:    &two_thirds_width      !expr 2* 7.5 / 3
+
+loss:
+  based_on: loss
+  color: black
+
+prediction_error:
+  based_on: loss
+  select:
+    data: output_data/Prediction error
+  color: black
+
+matrices/true_adjacency_matrix:
+  based_on: adjacency_matrix
+
+matrices/prediction:
+  based_on: adjacency_matrix
+  select:
+    data:
+      path: output_data/predictions
+      transform:
+        - .isel: [!dag_prev , {time: -1}]
+
+matrices/accuracy:
+  based_on: accuracy
+
+matrices/accuracy_on_true_edges:
+  based_on: accuracy_on_true_edges
+
+matrices/accuracy_on_false_edges:
+  based_on: accuracy_on_false_edges
+
+matrices/ratio:
+  based_on: .matrix
+  select:
+    true_data: true_network/_adjacency_matrix
+    predicted_data:
+      path: output_data/predictions
+      transform:
+        - .isel: [ !dag_prev , { time: -1 } ]
+  transform:
+    - div: [!dag_tag true_data, !dag_tag predicted_data]
+      tag: data
+  vmin: ~
+  vmax: ~
+
+# Plot the synthetic time series
+destination_sizes:
+  based_on: time_series
+  select:
+    data:
+      transform:
+        - .isel: [ !dag_prev , { training_set: 0 } ]
+          kwargs: { drop: true }
+
+predicted_destination_sizes:
+  based_on: destination_sizes
+  select:
+    data: output_data/predicted_time_series
+
+training_data:
+  based_on: destination_sizes
+  select:
+    data:
+      path: training_data/training_data
+
+origin_sizes:
+  based_on: destination_sizes
+  select:
+    data:
+      path: training_data/origin_sizes
+
+degree:
+  based_on: .multiplot_universe
+  dag_options:
+    meta_operations:
+      hist:
+        - np.linspace: [ 0, 20, 500 ]
+        - NeuralABM.hist: [ !arg 0 ]
+          kwargs: { bins: !dag_node -1, axis: !arg 1 }
+  select:
+    param_binned:
+      path: output_data/predictions
+      transform:
+        - .sum: [!dag_prev , i ]
+        - hist: [!dag_prev , 1]
+    true_val:
+      path: true_network/_adjacency_matrix
+      transform:
+        - .sum: [!dag_prev , i ]
+        - .expand_dims: [!dag_prev , {time: [0]}]
+        - hist: [!dag_prev , 1]
+    loss:
+      path: output_data/Training loss
+      transform:
+        - mul: [!dag_prev , -1]
+        - np.exp: [!dag_prev ]
+
+  transform:
+
+    # Get the true value
+    - NeuralABM.flatten_dims: [ !dag_tag true_val , { sample: [ time ] } ]
+    - NeuralABM.normalise_degrees_to_edges: [ !dag_prev ]
+    - .squeeze: [ !dag_prev ]
+    - .to_dataset: [!dag_prev ]
+      kwargs: {name: y}
+      tag: true_param
+
+    # Calculate mean, MLE, and error
+    - NeuralABM.flatten_dims: [ !dag_tag param_binned , { sample: [ time ] } ]
+    - NeuralABM.normalise_degrees_to_edges: [!dag_prev ]
+      tag: samples
+    - NeuralABM.flatten_dims: [ !dag_tag loss , { sample: [ epoch ] } ]
+    - .expand_dims: [!dag_prev ]
+      kwargs:
+        bin_center: 1
+        axis: -1
+      tag: loss_flattened
+    - .sum: [!dag_prev , 'sample']
+    - div: [!dag_tag loss_flattened, !dag_prev ]
+      tag: loss_normalised
+    - .coords: [!dag_tag loss , 'epoch']
+    - len: [!dag_prev ]
+      tag: n_steps
+    - .argmax: [!dag_tag loss ]
+    - NeuralABM.marginal_of_density: [ !dag_tag samples ]
+      kwargs:
+        loss: !dag_tag loss_normalised
+        error: Hellinger
+        MLE_index: !dag_prev
+      tag: data
+    - div: [!dag_tag loss_flattened , 20 ]
+      tag: losses
+    - .data: [!dag_tag loss_flattened]
+    - .to_dataset: [ !dag_tag samples ]
+      kwargs: { name: y }
+      tag: distributions
+  to_plot:
+    - function: [ model_plots.HarrisWilson, plot_prob_density ]
+      args: [ !dag_result data ]
+      x: bin_center
+      y: MLE
+      yerr: yerr
+      label: Inferred network
+      pass_helper: true
+      color: *darkblue
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [ !dag_result true_param ]
+      y: y
+      linestyle: solid
+      color: *yellow
+      label: Transport metric
+      pass_helper: True
+  x: bin_center
+  smooth_kwargs:
+    enabled: True
+    sigma: 2.8
+  helpers:
+    set_limits:
+      x: [10, 17]
+    set_labels:
+      x: Weighted degree $k$
+      y: $P(k)$
+    set_legend:
+      use_legend: True
+  style:
+    figure.figsize: [*half_width, *third_width]

@@ -4,7 +4,7 @@ import torch
 
 
 def random_tensor(
-        *, distribution: str, parameters: dict, size: tuple, device: str, **__
+        *, distribution: str, parameters: dict, size: tuple, device: str = 'cpu', **__
 ) -> torch.Tensor:
 
     """ Generates a random tensor according to a distribution.
@@ -19,15 +19,15 @@ def random_tensor(
 
     # Uniform distribution in an interval
     if distribution == "uniform":
-        return (parameters.get("upper") - parameters.get("lower")) * torch.rand(
+        return torch.tensor((parameters.get("upper") - parameters.get("lower")), dtype=torch.float) * torch.rand(
             size, dtype=torch.float, device=device
-        ) + parameters.get("lower")
+        ) + torch.tensor(parameters.get("lower"), dtype=torch.float)
 
     # Normal distribution
     elif distribution == "normal":
         return torch.normal(
-            parameters.get("mean"), parameters.get("std"), size=size, device=device
+            parameters.get("mean"), parameters.get("std"), size=size, device=device, dtype=torch.float
         )
 
     else:
-        raise ValueError(f"  Unrecognised distribution type {distribution}!")
+        raise ValueError(f"Unrecognised distribution type {distribution}!")

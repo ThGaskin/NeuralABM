@@ -24,8 +24,8 @@ Data:
     init_origin_sizes:
       distribution: normal
       parameters:
-        mean: 0.01
-        std: 0.001
+        mean: 1
+        std: 0.1
 
     # Fluctuations of the origin zones over time
     origin_size_std: 0.0
@@ -46,7 +46,7 @@ NeuralNet:
   nodes_per_layer:
     default: !is-positive-int 20
   activation_funcs:
-    default: sigmoid
+    default: tanh
     layer_specific:
       -1: HardSigmoid
   biases:
