@@ -219,7 +219,13 @@ class NeuralNet(nn.Module):
 
             # Initialise the biases of the layers with a uniform distribution
             if self.bias[i] is not None:
-                torch.nn.init.uniform_(layer.bias, self.bias[i][0], self.bias[i][1])
+                # Use the pytorch default if indicated
+                if self.bias[i] == 'default':
+                    torch.nn.init.uniform_(layer.bias)
+                # Initialise the bias on explicitly provided intervals
+                else:
+                    torch.nn.init.uniform_(layer.bias, self.bias[i][0], self.bias[i][1])
+
 
             self.layers.append(layer)
 
