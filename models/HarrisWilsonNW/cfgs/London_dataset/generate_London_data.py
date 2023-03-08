@@ -37,19 +37,22 @@ sigma = data_cfg.get("sigma")
 dt = data_cfg.get("dt")
 kappa = data_cfg.get("kappa")
 
+num_training_steps = cfg.get("parameter_space").get("HarrisWilsonNW").get("Data").get("num_training_steps")
+training_set_size = cfg.get("parameter_space").get("HarrisWilsonNW").get("Data").get("training_set_size")
+
 h5file = h5.File("/users/thomasgaskin/NeuralABM/data/HarrisWilsonNW/London_data.h5", mode="w")
 h5group = h5file.create_group("training_data")
 
 origin_sizes = torch.empty(
-    (1, num_steps + 1, N_origin, 1)
+    (num_steps, N_origin, 1)
 )
-origin_sizes[0, 0, :, :] = torch.from_numpy(pd.read_csv("data/HarrisWilson/London_data/origin_sizes.csv", header=0, index_col=0).to_numpy())
+origin_sizes[0, :, :] = torch.from_numpy(pd.read_csv("data/HarrisWilson/London_data/origin_sizes.csv", header=0, index_col=0).to_numpy())
 
 destination_sizes = torch.empty(
-    (1, num_steps + 1, N_destination, 1)
+    (num_steps, N_destination, 1)
 )
 
-destination_sizes[0, 0, :, 0] =  torch.from_numpy(pd.read_csv("data/HarrisWilson/London_data/dest_sizes.csv", header=0, index_col=0).to_numpy())
+destination_sizes[0, :, 0] =  torch.from_numpy(pd.read_csv("data/HarrisWilson/London_data/dest_sizes.csv", header=0, index_col=0).to_numpy())
 
 
 # Initialise the ABM
@@ -67,18 +70,24 @@ ABM = HW.HarrisWilsonABM(
 
 for __ in range(1, num_steps):
 
-    origin_sizes[0, __, :, :] = torch.abs(origin_sizes[0, __ - 1, :, :] + torch.normal(
-        0, origin_size_std, size=(N_origin, 1)
-    ))
+    origin_sizes[__, :, :] = origin_sizes[__ - 1, :, :] + torch.normal(0,
+        origin_size_std, size=(N_origin, 1)
+    )
+
+origin_sizes = torch.abs(origin_sizes)
 
 # Run the ABM for n iterations, generating the entire time series
-destination_sizes[0, :, :, :] = ABM.run(
-    init_data=destination_sizes[0, 0, :, :],
+destination_sizes[:, :, :] = ABM.run(
+    init_data=destination_sizes[0, :, :],
     adjacency_matrix=network,
-    n_iterations=num_steps,
-    origin_sizes=origin_sizes[0, :],
+    n_iterations=num_steps-1,
+    origin_sizes=origin_sizes[:],
     generate_time_series=True,
 )
+
+# Subsample the time series by splitting it into chunks
+destination_sizes = torch.stack(torch.split(destination_sizes, training_set_size * [int(len(destination_sizes)/training_set_size)]))[:, :num_training_steps]
+origin_sizes = torch.stack(torch.split(origin_sizes, training_set_size * [int(len(origin_sizes)/training_set_size)]))[:, :num_training_steps]
 
 # Set up dataset for complete synthetic time series
 dset_dest_zones = h5group.create_dataset(

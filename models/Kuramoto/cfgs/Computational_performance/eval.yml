@@ -1,22 +1,22 @@
 .variables:
   page_widths:
-    full_width:     &full_width         7.5
-    half_width:     &half_width         !expr 7.5 / 2
-    third_width:    &third_width        !expr 7.5 / 3
-    quarter_width:  &quarter_width      !expr 7.5 / 4
-    fifth_width:     &fifth_width        !expr 7.5 / 5
-    eighth_width:    &eighth_width      !expr 7.5 / 8
-    two_thirds_width:    &two_thirds_width      !expr 2* 7.5 / 3
+    full_width:           &full_width         7.5
+    half_width:           &half_width         !expr 7.5 / 2
+    third_width:          &third_width        !expr 7.5 / 3
+    quarter_width:        &quarter_width      !expr 7.5 / 4
+    fifth_width:          &fifth_width        !expr 7.5 / 5
+    eighth_width:         &eighth_width       !expr 7.5 / 8
+    two_thirds_width:     &two_thirds_width   !expr 2* 7.5 / 3
   colors: &colors
-    yellow:         &yellow       '#F5DDA9'
-    darkblue: &darkblue     '#2F7194'
-    red: &red          '#ec7070'
-    skyblue: &skyblue      '#97c3d0'
-    green: &green        '#48675A'
-    lightbrown: &lightbrown   '#C6BFA2'
-    orange: &orange       '#EC9F7E'
-    lightgreen: &lightgreen   '#AFD8BC'
-    grey: &grey         '#3D4244'
+    yellow:               &yellow             '#F5DDA9'
+    darkblue:             &darkblue           '#2F7194'
+    red:                  &red                '#ec7070'
+    skyblue:              &skyblue            '#97c3d0'
+    green:                &green              '#48675A'
+    lightbrown:           &lightbrown         '#C6BFA2'
+    orange:               &orange             '#EC9F7E'
+    lightgreen:           &lightgreen         '#AFD8BC'
+    grey:                 &grey               '#3D4244'
 
 loss: !pspace
   based_on:
@@ -103,22 +103,19 @@ time_and_loss:
       y: 'Time [s]'
     set_texts:
       texts:
-        - x: 40
-          y: 60
+        - x: 15
+          y: 140
           s: 'OLS (CPU)'
           color: 'black'
-#          fontsize: 8
-        - x: 250
-          y: 80
+        - x: 200
+          y: 70
           s: 'Neural (CPU)'
           color: *green
           zorder: 10
-#          fontsize: 8
-        - x: 300
+        - x: 280
           y: 0.4
           s: '$L1$ error'
           color: *darkblue
-#          fontsize: 8
     set_title:
       title: ~
     set_scales:
@@ -131,4 +128,4 @@ time_and_loss:
   regression_color: 'black'
   style:
     axes.spines.right: True
-    figure.figsize: [*third_width, *third_width]
+    figure.figsize: [2.37975, *third_width]

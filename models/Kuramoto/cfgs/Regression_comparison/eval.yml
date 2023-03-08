@@ -96,7 +96,7 @@ regression_comparison: !pspace
     set_title:
       title: ~
   style:
-    figure.figsize: [ *third_width, *third_width ]
+    figure.figsize: [ 2.7403, *third_width ]
     axes.prop_cycle: !format
       fstr: "cycler('color', ['black',
                               '{colors[yellow]:}',

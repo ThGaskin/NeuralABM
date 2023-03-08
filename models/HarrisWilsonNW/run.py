@@ -84,33 +84,23 @@ class HarrisWilson_NN:
         self._num_steps = num_steps
 
         # Current training loss, Prediction error, and current predictions
-        self.current_loss = torch.tensor(0.0)
-        self.current_prediction_error = torch.tensor(0.0)
+        self.current_loss = torch.tensor(0.0, dtype=torch.float)
+        self.current_prediction_error = torch.tensor(0.0, dtype=torch.float)
         self.current_adjacency_matrix = torch.zeros(self.n_origin, self.n_dest)
 
-        # Store the neural net training loss
+        # Store the neural net training loss and error
         self._dset_loss = self._training_group.create_dataset(
-            "Training loss",
-            (0,),
-            maxshape=(None,),
+            "Loss",
+            (0, 2),
+            maxshape=(None, 2),
             chunks=True,
             compression=3,
         )
-        self._dset_loss.attrs["dim_names"] = ["epoch"]
+        self._dset_loss.attrs["dim_names"] = ["epoch", "kind"]
         self._dset_loss.attrs["coords_mode__epoch"] = "start_and_step"
         self._dset_loss.attrs["coords__epoch"] = [write_start, write_every]
-
-        # Store the prediction error
-        self._dset_prediction_error = self._training_group.create_dataset(
-            "Prediction error",
-            (0,),
-            maxshape=(None,),
-            chunks=True,
-            compression=3,
-        )
-        self._dset_prediction_error.attrs["dim_names"] = ["epoch"]
-        self._dset_prediction_error.attrs["coords_mode__epoch"] = "start_and_step"
-        self._dset_prediction_error.attrs["coords__epoch"] = [write_start, write_every]
+        self._dset_loss.attrs["coords_mode__kind"] = "values"
+        self._dset_loss.attrs["coords__kind"] = ["Training loss", "L1 prediction error"]
 
         # Store the neural net output, possibly less regularly than the loss
         self._dset_predictions = self._training_group.create_dataset(
@@ -157,9 +147,6 @@ class HarrisWilson_NN:
         :param epsilon: (optional) the epsilon value to use during training
         :param dt: (optional) the time differential to use during training
         """
-
-        self.current_loss = torch.tensor(0.0)
-        self.current_frob_error = torch.tensor(0.0)
 
         start_time = time.time()
 
@@ -210,30 +197,29 @@ class HarrisWilson_NN:
                 if counter % batch_size == 0:
 
                     # Enforce row sum normalisation
-                    loss = loss + self.loss_function(
-                        torch.sum(pred_adj_matrix, dim=1),
-                        torch.ones(self.n_origin),
-                    )
+                    # loss = loss + self.loss_function(
+                    #     torch.sum(pred_adj_matrix, dim=1),
+                    #     torch.ones(self.n_origin),
+                    # )
 
+                    # Perform a gradient descent step
                     loss.backward()
                     self.neural_net.optimizer.step()
                     self.neural_net.optimizer.zero_grad()
-                    self.current_loss = loss.clone().detach().numpy().item()
+                    self.current_loss = loss.clone().detach()
                     self.current_prediction_error = (
-                        torch.nn.functional.l1_loss(self.true_network, pred_adj_matrix)
-                        .clone()
-                        .detach()
-                        .numpy()
-                        .item()
-                    )
+                        torch.nn.functional.l1_loss(self.true_network, pred_adj_matrix / torch.sum(pred_adj_matrix, dim=1, keepdim=True))
+                    ).clone().detach()
                     self.current_adjacency_matrix = pred_adj_matrix.clone().detach()
 
+                    # Make a new prediction
                     pred_adj_matrix = torch.reshape(
                         self.neural_net(
                             torch.flatten(dset[batches[batch_no + 1]])
                         ), (self.n_origin, self.n_dest)
                     )
 
+                    # Wipe the loss
                     del loss
                     loss = torch.tensor(0.0, requires_grad=True)
 
@@ -255,10 +241,8 @@ class HarrisWilson_NN:
 
             if self._time % self._write_every == 0:
                 self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
-                self._dset_loss[-1] = self.current_loss
-
-                self._dset_prediction_error.resize(self._dset_prediction_error.shape[0] + 1, axis=0)
-                self._dset_prediction_error[-1] = self.current_prediction_error
+                self._dset_loss[-1, 0] = self.current_loss.cpu().numpy()
+                self._dset_loss[-1, 1] = self.current_prediction_error.cpu().numpy()
 
     def write_predictions(self, *, write_final: bool = False):
 
@@ -350,6 +334,11 @@ if __name__ == "__main__":
         input_size=N_dest, output_size=N_origin * N_dest, **model_cfg["NeuralNet"]
     )
 
+    # Set the neural net to an initial state, if given
+    if model_cfg["NeuralNet"].get("initial_state", None) is not None:
+        net.load_state_dict(torch.load(model_cfg["NeuralNet"].get("initial_state")))
+        net.eval()
+
     # Get the true parameters
     true_parameters = model_cfg["Training"]["true_parameters"]
 
@@ -390,11 +379,17 @@ if __name__ == "__main__":
             batch_size=batch_size,
         )
 
+        # Print progress message
         log.progress(
-            f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}; "
-            f"current L1 prediction error:  {model.current_prediction_error}；"
-            f"epoch training time: {model.dset_time[-1]} s"
+            f"   Completed epoch {i + 1} / {num_epochs} in {model.dset_time[-1]} s \n"
+            f"            ----------------------------------------------------------------- \n"
+            f"            Loss: {model.current_loss} \n"
+            f"            L1 prediction error: {model.current_prediction_error} \n"
         )
+
+        # Save neural net, if specified
+        if model_cfg["NeuralNet"].get("save_to", None) is not None:
+            torch.save(net.state_dict(), model_cfg["NeuralNet"].get("save_to"))
 
     if write_predictions_every == -1:
         model.write_predictions(write_final=True)

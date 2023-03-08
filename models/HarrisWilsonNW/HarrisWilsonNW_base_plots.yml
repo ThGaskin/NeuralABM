@@ -56,34 +56,6 @@
       dpi: 900
   file_ext: pdf
 
-.calculate_clustering_coefficient:
-  dag_options:
-    select_path_prefix: ~
-    meta_operations:
-      calculate_clustering_coefficient:
-        select:
-          in_degree:
-            path: !kwarg in_degree
-            transform:
-              - .data: [!dag_prev ]
-                tag: k_in
-              - sub: [!dag_prev , 1]
-              - mul: [!dag_prev , !dag_tag k_in]
-          out_degree:
-            path: !kwarg out_degree
-            transform:
-              - .data: [!dag_prev ]
-                tag: k_out
-              - sub: [!dag_prev , 1]
-              - mul: [!dag_prev , !dag_tag k_out]
-          triangles:
-            path: !kwarg triangles
-            transform:
-              - .data: [!dag_prev ]
-        transform:
-          - add: [ !dag_tag in_degree , !dag_tag out_degree ]
-          - div: [ !dag_tag triangles, !dag_prev ]
-
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
@@ -220,30 +192,10 @@
 loss:
   based_on: .line_universe
   select:
-    data: output_data/Training loss
+    data: output_data/Loss
+  col: kind
+  sharey: False
   helpers:
-    set_scales:
-      y: log
-
-losses_combined:
-  based_on: .line_universe
-  select:
-    training_loss:
-      path: output_data/Training loss
-      transform: [.data]
-    prediction_error:
-      path: output_data/Prediction error
-      transform: [.data]
-  transform:
-    - pd.Index: [ [ 'Training loss', 'Prediction error' ] ]
-      kwargs: {name: 'loss type'}
-    - xr.concat: [[!dag_tag training_loss, !dag_tag prediction_error], !dag_prev ]
-      tag: data
-  hue: loss type
-  helpers:
-    set_labels:
-      x: iteration
-      y: loss
     set_scales:
       y: log
 
@@ -510,90 +462,14 @@ graph:
         from_property: _edge_weights
         scale_to_interval: [0, 1]
 
-# Adjacency matrix from edge data of an undirected graph
-undirected_adjacency_matrix:
-  based_on:
-    - .creator.universe
-    - .plot.facet_grid.scatter
-  select:
-    edges: true_network/_edges
-    edge_weights: true_network/_edge_weights
-    num_agents:
-      path: cfg
-      transform:
-        - recursive_getitem: [ !dag_prev , [ "Kuramoto", "Data", "synthetic_data", "N" ] ]
-  transform:
-    - .isel: [ !dag_tag edges , { time: -1, vertex_idx: 0 } ]
-      kwargs:
-        drop: true
-      tag: edges_i
-    - .isel: [ !dag_tag edges , { time: -1, vertex_idx: 1 } ]
-      kwargs:
-        drop: true
-      tag: edges_j
-    - .isel: [!dag_tag edge_weights , { time: -1 } ]
-      tag: weights
-    - xr.Dataset:
-      - i: !dag_tag edges_i
-        j: !dag_tag edges_j
-        weight: !dag_prev
-      tag: lower
-    - xr.Dataset:
-        - i: !dag_tag edges_j
-          j: !dag_tag edges_i
-          weight: !dag_tag weights
-    - xr.concat: [[!dag_tag lower, !dag_prev ], 'edge_idx']
-      tag: data
-  x: i
-  y: j
-  hue: weight
-  marker: s
-  helpers:
-    set_title:
-      title: ' '
-    set_limits:
-      x: [ -1, !dag_result num_agents ]
-      y: [ !dag_result num_agents, -1 ]
-    set_tick_locators:
-      x:
-        <<: *formatting
-      y:
-        <<: *formatting
-  cmap:
-    from_values:
-      0: *darkblue
-      1: *red
-    continuous: true
-  vmin: 0
-  vmax: 1
-
-# Adjacency matrix from edge data of a directed graph
-directed_adjacency_matrix:
-  based_on: undirected_adjacency_matrix
-  transform:
-    - .isel: [ !dag_tag edges , { time: -1, vertex_idx: 0 } ]
-      kwargs:
-        drop: true
-      tag: edges_i
-    - .isel: [ !dag_tag edges , { time: -1, vertex_idx: 1 } ]
-      kwargs:
-        drop: true
-      tag: edges_j
-    - .isel: [!dag_tag edge_weights , { time: -1 } ]
-    - xr.Dataset:
-      - i: !dag_tag edges_i
-        j: !dag_tag edges_j
-        weight: !dag_prev
-      tag: data
-
 # Adjacency matrix from matrix data
 adjacency_matrix:
   based_on: .matrix
   select:
     data: true_network/_adjacency_matrix
 
-# Accuracy of the prediction, using an L1 norm
-accuracy:
+# Relative L1 error of the prediction
+error:
   based_on: .matrix
   select:
     prediction:
@@ -607,30 +483,7 @@ accuracy:
   transform:
     - sub: [!dag_tag prediction, !dag_tag true_values]
     - np.abs: [!dag_prev ]
-      tag: data
-
-# Accuracy of the prediction on the true edges
-accuracy_on_true_edges:
-  based_on: accuracy
-  transform:
-    - sub: [ !dag_tag prediction, !dag_tag true_values ]
-    - np.abs: [ !dag_prev ]
-      tag: l1_accuracy
-    - mul: [!dag_tag prediction, !dag_tag true_values]
-    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
-      tag: data
-
-# Accuracy of the prediction on false edges
-accuracy_on_false_edges:
-  based_on: accuracy
-  transform:
-    - sub: [ !dag_tag prediction, !dag_tag true_values ]
-    - np.abs: [ !dag_prev ]
-      tag: l1_accuracy
-    - ==: [!dag_tag true_values, 0]
-    - xr.where: [!dag_prev , 1, 0]
-    - mul: [!dag_tag prediction, !dag_prev ]
-    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
+    - div: [!dag_prev , !dag_tag true_values]
       tag: data
 
 # Marginal density on a parameter

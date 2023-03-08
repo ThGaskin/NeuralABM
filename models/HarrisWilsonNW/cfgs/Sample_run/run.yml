@@ -2,14 +2,14 @@
 paths:
   model_note: Sample_run
 parameter_space:
-  num_epochs: 100
-  write_predictions_every: 1
-  write_every: 1
+  num_epochs: 1000
+  write_predictions_every: 2
+  write_every: 2
   seed: 39
   HarrisWilsonNW:
     Data:
-      num_training_steps: 100
-      training_set_size: 50
+      num_training_steps: 200
+      training_set_size: 1
       synthetic_data:
         N_origin: 20
         N_destination: 10
@@ -24,7 +24,7 @@ parameter_space:
         num_steps: 600
         origin_size_std: 0.1
     Training:
-      batch_size: 10
+      batch_size: 2
       true_parameters:
         alpha: *alpha
         beta: *beta
@@ -32,8 +32,11 @@ parameter_space:
         sigma: 0.0
         epsilon: *epsilon
         dt: *dt
-      learning_rate: 0.02
     NeuralNet:
       activation_funcs:
+        default: !sweep
+          default: tanh
+          values: [tanh, sigmoid]
+          name: activation_func
         layer_specific:
-          -1: HardSigmoid
+          -1: sigmoid

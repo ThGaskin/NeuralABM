@@ -24,37 +24,15 @@ training_data:
   select:
     data:
       path: training_data/training_data
-  style:
-    figure.figsize: [ *third_width, 1.0 ]
-  helpers:
-    set_limits:
-      x: [0, ~]
-    set_ticks:
-      x:
-        major:
-          locs: [0, 200, 400]
-          labels: ['', '', '']
-
 
 origin_sizes:
   based_on: training_data
   select:
     data:
       path: training_data/origin_sizes
-  helpers:
-    set_labels:
-      x: ' '
-      y: $O_i$
-    set_limits:
-      x: [500, 1000]
-    set_ticks:
-      x:
-        major:
-          locs: [500, 700, 900]
-          labels: ['', '', '']
 
 loss:
-  based_on: losses_combined
+  based_on: loss
 
 matrices/true_adjacency_matrix:
   based_on: adjacency_matrix
@@ -67,14 +45,8 @@ matrices/prediction:
       transform:
         - .isel: [!dag_prev , {time: -1}]
 
-matrices/accuracy:
-  based_on: accuracy
-
-matrices/accuracy_on_true_edges:
-  based_on: accuracy_on_true_edges
-
-matrices/accuracy_on_false_edges:
-  based_on: accuracy_on_false_edges
+matrices/error:
+  based_on: error
 
 matrices/ratio:
   based_on: .matrix
@@ -109,28 +81,29 @@ degree:
   dag_options:
     meta_operations:
       hist:
-        - np.linspace: [ 0, 20, 500 ]
+        - np.linspace: [ 0, 5, 500 ]
         - NeuralABM.hist: [ !arg 0 ]
-          kwargs: { bins: !dag_node -1, axis: 1 }
+          kwargs: { bins: !dag_node -1, axis: !arg 1 }
   select:
     param_binned:
       path: output_data/predictions
       transform:
         - .sum: [!dag_prev , i ]
-        - hist: [!dag_prev ]
+        - hist: [!dag_prev , 1]
     true_val:
       path: true_network/_adjacency_matrix
       transform:
         - .sum: [!dag_prev , i ]
-        - hist: [!dag_prev ]
+        - .expand_dims: [!dag_prev , {time: [0]}]
+        - hist: [!dag_prev , 1]
     loss:
-      path: output_data/training_loss
+      path: output_data/Loss
       transform:
+        - .sel: [!dag_prev , {kind: Training loss}]
         - mul: [!dag_prev , -1]
         - np.exp: [!dag_prev ]
 
   transform:
-
     # Get the true value
     - NeuralABM.flatten_dims: [ !dag_tag true_val , { sample: [ time ] } ]
     - NeuralABM.normalise_degrees_to_edges: [ !dag_prev ]
@@ -166,15 +139,15 @@ degree:
       kwargs: { name: y }
       tag: distributions
   to_plot:
-    - function: [ model_plots.HarrisWilson, plot_prob_density ]
-      args: [ !dag_result distributions ]
-      y: y
-      hue: sample
-      alpha: !dag_result losses
-      lw: 0.3 #!dag_result losses
-      suppress_labels: true
-      color: *darkblue
-      pass_helper: True
+#    - function: [ model_plots.HarrisWilson, plot_prob_density ]
+#      args: [ !dag_result distributions ]
+#      y: y
+#      hue: sample
+#      alpha: !dag_result losses
+#      lw: !dag_result losses
+#      suppress_labels: true
+#      color: *darkblue
+#      pass_helper: True
     - function: [ model_plots.HarrisWilson, plot_prob_density ]
       args: [ !dag_result data ]
       x: bin_center
@@ -200,3 +173,16 @@ degree:
     set_labels:
       x: Weighted degree $k$
       y: $P(k)$
+
+loss_mv:
+  based_on: .line_multiverse
+  expected_multiverse_ndim: [2]
+  select_and_combine:
+    fields:
+      data: output_data/Loss
+  col: kind
+  hue: activation_func
+  sharey: False
+  helpers:
+    set_scales:
+      y: log

@@ -23,16 +23,13 @@
 
 loss:
   based_on: loss
-  color: black
-
-prediction_error:
-  based_on: loss
-  select:
-    data: output_data/Prediction error
-  color: black
 
 matrices/true_adjacency_matrix:
   based_on: adjacency_matrix
+  norm:
+    name: LogNorm
+  vmin: 1e-7
+  vmax: ~
 
 matrices/prediction:
   based_on: adjacency_matrix
@@ -41,15 +38,17 @@ matrices/prediction:
       path: output_data/predictions
       transform:
         - .isel: [!dag_prev , {time: -1}]
+  norm:
+    name: LogNorm
+  vmin: 1e-7
+  vmax: ~
 
-matrices/accuracy:
-  based_on: accuracy
-
-matrices/accuracy_on_true_edges:
-  based_on: accuracy_on_true_edges
-
-matrices/accuracy_on_false_edges:
-  based_on: accuracy_on_false_edges
+matrices/relative_error:
+  based_on: error
+  norm:
+    name: LogNorm
+  vmin: 1e-7
+  vmax: ~
 
 matrices/ratio:
   based_on: .matrix
@@ -69,21 +68,14 @@ matrices/ratio:
 destination_sizes:
   based_on: time_series
   select:
-    data:
-      transform:
-        - .isel: [ !dag_prev , { training_set: 0 } ]
-          kwargs: { drop: true }
+    data: training_data/destination_sizes
+  col: training_set
+  col_wrap: 5
 
 predicted_destination_sizes:
   based_on: destination_sizes
   select:
     data: output_data/predicted_time_series
-
-training_data:
-  based_on: destination_sizes
-  select:
-    data:
-      path: training_data/training_data
 
 origin_sizes:
   based_on: destination_sizes
@@ -103,6 +95,9 @@ degree:
     param_binned:
       path: output_data/predictions
       transform:
+#        - .sel: [!dag_prev , {time: !slice [50, 100]}]
+        - .sum: [!dag_prev , j]
+        - div: [ !dag_node -2 , !dag_prev ]
         - .sum: [!dag_prev , i ]
         - hist: [!dag_prev , 1]
     true_val:
@@ -112,8 +107,10 @@ degree:
         - .expand_dims: [!dag_prev , {time: [0]}]
         - hist: [!dag_prev , 1]
     loss:
-      path: output_data/Training loss
+      path: output_data/Loss
       transform:
+#        - .sel: [ !dag_prev , { epoch: !slice [50, 100] } ]
+        - .sel: [!dag_prev , {kind: Training loss}]
         - mul: [!dag_prev , -1]
         - np.exp: [!dag_prev ]
 
@@ -168,8 +165,8 @@ degree:
     - function: [model_plots.HarrisWilson, plot_prob_density]
       args: [ !dag_result true_param ]
       y: y
-      linestyle: solid
-      color: *yellow
+      linestyle: dotted
+      color: *red
       label: Transport metric
       pass_helper: True
   x: bin_center
@@ -186,3 +183,16 @@ degree:
       use_legend: True
   style:
     figure.figsize: [*half_width, *third_width]
+
+loss_mv:
+  expected_multiverse_ndim: [2]
+  based_on: .line_multiverse
+  select_and_combine:
+    fields:
+      data: output_data/Loss
+  col: kind
+  hue: nodes_per_layer
+  sharey: False
+  helpers:
+    set_scales:
+      y: log

@@ -1,13 +1,6 @@
 ---
 loss:
   based_on: loss
-  color: black
-
-frobenius_loss:
-  based_on: loss
-  select:
-    data: output_data/frobenius_error
-  color: black
 
 matrices/true_adjacency_matrix:
   based_on: adjacency_matrix

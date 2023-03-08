@@ -399,7 +399,7 @@ degree_error:
     set_scales:
       x: log
   style:
-    figure.figsize: [*half_width, *quarter_width]
+    figure.figsize: [*third_width, *third_width]
 
 # The different error metrics for the triangle distribution
 triangle_error:
