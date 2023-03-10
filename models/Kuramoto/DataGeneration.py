@@ -127,9 +127,17 @@ def get_data(
         if data_cfg.get("eigen_frequencies")["time_series"]:
             eigen_frequencies = base.random_tensor(
                 **data_cfg.get("eigen_frequencies"),
-                size=(training_set_size, num_steps + 1, N, 1),
+                size=(training_set_size, 1, N, 1),
                 device=device,
             )
+            for _ in range(num_steps):
+                eigen_frequencies = torch.concat(
+                    eigen_frequencies,
+                    eigen_frequencies[:, -1, :, :] +
+                    torch.normal(0,
+                                 data_cfg.get("eigen_frequencies")["time_series_std"],
+                                 size=(training_set_size, 1, N, 1))
+                )
 
         # Else simply repeat the static eigenfrequencies
         else:

@@ -10,7 +10,7 @@ Data:
       type: !param
         default: random
         dtype: str
-        is_any_of: [random, ErdosRenyi, WattsStrogatz, scale-free]
+        is_any_of: [random, star, regular, WattsStrogatz, BarabasiAlbert, BollobasRiordan]
       graph_props:
         is_directed: !is-bool false
         is_weighted: !is-bool true
@@ -26,6 +26,7 @@ Data:
         lower: 1
         upper: 3
       time_series: !is-bool false
+      time_series_std: 0.0
 
     # Initial distribution of the phases
     init_phases:
