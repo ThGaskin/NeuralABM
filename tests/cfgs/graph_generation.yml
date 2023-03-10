@@ -1,0 +1,70 @@
+# Random unweighted Erdos-Renyi graph
+random_graph:
+  N: 16
+  network:
+    mean_degree: 5
+    type: random
+    graph_props:
+      is_directed: false
+      is_weighted: false
+
+# Random weighted Erdos-Renyi graph
+random_graph_weighted:
+  N: 16
+  network:
+    mean_degree: 5
+    type: random
+    graph_props:
+      is_directed: false
+      is_weighted: true
+
+# Random directed Erdos-Renyi graph
+random_graph_directed:
+  N: 16
+  network:
+    mean_degree: 5
+    type: random
+    graph_props:
+      is_directed: true
+      is_weighted: true
+
+# Star graph
+star:
+  N: 16
+  network:
+    type: star
+    graph_props:
+      is_weighted: true
+
+# Watts-Strogatz small-world network
+small_world:
+  N: 16
+  network:
+    mean_degree: 4
+    type: WattsStrogatz
+    graph_props:
+      is_weighted: true
+      WattsStrogatz:
+        p_rewire: 0.2
+
+# Watts-Strogatz small-world network
+scale_free_undirected:
+  N: 16
+  network:
+    mean_degree: 4
+    type: BarabasiAlbert
+    graph_props:
+      is_weighted: true
+
+# Watts-Strogatz small-world network
+scale_free_directed:
+  N: 16
+  network:
+    mean_degree: 4
+    type: BollobasRiordan
+    graph_props:
+      is_weighted: true
+      BollobasRiordan:
+        alpha: 0.3
+        beta: 0.3
+        gamma: 0.4

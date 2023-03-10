@@ -42,8 +42,8 @@ def get_data(
     :return: the training data and, if given, the network
     """
 
-    load_from_dir = cfg.pop("load_from_dir", {})
-    write_adjacency_matrix = cfg.pop("write_adjacency_matrix", load_from_dir == {})
+    load_from_dir: dict = cfg.get("load_from_dir", {})
+    write_adjacency_matrix: bool = cfg.get("write_adjacency_matrix", load_from_dir == {})
 
     training_data, network, eigen_frequencies = None, None, None
 
@@ -59,7 +59,7 @@ def get_data(
 
     if load_from_dir.get("network", None) is not None:
 
-        log.info("   Loading network")
+        log.info("   Loading network ... ")
         with h5.File(load_from_dir["network"], "r") as f:
 
             # Load the network
@@ -88,7 +88,7 @@ def get_data(
 
     if load_from_dir.get("eigen_frequencies", None) is not None:
 
-        log.info("   Loading eigenfrequencies")
+        log.info("   Loading eigenfrequencies ... ")
         with h5.File(load_from_dir["eigen_frequencies"], "r") as f:
 
             # Load the network
@@ -97,11 +97,11 @@ def get_data(
             ).float()
 
     # Get the config and number of agents
-    dt = cfg.get("dt")
-    gamma = cfg.get("gamma")
-    kappa = cfg.get("kappa")
-    data_cfg = cfg.get("synthetic_data")
-    nw_cfg = data_cfg.pop("network", {})
+    dt: float = cfg.get("dt")
+    gamma: float = cfg.get("gamma")
+    kappa: float = cfg.get("kappa")
+    data_cfg: dict = cfg.get("synthetic_data")
+    nw_cfg: dict = data_cfg.pop("network", {})
 
     # If network was loaded, set the number of nodes to be the network size
     if network is not None:
@@ -113,7 +113,7 @@ def get_data(
     if network is None:
 
         log.info("   Generating graph ...")
-        network = base.generate_graph(N=N, **nw_cfg, seed=seed)
+        network: nx.Graph = base.generate_graph(N=N, **nw_cfg, seed=seed)
 
     # If eigenfrequencies were not loaded, generate
     if eigen_frequencies is None:
@@ -130,8 +130,9 @@ def get_data(
                 size=(training_set_size, num_steps + 1, N, 1),
                 device=device,
             )
-        else:
 
+        # Else simply repeat the static eigenfrequencies
+        else:
             eigen_frequencies = base.random_tensor(
                 **data_cfg.get("eigen_frequencies"), size=(1, 1, N, 1), device=device
             ).repeat(training_set_size, num_steps + 1, 1, 1)
