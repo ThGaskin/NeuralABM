@@ -66,7 +66,7 @@ NeuralNet:
   activation_funcs:
     default: tanh
     layer_specific:
-      -1: HardSigmoid
+      -1: sigmoid
   biases:
     default: ~
   learning_rate: !is-positive 0.002

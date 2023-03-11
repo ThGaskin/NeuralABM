@@ -11,7 +11,7 @@ parameter_space:
     default: 0
     range: [10]
   # Regression time only needs to be measured once per seed
-  perform_regression: True
+  perform_regression: False
   Kuramoto:
     Data:
       synthetic_data:
@@ -38,3 +38,4 @@ parameter_space:
         default: 5
         values: [1, 2, 4, 10, 20, 30, 40]
         target_name: N
+      device: cuda

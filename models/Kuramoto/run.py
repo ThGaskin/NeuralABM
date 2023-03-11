@@ -73,8 +73,8 @@ class Kuramoto_NN:
         )
 
         self.num_agents = num_agents
-        self.nw_size = num_agents ** 2
-        self.true_network = true_network
+        self.nw_size = num_agents**2
+        self.true_network = true_network.to(device)
 
         self._write_every = write_every
         self._write_predictions_every = write_predictions_every
@@ -104,8 +104,13 @@ class Kuramoto_NN:
         self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
         self._dset_loss.attrs["coords__time"] = [write_start, write_every]
         self._dset_loss.attrs["coords_mode__kind"] = "values"
-        self._dset_loss.attrs["coords__kind"] = ["Total loss", "Data loss", "Symmetry loss", "Trace loss",
-                                                 "L1 prediction error"]
+        self._dset_loss.attrs["coords__kind"] = [
+            "Total loss",
+            "Data loss",
+            "Symmetry loss",
+            "Trace loss",
+            "L1 prediction error",
+        ]
 
         # Store the neural net output, possibly less regularly than the loss
         self._dset_predictions = self._output_data_group.create_dataset(
@@ -136,7 +141,7 @@ class Kuramoto_NN:
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
 
     def epoch(
-            self, *, training_data, eigen_frequencies, batch_size: int, second_order: bool
+        self, *, training_data, eigen_frequencies, batch_size: int, second_order: bool
     ):
 
         """Trains the model for a single epoch.
@@ -152,7 +157,9 @@ class Kuramoto_NN:
         start_time = time.time()
 
         # Generate the batch ids
-        batches = np.arange(0 if not second_order else 1, training_data.shape[1], batch_size)
+        batches = np.arange(
+            0 if not second_order else 1, training_data.shape[1], batch_size
+        )
         if len(batches) == 1:
             batches = np.append(batches, training_data.shape[1] - 1)
         else:
@@ -164,7 +171,8 @@ class Kuramoto_NN:
 
         # Make an initial prediction
         predicted_adj_matrix = torch.reshape(
-            self.neural_net(torch.flatten(training_data[0, 0])), (self.num_agents, self.num_agents)
+            self.neural_net(torch.flatten(training_data[0, 0])),
+            (self.num_agents, self.num_agents),
         )
 
         data_loss = torch.tensor(0.0, requires_grad=True)
@@ -178,8 +186,12 @@ class Kuramoto_NN:
                 current_values.requires_grad_(True)
 
                 # Calculate the current velocities if the dynamics are second order
-                current_velocities = (dset[batch_idx].clone() - dset[
-                    batch_idx - 1].clone()) / self.ABM.dt if second_order else None
+                current_velocities = (
+                    (dset[batch_idx].clone() - dset[batch_idx - 1].clone())
+                    / self.ABM.dt
+                    if second_order
+                    else None
+                )
 
                 for ele in range(batch_idx + 1, batches[batch_no + 1] + 1):
 
@@ -193,21 +205,26 @@ class Kuramoto_NN:
                     )
 
                     # Calculate loss on the data
-                    data_loss = data_loss + self.loss_function(new_values, dset[ele]) / (
-                            batches[batch_no + 1] - batch_idx
-                    )
+                    data_loss = data_loss + self.loss_function(
+                        new_values, dset[ele]
+                    ) / (batches[batch_no + 1] - batch_idx)
 
                     counter += 1
 
                     if counter % batch_size == 0:
 
                         # Enforce symmetry of the predicted adjacency matrix
-                        symmetry_loss = self.loss_function(
-                            predicted_adj_matrix, torch.transpose(predicted_adj_matrix, 0, 1)
-                        ).clone().detach()
+                        symmetry_loss = (
+                            self.loss_function(
+                                predicted_adj_matrix,
+                                torch.transpose(predicted_adj_matrix, 0, 1),
+                            )
+                            .clone()
+                            .detach()
+                        )
 
                         # Penalise the trace (which cannot be learned)
-                        trace_loss = torch.trace(predicted_adj_matrix)
+                        trace_loss = torch.sum(predicted_adj_matrix.diag())
 
                         # Add losses
                         loss = data_loss + symmetry_loss + trace_loss
@@ -224,11 +241,13 @@ class Kuramoto_NN:
                         self.current_total_loss = loss.clone().detach()
 
                         # Store the current prediction
-                        self.current_adjacency_matrix = predicted_adj_matrix.clone().detach()
+                        self.current_adjacency_matrix = (
+                            predicted_adj_matrix.clone().detach()
+                        )
 
                         # Store the prediction error
-                        self.current_prediction_error = (
-                            torch.nn.functional.l1_loss(self.true_network, self.current_adjacency_matrix)
+                        self.current_prediction_error = torch.nn.functional.l1_loss(
+                            self.true_network, self.current_adjacency_matrix
                         )
 
                         # Write the data and the predictions
@@ -239,7 +258,7 @@ class Kuramoto_NN:
                         # Make a new prediction
                         predicted_adj_matrix = torch.reshape(
                             self.neural_net(torch.flatten(dset[batches[batch_no + 1]])),
-                            (self.num_agents, self.num_agents)
+                            (self.num_agents, self.num_agents),
                         )
 
                         # Wipe the loss
@@ -255,7 +274,9 @@ class Kuramoto_NN:
 
                         # Update the velocities, if required
                         if second_order:
-                            current_velocities = (new_values - current_values) / self.ABM.dt
+                            current_velocities = (
+                                new_values - current_values
+                            ) / self.ABM.dt
 
                         current_values = new_values.clone().detach()
 
@@ -291,8 +312,8 @@ class Kuramoto_NN:
 
         else:
             if (
-                    self._time >= self._write_start
-                    and self._time % self._write_predictions_every == 0
+                self._time >= self._write_start
+                and self._time % self._write_predictions_every == 0
             ):
                 log.debug(f"    Writing prediction data ... ")
                 self._dset_predictions.resize(
@@ -365,7 +386,7 @@ if __name__ == "__main__":
 
     # Initialise the neural net
     num_agents = training_data.shape[2]
-    output_size = num_agents ** 2
+    output_size = num_agents**2
 
     log.info(
         f"   Initializing the neural net; input size: {num_agents}, output size: {output_size} ..."
@@ -404,7 +425,7 @@ if __name__ == "__main__":
         num_agents=num_agents,
         neural_net=net,
         loss_function=model_cfg["Training"]["loss_function"],
-        true_network=torch.from_numpy(nx.to_numpy_matrix(network)).float(),
+        true_network=torch.from_numpy(nx.to_numpy_array(network)).float(),
         ABM=ABM,
         num_steps=training_data.shape[1],
         write_every=cfg["write_every"],
@@ -412,7 +433,9 @@ if __name__ == "__main__":
         write_start=cfg["write_start"],
     )
 
-    log.info(f"   Initialized model '{model_name}'. Now commencing training for {num_epochs} epochs ...")
+    log.info(
+        f"   Initialized model '{model_name}'. Now commencing training for {num_epochs} epochs ..."
+    )
 
     # Train the neural net
     for i in range(num_epochs):
@@ -450,7 +473,11 @@ if __name__ == "__main__":
     for step in range(1 if second_order else 0, training_data.shape[1] - 1):
         predicted_time_series[step + 1, :, :] = ABM.run_single(
             current_phases=predicted_time_series[step, :],
-            current_velocities=(predicted_time_series[step, :, :] - predicted_time_series[step - 1, :, :]) / ABM.dt
+            current_velocities=(
+                predicted_time_series[step, :, :]
+                - predicted_time_series[step - 1, :, :]
+            )
+            / ABM.dt
             if second_order
             else None,
             adjacency_matrix=model.current_adjacency_matrix,
@@ -485,7 +512,7 @@ if __name__ == "__main__":
             model_cfg["Data"]["dt"],
             second_order=second_order,
             gamma=model_cfg["Data"]["gamma"],
-            kappa=model_cfg["Data"]["kappa"]
+            kappa=model_cfg["Data"]["kappa"],
         )
 
     log.info("   Wrapping up ...")

@@ -188,17 +188,17 @@ def save_nw(
     triangles[0, :] = [
         val
         for val in np.diagonal(
-            np.linalg.matrix_power(np.ceil(nx.to_numpy_matrix(network)), 3)
+            np.linalg.matrix_power(np.ceil(nx.to_numpy_array(network)), 3)
         )
     ]
     triangles_w[0, :] = [
         val
-        for val in np.diagonal(np.linalg.matrix_power(nx.to_numpy_matrix(network), 3))
+        for val in np.diagonal(np.linalg.matrix_power(nx.to_numpy_array(network), 3))
     ]
 
     if write_adjacency_matrix:
 
-        adj_matrix = nx.to_numpy_matrix(network)
+        adj_matrix = nx.to_numpy_array(network)
 
         # Adjacency matrix: only written out if explicity specified
         adjacency_matrix = nw_group.create_dataset(
