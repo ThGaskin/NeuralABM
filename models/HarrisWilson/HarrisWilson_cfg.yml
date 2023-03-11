@@ -3,31 +3,45 @@
 # Settings for the dataset, which is loaded externally or can be synthetically generated using the ABM
 Data:
   synthetic_data:
+
+    # Number of time series steps
     num_steps: 3000
+
+    # Number of origin sizes
     N_origin: !is-positive-int 100
+
+    # Number of destination zone sizes
     N_destination: !is-positive-int 10
+
+    # Model parameters: size, convenience, cost, responsiveness, noise parameters
     alpha: !is-positive-or-zero 1.2
     beta: !is-positive-or-zero 4
     kappa: !is-positive-or-zero 2
-    sigma: !is-positive-or-zero 0
     epsilon: !is-positive 10
+    sigma: !is-positive-or-zero 0
+
+    # Time differential
     dt: !is-positive 0.01
+
+    # Settings for the initial origin size distribution
     origin_sizes:
       init_mean: !param
         default: 0.1
         limits: [0, ~]
         dtype: float
-        description: mean of the initial origin size distribution
+
       init_std: !param
         default: 0.01
         limits: [0, ~]
         dtype: float
-        description: variance of the initial origin size distribution
+
+      # Variance of the temporal fluctuations of the origin zone sizes
       temporal_std: !param
         default: 0.0
         limits: [0, ~]
         dtype: float
-        description: variance of the origin size temporal fluctuations
+
+    # Settings for the initial destination size distribution
     init_dest_sizes:
       mean: !param
         default: 0.1
@@ -37,6 +51,8 @@ Data:
         default: 0.01
         limits: [ 0, ~ ]
         dtype: float
+
+    # Settings for the initialisation of the weight matrix
     init_weights:
       mean: !param
         default: 1.2
@@ -46,6 +62,8 @@ Data:
         default: 1.2
         limits: [0, ~]
         dtype: float
+
+  # Number of steps of the time series to use for training
   training_data_size: 1
 
 # Settings for the neural net architecture
@@ -69,7 +87,3 @@ Training:
   batch_size: !is-positive-int 1
   device: cpu
   epsilon: 1
-
-
-# Whether to write out the computation time for each epoch
-write_time: False
