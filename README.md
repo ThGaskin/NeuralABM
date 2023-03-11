@@ -3,6 +3,8 @@
 
 ---
 
+![example workflow](https://github.com/ThGaskin/NeuralABM/actions/workflows/pytest.yml/badge.svg)
+
 This project combines multi-agent models with a neural core, in order to estimate densities on ODE parameters
 (including adjacency matrices) from data. The project
 uses the [utopya package](https://docs.utopia-project.org/html/index.html) to handle simulation configuration, data management,

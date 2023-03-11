@@ -211,14 +211,14 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
     # Origin zone sizes
     dset_origin_sizes = h5group.create_dataset(
         "origin_sizes",
-        or_sizes.shape[:-1],
-        maxshape=or_sizes.shape[:-1],
+        or_sizes.shape,
+        maxshape=or_sizes.shape,
         chunks=True,
         compression=3,
     )
-    dset_origin_sizes.attrs["dim_names"] = ["zone_id"]
+    dset_origin_sizes.attrs["dim_names"] = ["zone_id", "dim_name__0"]
     dset_origin_sizes.attrs["coords_mode__zone_id"] = "trivial"
-    dset_origin_sizes[:] = torch.flatten(or_sizes)
+    dset_origin_sizes[:] = or_sizes
 
     # Create a network group
     nw_group = h5file.create_group("network")
