@@ -69,7 +69,9 @@ def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
     return origins, training_data, nw
 
 
-def generate_synthetic_data(*, cfg, device: str) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
+def generate_synthetic_data(
+    *, cfg, device: str
+) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
 
     """Generates synthetic Harris-Wilson using a numerical solver.
 
@@ -86,20 +88,28 @@ def generate_synthetic_data(*, cfg, device: str) -> Tuple[torch.tensor, torch.te
 
     # Generate the initial origin sizes
     or_sizes = torch.abs(
-        base.random_tensor(**data_cfg.get("origin_sizes"), size=(N_origin, 1), device=device)
+        base.random_tensor(
+            **data_cfg.get("origin_sizes"), size=(N_origin, 1), device=device
+        )
     )
 
     # Generate the edge weights
     network = torch.exp(
         -1
         * torch.abs(
-            base.random_tensor(**data_cfg.get("init_weights"), size=(N_origin, N_destination), device=device)
+            base.random_tensor(
+                **data_cfg.get("init_weights"),
+                size=(N_origin, N_destination),
+                device=device
+            )
         )
     )
 
     # Generate the initial destination zone sizes
     init_dest_sizes = torch.abs(
-        base.random_tensor(**data_cfg.get("init_dest_sizes"), size=(N_destination, 1), device=device)
+        base.random_tensor(
+            **data_cfg.get("init_dest_sizes"), size=(N_destination, 1), device=device
+        )
     )
 
     # Extract the underlying parameters from the config
@@ -149,7 +159,9 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
 
     # Get the origin sizes, time series, and network data
     or_sizes, dest_sizes, network = (
-        load_from_dir(data_dir) if data_dir else generate_synthetic_data(cfg=cfg, device=device)
+        load_from_dir(data_dir)
+        if data_dir
+        else generate_synthetic_data(cfg=cfg, device=device)
     )
 
     N_origin, N_destination = or_sizes.shape[0], dest_sizes.shape[1]

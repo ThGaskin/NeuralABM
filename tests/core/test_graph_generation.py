@@ -1,7 +1,7 @@
 import sys
 from os.path import dirname as up
-import networkx as nx
 
+import networkx as nx
 from dantro._import_tools import import_module_from_path
 from pkg_resources import resource_filename
 
@@ -9,7 +9,9 @@ from utopya.yaml import load_yml
 
 sys.path.insert(0, up(up(up(__file__))))
 
-graph_gen = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include.graph")
+graph_gen = import_module_from_path(
+    mod_path=up(up(up(__file__))), mod_str="include.graph"
+)
 
 # Load the test config
 CFG_FILENAME = resource_filename("tests", "cfgs/graph_generation.yml")

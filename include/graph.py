@@ -6,10 +6,15 @@ import numpy as np
 
 
 def generate_graph(
-        *, N: int, mean_degree: int = None, type: str, seed: int = None, graph_props: dict = None
+    *,
+    N: int,
+    mean_degree: int = None,
+    type: str,
+    seed: int = None,
+    graph_props: dict = None,
 ) -> nx.Graph:
 
-    """ Generates graphs of a given topology
+    """Generates graphs of a given topology
 
     :param N: number of nodes
     :param mean_degree: mean degree of the graph
@@ -46,16 +51,16 @@ def generate_graph(
     # Undirected scale-free graph
     elif type.lower() == "barabasialbert":
 
-        G = _connect_isolates(
-            nx.barabasi_albert_graph(N, mean_degree, seed)
-        )
+        G = _connect_isolates(nx.barabasi_albert_graph(N, mean_degree, seed))
 
     # Directed scale-free graph
     elif type.lower() == "bollobasriordan":
 
-        G = nx.DiGraph(_connect_isolates(
-            nx.scale_free_graph(N, **graph_props["BollobasRiordan"], seed=seed)
-        ))
+        G = nx.DiGraph(
+            _connect_isolates(
+                nx.scale_free_graph(N, **graph_props["BollobasRiordan"], seed=seed)
+            )
+        )
 
     # Small-world (Watts-Strogatz) graph
     elif type.lower() == "wattsstrogatz":

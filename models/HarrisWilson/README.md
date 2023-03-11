@@ -159,18 +159,18 @@ This `.h5` file must contain datasets called `origin_sizes`, `training_data`, an
 If you first generate synthetic data using this model, you can thereafter point the config to the
 `.h5` file. There is also plenty of synthetic data provided in the `data/` folder.
 
-### Configuration sets 
+### Configuration sets
 The following configuration sets are included in the model:
 
 - `Inequality`: sweeps over different values of ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Calpha)
-and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cbeta) and plots a heatmap of the 
-inequality parameter ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cnu) (fig. 5) in 
+and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cbeta) and plots a heatmap of the
+inequality parameter ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cnu) (fig. 5) in
 the publication
 - `London_dataset`: loads the London datasets, sweeps over two network metrics, and plots the marginal densities on the
 parameters (fig. 10 in the publication)
 - `Loss_landscape`: trains the model on synthetic data from multiple initialisations, and plots the resulting
 loss landscape (fig. 6)
-- `Marginals`: Plots the marginals and their peak widths for different levels of the noise in the 
+- `Marginals`: Plots the marginals and their peak widths for different levels of the noise in the
 data (fig. 7 & 8)
 - `Performance_analysis`: plots the time to run one epoch and the loss after 6000 epochs as a function
 of the origin size ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DN)
