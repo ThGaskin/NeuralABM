@@ -19,9 +19,13 @@ def random_tensor(
 
     # Uniform distribution in an interval
     if distribution == "uniform":
-        return torch.tensor((parameters.get("upper") - parameters.get("lower")), dtype=torch.float) * torch.rand(
-            size, dtype=torch.float, device=device
-        ) + torch.tensor(parameters.get("lower"), dtype=torch.float)
+
+        l, u = parameters.get("lower"), parameters.get("upper")
+        if l > u:
+            raise ValueError(f"Upper bound must be greater or equal to lower bound; got {l} and {u}!")
+
+        return torch.tensor((u - l), dtype=torch.float) * torch.rand(
+            size, dtype=torch.float, device=device) + torch.tensor(l, dtype=torch.float)
 
     # Normal distribution
     elif distribution == "normal":

@@ -85,17 +85,23 @@ def test_initialisation():
         for idx, layer in enumerate(net.layers):
 
             if idx in bias_layer_specific.keys():
-                assert [
-                    bias_layer_specific[idx][0] <= b <= bias_layer_specific[idx][1]
-                    for b in layer.bias
-                ]
+                if bias_layer_specific[idx] == 'default':
+                    assert layer.bias is not None
+                else:
+                    assert [
+                        bias_layer_specific[idx][0] <= b <= bias_layer_specific[idx][1]
+                        for b in layer.bias
+                    ]
                 checked[idx] = True
 
             else:
                 if bias_default is None:
                     assert layer.bias is None
                 else:
-                    assert [bias_default[0] <= b <= bias_default[1] for b in layer.bias]
+                    if bias_default == 'default':
+                        assert layer.bias is not None
+                    else:
+                        assert [bias_default[0] <= b <= bias_default[1] for b in layer.bias]
 
         if checked:
             assert all(item for item in list(checked.values()))

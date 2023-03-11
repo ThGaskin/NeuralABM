@@ -140,3 +140,29 @@ SGD_optimizer:
     default: ~
   optimiser: SGD
   learning_rate: 0.1
+
+# Default torch bias
+Default_bias:
+  num_layers: 3
+  nodes_per_layer:
+    default: 10
+  activation_funcs:
+    default: linear
+  biases:
+    default: default
+  optimiser: SGD
+  learning_rate: 0.1
+
+Default_bias2:
+  num_layers: 5
+  nodes_per_layer:
+    default: 10
+  activation_funcs:
+    default: linear
+  biases:
+    default: [0, 1]
+    layer_specific:
+      2: default
+      -1: default
+  optimiser: SGD
+  learning_rate: 0.1
