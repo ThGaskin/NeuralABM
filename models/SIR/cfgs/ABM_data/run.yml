@@ -1,7 +1,9 @@
 paths:
   model_note: ABM_data
 parameter_space:
-  seed: 0
+  seed: !sweep
+    default: 0
+    range: [2]
   num_epochs: 1
   write_start: 1
   write_every: 1

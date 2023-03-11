@@ -19,6 +19,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip' # caching pip dependencies
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
       with:
@@ -36,4 +40,6 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
+        utopya projects register . --with-models --exists-action overwrite
         pytest tests/
+        utopya run HarrisWilson
