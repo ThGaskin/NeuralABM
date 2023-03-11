@@ -93,21 +93,24 @@ Data:
 
     # Settings for the initial origin size distribution
     origin_sizes:
-      init_mean: 0.1
-      init_std: 0.01
-
-      # Variance of the temporal fluctuations of the origin zone sizes
-      temporal_std: 0.0
+      distribution: normal
+      parameters:
+        mean: 0.1
+        std: 0.01
 
     # Settings for the initial destination size distribution
     init_dest_sizes:
-      mean: 0.1
-      std: 0.01
+      distribution: normal
+      parameters:
+        mean: 0.1
+        std: 0.01
 
     # Settings for the initialisation of the weight matrix
     init_weights:
-      mean: 1.2
-      std: 1.2
+      distribution: normal
+      parameters:
+        mean: 1.2
+        std: 1.2
 
   # Number of steps of the time series to use for training
   training_data_size: 1

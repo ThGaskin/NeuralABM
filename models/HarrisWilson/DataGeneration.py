@@ -1,10 +1,17 @@
 import logging
+import sys
+from os.path import dirname as up
 from typing import Tuple
 
 import h5py as h5
 import numpy as np
 import pandas as pd
 import torch
+from dantro._import_tools import import_module_from_path
+
+sys.path.append(up(up(up(__file__))))
+
+base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include")
 
 from .ABM import HarrisWilsonABM
 
@@ -62,7 +69,7 @@ def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
     return origins, training_data, nw
 
 
-def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
+def generate_synthetic_data(*, cfg, device: str) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
 
     """Generates synthetic Harris-Wilson using a numerical solver.
 
@@ -79,32 +86,20 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
 
     # Generate the initial origin sizes
     or_sizes = torch.abs(
-        torch.normal(
-            data_cfg["origin_sizes"]["init_mean"],
-            data_cfg["origin_sizes"]["init_std"],
-            size=(N_origin, 1),
-        )
+        base.random_tensor(**data_cfg.get("origin_sizes"), size=(N_origin, 1), device=device)
     )
 
     # Generate the edge weights
     network = torch.exp(
         -1
         * torch.abs(
-            torch.normal(
-                data_cfg["init_weights"]["mean"],
-                data_cfg["init_weights"]["std"],
-                size=(N_origin, N_destination),
-            )
+            base.random_tensor(**data_cfg.get("init_weights"), size=(N_origin, N_destination), device=device)
         )
     )
 
     # Generate the initial destination zone sizes
     init_dest_sizes = torch.abs(
-        torch.normal(
-            data_cfg["init_dest_sizes"]["mean"],
-            data_cfg["init_dest_sizes"]["std"],
-            size=(data_cfg["N_destination"], 1),
-        )
+        base.random_tensor(**data_cfg.get("init_dest_sizes"), size=(N_destination, 1), device=device)
     )
 
     # Extract the underlying parameters from the config
@@ -154,7 +149,7 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
 
     # Get the origin sizes, time series, and network data
     or_sizes, dest_sizes, network = (
-        load_from_dir(data_dir) if data_dir else generate_synthetic_data(cfg=cfg)
+        load_from_dir(data_dir) if data_dir else generate_synthetic_data(cfg=cfg, device=device)
     )
 
     N_origin, N_destination = or_sizes.shape[0], dest_sizes.shape[1]
