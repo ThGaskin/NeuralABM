@@ -1,0 +1,39 @@
+---
+perform_sweep: True
+paths:
+  model_note: data_comparison
+parameter_space:
+  seed: !sweep
+    default: 1
+    range: [10]
+  num_epochs: !coupled-sweep
+    target_name: 700
+  write_every: 10
+  write_predictions_every: -1
+  Kuramoto:
+    Data:
+      synthetic_data:
+        N: 16
+        sigma: &sigma 0.0
+        training_set_size: !sweep
+          default: 10
+        num_steps: !coupled-sweep
+
+      dt: 0.02
+
+    NeuralNet:
+      num_layers: 5
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: tanh
+        layer_specific:
+          -1: Hardsigmoid
+      biases:
+        default: ~
+    Training:
+      batch_size: 10
+      loss_function:
+        name: MSELoss
+      true_parameters:
+        sigma: *sigma

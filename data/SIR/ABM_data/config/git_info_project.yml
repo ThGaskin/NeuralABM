@@ -3,13 +3,13 @@ dirty: true
 git_diff: /Users/thomasgaskin/utopya_output/SIR/220927-081223_ABM_data/config/git_diff_project.patch
 git_status:
 - [M, models/HarrisWilson/ABM.py]
-- ['', M models/HarrisWilson/HarrisWilson_cfg.yml]
-- ['', M models/HarrisWilson/cfgs/London_dataset/run.yml]
+- ['', M models/HarrisWilson/HarrisWilsonNW_cfg.yml]
+- ['', M models/HarrisWilson/cfgs/N_750_example/run.yml]
 - ['', M models/HarrisWilson/cfgs/Loss_landscape/run.yml]
 - ['', M models/HarrisWilson/cfgs/Marginals/eval.yml]
 - ['', M models/HarrisWilson/cfgs/Marginals/run.yml]
 - ['', M models/HarrisWilson/cfgs/Performance_analysis/run.yml]
-- ['', M models/HarrisWilson/cfgs/Sample_run/run.yml]
+- ['', M models/HarrisWilson/cfgs/N_100_example/run.yml]
 - ['', M models/SIR/SIR_cfg.yml]
 - ['', M models/SIR/cfgs/Predictions/eval.yml]
 - ['', M models/SIR/cfgs/Predictions/run.yml]

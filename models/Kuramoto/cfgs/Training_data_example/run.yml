@@ -1,0 +1,22 @@
+---
+paths:
+  model_note: Training_data_example
+parameter_space:
+  num_epochs: 0
+  write_every: 1
+  seed: 20
+  write_predictions_every: 1
+  write_start: 1
+  Kuramoto:
+    Data:
+      synthetic_data:
+        num_steps: 500
+        training_set_size: 1
+        N: 100
+        sigma: 0
+        network:
+          type: random
+          mean_degree: 6
+          graph_props:
+            is_directed: False
+      dt: 0.02

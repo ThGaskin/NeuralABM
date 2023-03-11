@@ -31,9 +31,25 @@ def test_data_loading():
         assert model[1]
 
         # Load the previously generated data and run again
-        config["parameter_space"][model_name].update(
-            {"Data": {"load_from_dir": model[0]._dirs["run"] + "/data/uni0/data.h5"}}
-        )
+        if model in ["HarrisWilson", "SIR"]:
+            config["parameter_space"][model_name].update(
+                {
+                    "Data": {
+                        "load_from_dir": model[0]._dirs["run"] + "/data/uni0/data.h5"
+                    }
+                }
+            )
+        elif model in ["Kuramoto"]:
+            for ele in ["network", "eigen_frequencies", "training_data"]:
+                config["parameter_space"][model_name].update(
+                    {
+                        "Data": {
+                            "load_from_dir": {
+                                ele: model[0]._dirs["run"] + "/data/uni0/data.h5"
+                            }
+                        }
+                    }
+                )
 
         model = mtc.create_run_load(**config)
 
