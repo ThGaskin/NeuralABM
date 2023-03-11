@@ -1,6 +1,5 @@
 # The Harris-Wilson model of economic activity
 
----
 > **_Note_**: See the section on [Configuration sets](#configuration-sets) to see how to reproduce
 > the plots from the [PNAS publication](https://www.pnas.org/doi/10.1073/pnas.2216415120).
 

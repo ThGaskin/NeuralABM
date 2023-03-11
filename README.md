@@ -3,7 +3,8 @@
 
 ---
 
-This project combines multi-agent models with a neural core, in order to estimate densities on ODE parameters from data. The project
+This project combines multi-agent models with a neural core, in order to estimate densities on ODE parameters
+(including adjacency matrices) from data. The project
 uses the [utopya package](https://docs.utopia-project.org/html/index.html) to handle simulation configuration, data management,
 and plotting.
 
@@ -11,8 +12,10 @@ and plotting.
 > overview of the Utopia syntax. You can find a complete guide on running models with Utopia/utopya
 > [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial).
 
-> **_Note_**: See 'Configuration sets' below for guidance on how to reproduce the plots from the
-> publication, once you have completed installation.
+> **_Note_**: See the section on [configuration sets](#running-a-model-using-configuration-sets) for guidance on how to reproduce the plots from the
+> publications, once you have completed installation.
+> - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
+> https://doi.org/10.1073/pnas.2216415120
 
 > **_Hint_**: If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
 >
@@ -296,8 +299,9 @@ loss_function:
 See the model-specific README files to see how to load different types of data. Data is stored in the `data/`
 folder.
 
-## 🚧 Tests (WIP)
-To run tests, invoke
+## Tests
+The models and core functionalities (graph generation, neural network settings,
+vector, etc.) are unit tested. To run the tests, invoke
 ```bash
 pytest tests
 ```
