@@ -15,6 +15,8 @@ def plot_prob_density(
     data: xr.Dataset,
     hlpr: PlotHelper,
     *,
+    x: str,
+    y: str,
     hue: str = None,
     info_box_labels: dict = None,
     smooth_kwargs: dict = {},
@@ -22,7 +24,7 @@ def plot_prob_density(
 ):
 
     """Plots the marginal probability densities for a collection of datasets consisting of *different*
-    x-values (param1) and associated probability values ('prob'). If specified, smooths the densities using
+    x-values and associated probability values. If specified, smooths the densities using
     a Gaussian kernel."""
 
     # Get the 'data' !dag_tag
@@ -37,26 +39,24 @@ def plot_prob_density(
     if hue:
         for coord in dset.coords[hue].values:
 
-            y_vals = dset["prob"].sel({hue: coord})
+            y_vals = dset[y].sel({hue: coord})
 
             # Smooth the probability distribution, if set
             if smooth:
                 y_vals = scipy.ndimage.gaussian_filter1d(y_vals, sigma, **smooth_kwargs)
 
             # Plot the distribution
-            hlpr.ax.plot(
-                dset["param1"].sel({hue: coord}), y_vals, label=coord, **plot_kwargs
-            )
+            hlpr.ax.plot(dset[x].sel({hue: coord}), y_vals, label=coord, **plot_kwargs)
 
     else:
-        y_vals = dset["prob"]
+        y_vals = dset[y]
 
         # Smooth the probability distribution, if set
         if smooth:
             y_vals = scipy.ndimage.gaussian_filter1d(y_vals, sigma, **smooth_kwargs)
 
         # Plot the distribution
-        hlpr.ax.plot(dset["param1"], y_vals, **plot_kwargs)
+        hlpr.ax.plot(dset[x], y_vals, **plot_kwargs)
 
     # Plot the textbox, if given, using the remaining !dag_tags, which should be floats
     if info_box_labels:

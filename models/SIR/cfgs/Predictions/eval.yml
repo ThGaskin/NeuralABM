@@ -149,24 +149,35 @@ p_infectious:
           - np.exp: [!dag_prev ]
   transform:
     - xr.Dataset:
-      - param1: !dag_tag param1
-        loss: !dag_tag loss
-    - NeuralABM.compute_marginals: [ !dag_prev ]
+      - x: !dag_tag param1
+        p: !dag_tag loss
+    - compute_marginals: [ !dag_prev ]
       kwargs:
         bins: 200
+        x: x
+        p: p
       tag: data
-    - NeuralABM.compute_mode: [ !dag_tag data]
-    - getitem: [!dag_prev , 'mode']
+    - mode: [ !dag_tag data]
+      kwargs:
+        p: p
+    - getitem: [!dag_prev , 'x']
     - .format: [ '{:.2f}', !dag_prev ]
       tag: mode
-    - NeuralABM.compute_mean: [ !dag_tag data ]
+    - mean: [ !dag_tag data ]
+      kwargs:
+        x: x
+        p: p
     - getitem: [!dag_prev , 'mean']
       tag: mean
-    - NeuralABM.compute_std: [ !dag_tag data ]
+    - std: [ !dag_tag data ]
+      kwargs:
+        x: x
+        p: p
     - getitem: [!dag_prev , 'std']
-      tag: var
-    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_tag var ]
+    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
       tag: info_str
+  x: x
+  y: p
   color: *darkblue
   smooth_kwargs:
     enabled: true
