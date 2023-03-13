@@ -61,28 +61,21 @@ utopya --help
 
 #### 3. Register the project and all models with utopya
 
-In the project directory (i.e. this one), register the entire project using the following command:
+In the project directory (i.e. this one), register the entire project and all its models using the following command:
 ```console
-utopya projects register .
+utopya projects register . --with-models
 ```
 You should get a positive response from the utopya CLI and your project should appear in the project list when calling:
 ```console
 utopya projects ls
 ```
+Done! 🎉
+
 > **_Note_** Any changes to the project info file need to be communicated to utopya by calling the registration command anew.
 > You will then have to additionally pass the `````--exists-action overwrite````` flag, because a project of that name already exists.
 > See ```utopya projects register --help``` for more information.
 
-Finally, register a model via
-```console
-utopya models register from-manifest path/to/model_info.yml
-```
-For instance, for the `HarrisWilson` model, this will be
 
-```console
-utopya models register from-manifest models/HarrisWilson/HarrisWilson_info.yml
-```
-Done! 🎉
 
 
 #### 4. (Optional) Download the datasets, which are stored using git lfs
