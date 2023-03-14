@@ -1,0 +1,58 @@
+Data:
+  synthetic_data:
+    N: !is-positive-int 16
+    network:
+      mean_degree: !is-positive-int 5
+      type: !param
+        default: random
+        dtype: str
+        is_any_of: [random, ErdosRenyi, WattsStrogatz, scale-free]
+      graph_props:
+        is_directed: !is-bool false
+        is_weighted: !is-bool true
+        WattsStrogatz:
+          p_rewire: !is-probability 0.2
+    eigen_frequencies:
+      distribution: !param
+        default: uniform
+        is_any_of: [uniform, normal]
+      parameters:
+        lower: 1
+        upper: 3
+      time_series: !is-bool false
+    init_phases:
+      distribution: !param
+        default: uniform
+        is_any_of: [ uniform, normal ]
+      parameters:
+        lower: 0
+        upper: 6.283
+    sigma: !is-positive-or-zero 0.0
+    num_steps: !is-positive-int 5
+    training_set_size: !is-positive-int 40
+  dt: !is-positive 0.01
+  gamma: !is-positive 1
+
+second_order: !is-bool False
+
+# Neural net configuration
+NeuralNet:
+  num_layers: !is-positive-int 5
+  nodes_per_layer:
+    default: !is-positive-int 20
+  activation_funcs:
+    default: tanh
+    layer_specific:
+      -1: HardSigmoid
+  biases:
+    default: ~
+  learning_rate: !is-positive 0.002
+  optimizer: Adam
+
+Training:
+  device: cpu
+  batch_size: !is-positive-int 1
+  loss_function:
+    name: MSELoss
+  true_parameters:
+    sigma: !is-positive-or-zero 0.0

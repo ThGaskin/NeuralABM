@@ -40,3 +40,11 @@ SIR1:
     write_every: 1
     SIR:
       N: 150
+
+Kuramoto:
+  model: Kuramoto
+  parameter_space:
+    num_epochs: 2
+    write_every: 1
+    Kuramoto:
+      N: 16
