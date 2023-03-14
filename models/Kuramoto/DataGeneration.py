@@ -43,7 +43,9 @@ def get_data(
     """
 
     load_from_dir: dict = cfg.get("load_from_dir", {})
-    write_adjacency_matrix: bool = cfg.get("write_adjacency_matrix", load_from_dir == {})
+    write_adjacency_matrix: bool = cfg.get(
+        "write_adjacency_matrix", load_from_dir == {}
+    )
 
     training_data, network, eigen_frequencies = None, None, None
 
@@ -133,10 +135,12 @@ def get_data(
             for _ in range(num_steps):
                 eigen_frequencies = torch.concat(
                     eigen_frequencies,
-                    eigen_frequencies[:, -1, :, :] +
-                    torch.normal(0,
-                                 data_cfg.get("eigen_frequencies")["time_series_std"],
-                                 size=(training_set_size, 1, N, 1))
+                    eigen_frequencies[:, -1, :, :]
+                    + torch.normal(
+                        0,
+                        data_cfg.get("eigen_frequencies")["time_series_std"],
+                        size=(training_set_size, 1, N, 1),
+                    ),
                 )
 
         # Else simply repeat the static eigenfrequencies
@@ -200,7 +204,7 @@ def get_data(
         nw_group.attrs["content"] = "graph"
         nw_group.attrs["allows_parallel"] = False
         nw_group.attrs["is_directed"] = network.is_directed()
-        base.save_nw(network, nw_group, write_adjacency_matrix)
+        base.save_nw(network, nw_group, write_adjacency_matrix=write_adjacency_matrix)
         log.info("   Network generated and saved.")
 
         # Save the eigenfrequencies

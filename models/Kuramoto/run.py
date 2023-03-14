@@ -223,7 +223,8 @@ class Kuramoto_NN:
                             .detach()
                         )
 
-                        # Penalise the trace (which cannot be learned)
+                        # Penalise the trace (which cannot be learned). Since the torch.trace function is not yet
+                        # fully compatible with Apple Silicon GPUs, we must manually calculate it.
                         trace_loss = torch.sum(predicted_adj_matrix.diag())
 
                         # Add losses
