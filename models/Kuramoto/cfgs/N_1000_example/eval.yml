@@ -58,138 +58,34 @@ loss:
   based_on: loss
   figsize: [*half_width, *third_width]
 
-# Plot the degree distribution
-degree:
-  based_on: .multiplot_universe
+# Plot the marginal degree distribution
+degree_marginal:
+  based_on: degree_marginal
   dag_options:
-    meta_operations:
-      hist:
-        - np.linspace: [ 0, 50, 500 ]
-        - NeuralABM.hist: [ !arg 0 ]
-          kwargs: { bins: !dag_node -1, axis: 1 }
-  select:
-    param_binned:
-      path: output_data/predictions
-      transform:
-        - .sum: [!dag_prev , i ]
-        - hist: [!dag_prev ]
-    true_val:
-      path: true_network/_degree_weighted
-      transform:
-        - hist: [ !dag_prev ]
-    loss:
-      path: output_data/Training loss
-      transform:
-        - mul: [!dag_prev , -1]
-        - np.exp: [!dag_prev ]
-
-  transform:
-
-    # Get the true value
-    - NeuralABM.flatten_dims: [ !dag_tag true_val , { sample: [ time ] } ]
-    - NeuralABM.normalise_degrees_to_edges: [ !dag_prev ]
-    - .squeeze: [ !dag_prev ]
-    - .to_dataset: [!dag_prev ]
-      kwargs: {name: y}
-      tag: true_param
-
-    # Calculate mean, MLE, and error
-    - NeuralABM.flatten_dims: [ !dag_tag param_binned , { sample: [ time ] } ]
-    - NeuralABM.normalise_degrees_to_edges: [!dag_prev ]
-      tag: samples
-    - NeuralABM.flatten_dims: [ !dag_tag loss , { sample: [ time ] } ]
-    - .expand_dims: [!dag_prev ]
-      kwargs:
-        bin_center: 1
-        axis: -1
-      tag: loss_flattened
-    - .sum: [!dag_prev , 'sample']
-    - div: [!dag_tag loss_flattened, !dag_prev ]
-      tag: loss_normalised
-    - .coords: [!dag_tag loss , 'time']
-    - len: [!dag_prev ]
-      tag: n_steps
-    - .isel: [!dag_tag loss , {time: -1}]
-      kwargs: {drop: true}
-    - .argmax: [!dag_prev ]
-    - mul: [!dag_prev , !dag_tag n_steps]
-    - sub: [!dag_prev , 1]
-    - NeuralABM.marginal_of_density: [ !dag_tag samples ]
-      kwargs:
-        loss: !dag_tag loss_normalised
-        error: Hellinger
-        MLE_index: !dag_prev
-      tag: data
-    - div: [!dag_tag loss_flattened , 20 ]
-      tag: losses
-    - .data: [!dag_tag loss_flattened]
-    - .to_dataset: [ !dag_tag samples ]
-      kwargs: { name: y }
-      tag: distributions
-  to_plot:
-#    - function: [ model_plots.HarrisWilson, plot_prob_density ]
-#      args: [ !dag_result distributions ]
-#      y: y
-#      hue: sample
-#      alpha: !dag_result losses
-#      lw: 0.3 #!dag_result losses
-#      suppress_labels: true
-#      color: *darkblue
-#      pass_helper: True
-    - function: [model_plots.HarrisWilson, plot_prob_density]
-      args: [!dag_result data]
-      x: bin_center
-      y: MLE
-      yerr: yerr
-      pass_helper: true
-      color: *darkblue
-    - function: [model_plots.HarrisWilson, plot_prob_density]
-      args: [ !dag_result true_param ]
-      y: y
-      linestyle: dotted
-      color: *red
-      pass_helper: True
-  x: bin_center
+    define:
+      upper_bin: 50
   smooth_kwargs:
     enabled: True
     sigma: 2.5
   helpers:
-    set_title:
-      title: ~
-    set_labels:
-      x: Weighted degree $k$
-      y: $P(k)$
     set_legend:
-      use_legend: True
-      ncol: 1
-      loc: upper right
+      use_legend: False
     set_limits:
       x: [5, 35]
       y: [0, 0.15]
   style:
     figure.figsize: [*half_width, *quarter_width]
 
-
-triangles:
-  based_on: degree
+# Plot the marginal triangle distribution
+triangle_marginal:
+  based_on: triangle_marginal
   dag_options:
-    meta_operations:
-      hist:
-        - np.linspace: [ 0, 50, 500 ]
-        - NeuralABM.hist: [ !arg 0 ]
-          kwargs: { bins: !dag_node -1, axis: 1 }
-  select:
-    param_binned:
-      path: output_data/predictions
-      transform:
-        - .data: [ !dag_prev ]
-        - NeuralABM.triangles: [ !dag_prev ]
-        - hist: [!dag_prev ]
-    true_val:
-      path: true_network/_triangles_weighted
+    define:
+      upper_bin: 50
   helpers:
     set_limits:
       x: [0, 25]
-    set_labels:
-      x: Weighted triangle count $t$
-      y: $P(t)$
+    set_legend:
+      use_legend: False
+  style:
+    figure.figsize: [ *half_width, *quarter_width ]

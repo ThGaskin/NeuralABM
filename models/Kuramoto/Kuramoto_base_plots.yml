@@ -308,3 +308,150 @@ error:
     - sub: [!dag_tag prediction, !dag_tag true_values]
     - np.abs: [!dag_prev ]
       tag: data
+
+# ======================================================================================================================
+#  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
+#  ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
+#  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
+# ======================================================================================================================
+
+# Marginal of degree distribution
+degree_marginal:
+  based_on: .multiplot_universe
+  dag_options:
+    define:
+      lower_bin: 0
+      upper_bin: 10
+      n_bins: 500
+  # Select true density, predicted densities and associated probabilities
+  select:
+
+    true_densities:
+      path: true_network/_degree_weighted
+      transform:
+        - np.linspace: [ !dag_tag lower_bin, !dag_tag upper_bin, !dag_tag n_bins]
+        - hist: !dag_node -2
+          kwargs:
+            bins: !dag_prev
+        - normalise_to_nw_size: [!dag_prev ]
+          kwargs: {x: bin_center}
+        - .rename: [!dag_prev , {_degree_weighted: _variable}]
+
+    predicted_densities:
+      path: output_data/predictions
+      transform:
+        - .sum: [ !dag_prev , i ]
+        - np.linspace: [ !dag_tag lower_bin, !dag_tag upper_bin, !dag_tag n_bins]
+        - hist_ndim: !dag_node -2
+          kwargs:
+            bins: !dag_prev
+            exclude_dim: ['time']
+        - normalise_to_nw_size: [ !dag_prev ]
+          kwargs:
+            x: bin_center
+            exclude_dim: ['time']
+
+    probabilities:
+      path: output_data/Loss
+      transform:
+        - .sel: [ !dag_prev , { kind: Data loss } ]
+        - mul: [!dag_prev , -1]
+        - np.exp: [!dag_prev ]
+        - .sum: [!dag_prev ]
+        - div: [!dag_node -2, !dag_prev ]
+
+  transform:
+
+    # Calculate the marginal density
+    - marginal_of_density: [ !dag_tag predicted_densities, !dag_tag probabilities ]
+      kwargs:
+        error: Hellinger
+        sample_dim: 'time'
+      file_cache:
+        read: True
+        write: True
+      tag: marginals
+
+    # Get the MLE
+    - .argmax: [!dag_tag probabilities]
+    - .isel: [!dag_tag predicted_densities, {time: !dag_prev }]
+      kwargs: {drop: true}
+    - .rename: [!dag_prev , {predictions: 'MLE'}]
+      tag: MLE
+
+    # Merge
+    - xr.merge: [[!dag_tag marginals, !dag_tag MLE]]
+      tag: data
+
+  to_plot:
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [!dag_result data]
+      y: MLE
+      yerr: err
+      pass_helper: true
+      color: *darkblue
+      label: $\hat{P}(k)$
+    - function: [model_plots.HarrisWilson, plot_prob_density]
+      args: [ !dag_result true_densities ]
+      y: _variable
+      linestyle: dotted
+      color: *red
+      pass_helper: True
+      label: $P(k)$
+  x: bin_center
+  smooth_kwargs:
+    enabled: True
+    sigma: 3
+  helpers:
+    set_title:
+      title: ~
+    set_labels:
+      x: Weighted degree $k$
+      y: $P(k)$
+    set_legend:
+      use_legend: True
+      ncol: 1
+      loc: upper right
+
+# Marginal of triangle distribution
+triangle_marginal:
+  based_on: degree_marginal
+  dag_options:
+    define:
+      upper_bin: 5
+  select:
+    true_densities:
+      path: true_network/_triangles_weighted
+      transform:
+        - .data: [!dag_prev ]
+        - np.linspace: [ !dag_tag lower_bin, !dag_tag upper_bin, !dag_tag n_bins ]
+        - hist: !dag_node -2
+          kwargs:
+            bins: !dag_prev
+        - normalise_to_nw_size: [!dag_prev ]
+          kwargs: {x: bin_center}
+        - .rename: [!dag_prev , {_triangles_weighted: _variable}]
+    predicted_densities:
+      path: output_data/predictions
+      transform:
+        - .data: [!dag_prev ]
+        - triangles: [ !dag_prev  ]
+        - np.linspace: [ !dag_tag lower_bin, !dag_tag upper_bin, !dag_tag n_bins ]
+        - hist: !dag_node -2
+          kwargs:
+            bins: !dag_prev
+            along_dim: [i]
+        - normalise_to_nw_size: [ !dag_prev ]
+          kwargs:
+            x: bin_center
+            exclude_dim: ['time']
+  helpers:
+    set_labels:
+      x: Weighted triangle count $t$
+      y: $P(t)$
+
+# ======================================================================================================================
+#  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
+#  ║║║║ ║║  ║ ║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
+#  ╩ ╩╚═╝╩═╝╩ ╩ ╚╝ ╚═╝╩╚═╚═╝╚═╝  ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================

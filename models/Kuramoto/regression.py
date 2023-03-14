@@ -8,14 +8,14 @@ import torch
 
 
 def regression(
-        training_data: torch.Tensor,
-        eigenfrequencies: torch.Tensor,
-        h5file: h5.File,
-        dt: float,
-        *,
-        second_order: bool,
-        gamma: float = None,
-        kappa: float = 1,
+    training_data: torch.Tensor,
+    eigenfrequencies: torch.Tensor,
+    h5file: h5.File,
+    dt: float,
+    *,
+    second_order: bool,
+    gamma: float = None,
+    kappa: float = 1,
 ):
     """Estimates the network from first- or second-order dynamics via an OLS-regression, and stores the predictions in
     an h5.File.
@@ -75,7 +75,8 @@ def regression(
     for dset in range(G.shape[0]):
         for step in range(0, G.shape[1]):
             G[dset, step] = torch.sin(
-                -training_data[dset, step+t_0] + torch.flatten(training_data[dset, step+t_0])
+                -training_data[dset, step + t_0]
+                + torch.flatten(training_data[dset, step + t_0])
             )
 
     # Permute node and time series indices
@@ -95,14 +96,16 @@ def regression(
 
     # Estimate the coupling vector for each node
     for n in range(N):
-        g = torch.cat((G[n][:n, :], G[n][n + 1:, :]))
+        g = torch.cat((G[n][:n, :], G[n][n + 1 :, :]))
         g_t = torch.transpose(g, 0, 1)
         t = torch.matmul(G[n], G_transpose[n])
-        subsel = torch.cat((t[:n, :], t[n + 1:, :]), dim=0)
-        subsel = torch.cat((subsel[:, :n], subsel[:, n + 1:]), dim=1)
+        subsel = torch.cat((t[:n, :], t[n + 1 :, :]), dim=0)
+        subsel = torch.cat((subsel[:, :n], subsel[:, n + 1 :]), dim=1)
 
         row_entry = np.matmul(torch.matmul(X[n], g_t), np.linalg.inv(subsel))
-        A[n, :] = 1/kappa * torch.cat((row_entry[:n], torch.tensor([0]), row_entry[n:]))
+        A[n, :] = (
+            1 / kappa * torch.cat((row_entry[:n], torch.tensor([0]), row_entry[n:]))
+        )
 
     # Write out the time it took to run OLS
     prediction_time = time.time() - start_time

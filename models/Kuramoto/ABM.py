@@ -7,7 +7,15 @@ import torch
 # --- The Kuramoto ABM ------------------------------------------------------------------------------------------
 class Kuramoto_ABM:
     def __init__(
-        self, *, N: int, sigma: float, dt: float, gamma: float, kappa: float, device: str, **__
+        self,
+        *,
+        N: int,
+        sigma: float,
+        dt: float,
+        gamma: float,
+        kappa: float,
+        device: str,
+        **__,
     ):
 
         """The Kuramoto model numerical solver, for first and second-order dynamics.
@@ -73,7 +81,8 @@ class Kuramoto_ABM:
                 + (
                     eigen_frequencies
                     + torch.reshape(
-                        torch.matmul(self.kappa * adjacency_matrix, diffs).diag(), (self.N, 1)
+                        torch.matmul(self.kappa * adjacency_matrix, diffs).diag(),
+                        (self.N, 1),
                     )
                 )
                 * self.dt
@@ -89,7 +98,8 @@ class Kuramoto_ABM:
                     (
                         eigen_frequencies
                         + torch.reshape(
-                            torch.matmul(self.kappa * adjacency_matrix, diffs).diag(), (self.N, 1)
+                            torch.matmul(self.kappa * adjacency_matrix, diffs).diag(),
+                            (self.N, 1),
                         )
                         - self.gamma * current_velocities
                     )
