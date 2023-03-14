@@ -17,7 +17,7 @@
     orange:               &orange             '#EC9F7E'
     lightgreen:           &lightgreen         '#AFD8BC'
     grey:                 &grey               '#3D4244'
-
+    pink:                 &pink               '#F8A6A6'
 loss: !pspace
   based_on:
     - .creator.multiverse
@@ -93,10 +93,15 @@ time_and_loss:
     - xr.Dataset:
       - y: !dag_tag mean_time
         yerr: !dag_prev
-      tag: time_data
+      tag: CPU_time
     - .mean: [!dag_tag time_regression, 'seed']
       tag: regression_time
-  compute_only: [loss_data, time_data, regression_time]
+    - import_and_call: [ pandas, read_csv, 'data/Kuramoto/GPU_times.csv' ]
+      kwargs:
+        index_col: 0
+    - xr.Dataset: [!dag_prev ]
+      tag: GPU_time
+  compute_only: [loss_data, CPU_time, GPU_time, regression_time]
   helpers:
     set_labels:
       x: $N$
@@ -112,6 +117,11 @@ time_and_loss:
           s: 'Neural (CPU)'
           color: *green
           zorder: 10
+        - x: 100
+          y: 0.1
+          s: 'Neural (GPU)'
+          color: *pink
+          zorder: 10
         - x: 280
           y: 0.4
           s: '$L1$ error'
@@ -124,7 +134,8 @@ time_and_loss:
       x: [min, max]
   file_ext: pdf
   loss_color: *darkblue
-  time_color: *green
+  CPU_color: *green
+  GPU_color: *pink
   regression_color: 'black'
   style:
     axes.spines.right: True
