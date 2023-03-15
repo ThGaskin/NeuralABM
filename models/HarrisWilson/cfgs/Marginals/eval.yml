@@ -280,11 +280,7 @@ peak_widths:
       tag: peaks_kappa
 
     # Combine
-    - operation: pd.Index
-      args: [ [ '$\hat{\beta}$', '$\hat{\alpha}$', '$\hat{\kappa}$' ] ]
-      kwargs:
-        name: 'parameter'
-    - xr.concat: [ [ !dag_tag peaks_beta, !dag_tag peaks_alpha, !dag_tag peaks_kappa ], !dag_prev ]
+    - concat_along: [ [ !dag_tag peaks_beta, !dag_tag peaks_alpha, !dag_tag peaks_kappa ], 'parameter', [ '$\hat{\beta}$', '$\hat{\alpha}$', '$\hat{\kappa}$' ]]
       tag: data
 
   x: sigma

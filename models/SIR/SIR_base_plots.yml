@@ -166,11 +166,7 @@ densities_comparison:
       transform:
         - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
   transform:
-    - operation: pd.Index
-      args: [ [ 'true', 'predicted' ] ]
-      kwargs:
-        name: 'type'
-    - xr.concat: [ [ !dag_tag true_counts, !dag_tag pred_counts ], !dag_prev ]
+    - concat_along: [ [ !dag_tag true_counts, !dag_tag pred_counts ], 'type', [ 'true', 'predicted' ] ]
       tag: data
   x: time
   col: type

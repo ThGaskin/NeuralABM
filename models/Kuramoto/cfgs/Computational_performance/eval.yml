@@ -18,41 +18,36 @@
     lightgreen:           &lightgreen         '#AFD8BC'
     grey:                 &grey               '#3D4244'
     pink:                 &pink               '#F8A6A6'
+
+# ======================================================================================================================
+# ╔═╗╦  ╔═╗╔╦╗╔═╗
+# ╠═╝║  ║ ║ ║ ╚═╗
+# ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+
 loss: !pspace
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.errorbands
   select_and_combine:
     fields:
-      loss: output_data/Training loss
-      prediction_error: output_data/Prediction error
+      loss: output_data/Loss
     subspace:
       N: !sweep
         default: 10
         values: [10, 20, 40, 100, 200]
   transform:
     - .mean: [!dag_tag loss, 'seed' ]
-      tag: mean_loss
+      tag: mean
     - .std: [!dag_tag loss, 'seed']
     - xr.Dataset:
-      - y: !dag_tag mean_loss
+      - y: !dag_tag mean
         yerr: !dag_prev
-      tag: stats_loss
-    - .mean: [!dag_tag prediction_error, 'seed' ]
-      tag: mean_l1_err
-    - .std: [!dag_tag prediction_error, 'seed']
-    - xr.Dataset:
-      - y: !dag_tag mean_l1_err
-        yerr: !dag_prev
-      tag: stats_pred_err
-    - pd.Index: [ [ 'Training loss', 'Frobenius error' ] ]
-      kwargs: {name: 'loss type'}
-    - xr.concat: [[!dag_tag stats_loss, !dag_tag stats_pred_err], !dag_prev ]
       tag: data
   x: time
   y: y
   yerr: yerr
-  hue: loss type
+  hue: kind
   helpers:
     set_scales:
       y: log
