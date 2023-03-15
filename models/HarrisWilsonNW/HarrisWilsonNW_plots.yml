@@ -1,0 +1,44 @@
+---
+loss:
+  based_on: loss
+
+matrices/true_adjacency_matrix:
+  based_on: adjacency_matrix
+
+matrices/prediction:
+  based_on: adjacency_matrix
+  select:
+    data:
+      path: output_data/predictions
+      transform:
+        - .isel: [!dag_prev , {time: -1}]
+
+matrices/accuracy:
+  based_on: accuracy
+
+matrices/accuracy_on_true_edges:
+  based_on: accuracy_on_true_edges
+
+matrices/accuracy_on_false_edges:
+  based_on: accuracy_on_false_edges
+
+# Plot the synthetic time series
+time_series:
+  based_on: time_series
+
+predicted_time_series:
+  based_on: time_series
+  select:
+    data: output_data/predicted_time_series
+
+training_data:
+  based_on: time_series
+  select:
+    data:
+      path: training_data/training_data
+
+origin_sizes:
+  based_on: time_series
+  select:
+    data:
+      path: training_data/origin_sizes

@@ -1,0 +1,47 @@
+---
+paths:
+  model_note: Training_data_example
+parameter_space:
+  num_epochs: 0
+  write_predictions_every: 1
+  write_every: 1
+  seed: 39
+  HarrisWilsonNW:
+    Data:
+      num_training_steps: 500
+      training_set_size: 1
+      synthetic_data:
+        N_origin: 5
+        N_destination: 10
+        dt: &dt 0.001
+        alpha: &alpha 0.1
+        beta: &beta 9
+        kappa: &kappa 8
+        sigma: &sigma 0.0
+        epsilon: &epsilon 10
+        write_start: 1
+        write_every: 1
+        num_steps: 1000
+        origin_size_std: 0.05
+        init_origin_sizes:
+          parameters:
+            mean: 1
+            std: 0.2
+        init_dest_sizes:
+          parameters:
+            mean: 1
+            std: 0.2
+    Training:
+      batch_size: 10
+      true_parameters:
+        alpha: *alpha
+        beta: *beta
+        kappa: *kappa
+        sigma: *sigma
+        epsilon: *epsilon
+        dt: *dt
+      learning_rate: 0.002
+    NeuralNet:
+      activation_funcs:
+        layer_specific:
+          -1: HardSigmoid

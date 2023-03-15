@@ -1,0 +1,57 @@
+---
+.variables:
+  colors: &colors
+    yellow:       &yellow       '#F5DDA9'
+    darkblue:     &darkblue     '#2F7194'
+    red:          &red          '#ec7070'
+    skyblue:      &skyblue      '#97c3d0'
+    green:        &green        '#48675A'
+    lightbrown:   &lightbrown   '#C6BFA2'
+    orange:       &orange       '#EC9F7E'
+    lightgreen:   &lightgreen   '#AFD8BC'
+    grey:         &grey         '#3D4244'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:     &full_width         7.5
+    half_width:     &half_width         !expr 7.5 / 2
+    third_width:    &third_width        !expr 7.5 / 3
+    quarter_width:  &quarter_width      !expr 7.5 / 4
+    fifth_width:    &fifth_width        !expr 7.5 / 5
+    eighth_width:    &eighth_width      !expr 7.5 / 8
+    two_thirds_width:    &two_thirds_width      !expr 2* 7.5 / 3
+
+origin_sizes:
+  based_on: time_series
+  helpers:
+    set_labels: {x: $t$, y: $O_i$}
+    set_limits:
+      x: [500, 1000]
+    set_ticks:
+      x:
+        major:
+          labels: ['', '', '']
+          locs: [500, 700, 900]
+  select:
+    data:
+      path: training_data/origin_sizes
+  style:
+    figure.figsize: [*third_width, *eighth_width]
+
+destination_sizes:
+  based_on: time_series
+  select:
+    data:
+      path: training_data/destination_sizes
+  helpers:
+    set_labels: {x: $t$, y: $W_j$}
+    set_limits:
+      x: [500, 1000]
+      y: [0, 0.5]
+    set_ticks:
+      x:
+        major:
+          labels: ['', '', '']
+          locs: [500, 700, 900]
+  style:
+    figure.figsize: [*third_width, *eighth_width]
