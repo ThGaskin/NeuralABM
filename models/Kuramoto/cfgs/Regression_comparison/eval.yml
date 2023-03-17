@@ -60,10 +60,7 @@ regression_comparison: !pspace
     - sub: [!dag_tag NN_prediction, !dag_tag true_values]
     - np.abs: [!dag_prev ]
     - .sum: [!dag_prev , ['i', 'j']]
-      tag: NN_error
-    - pd.Index: [ [ 'Neural scheme', 'OLS regression' ] ]
-      kwargs: {name: 'type'}
-    - xr.concat: [[!dag_tag NN_error, !dag_tag regression_error], !dag_prev ]
+    - concat_along: [[!dag_prev, !dag_tag regression_error], 'type', [ 'Neural scheme', 'OLS regression' ] ]
     - .squeeze: [!dag_prev ]
       tag: data
     - .mean: [!dag_tag data , 'seed']

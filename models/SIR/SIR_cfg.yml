@@ -13,7 +13,7 @@ Data:
 
     # Domain extent, and whether the boundaries are periodic
     space: [10, 10]
-    is_periodic: !is-bool false
+    is_periodic: !is-bool true
 
     # Model parameters: infection radius, infection probability, infection time
     r_infectious: !is-positive 1.0

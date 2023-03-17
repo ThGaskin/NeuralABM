@@ -1,0 +1,83 @@
+# The model default configuration for the neural Harris-Wilson model
+---
+# Settings for the dataset, which is loaded externally or can be synthetically generated using the ABM
+Data:
+  synthetic_data:
+
+    # Number of steps in the synthetic time series
+    num_steps: 500
+
+    # Origin zone and destination zone size
+    N_origin: !is-positive-int 10
+    N_destination: !is-positive-int 5
+
+    # Size, convenience, cost, noise, and responsiveness parameters
+    alpha: !is-positive-or-zero &alpha 1.2
+    beta: !is-positive-or-zero &beta 4
+    kappa: !is-positive-or-zero &kappa 2
+    sigma: !is-positive-or-zero &sigma 0
+    epsilon: !is-positive &epsilon 10
+
+    # Time differential
+    dt: !is-positive &dt 0.001
+
+    # Initialisation of the network weights
+    init_network_weights:
+      distribution: normal
+      parameters:
+        mean: 1.2
+        std: 1.2
+
+    # Initialisation of the origin sizes
+    init_origin_sizes:
+      distribution: normal
+      parameters:
+        mean: 1
+        std: 0.2
+
+    # Fluctuations of the origin zones over time
+    origin_size_std: 0.05
+
+    # Initialisation of the destination sizes
+    init_dest_sizes:
+      distribution: normal
+      parameters:
+        mean: 1
+        std: 0.2
+
+  # Number of independently training sets to use
+  training_set_size: 1
+
+  # Number of training steps to use
+  num_training_steps: 300
+
+
+# Settings for the neural net architecture
+NeuralNet:
+  num_layers: 5
+  nodes_per_layer:
+    default: !is-positive-int 20
+  activation_funcs:
+    default: tanh
+    layer_specific:
+      -1: HardSigmoid
+  biases:
+    default: ~
+  learning_rate: !is-positive 0.002
+
+# Settings for the neural net training
+Training:
+  loss_function:
+    name: MSELoss
+  batch_size: !is-positive-int 1
+  device: cpu
+  true_parameters:
+    alpha: *alpha
+    beta: *beta
+    kappa: *kappa
+    sigma: *sigma
+    epsilon: *epsilon
+    dt: *dt
+
+# Whether to write out the computation time for each epoch
+write_time: False

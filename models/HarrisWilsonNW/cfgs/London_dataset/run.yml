@@ -1,0 +1,46 @@
+---
+paths:
+  model_note: London_dataset
+parameter_space:
+  num_epochs: 50
+  write_predictions_every: 4
+  write_every: 4
+  write_start: 1
+  seed: 39
+  HarrisWilsonNW:
+    Data:
+      num_training_steps: 2
+      training_set_size: 2500
+      load_from_dir:
+        origin_zones: &data data/HarrisWilsonNW/London_data.h5
+        network: *data
+        destination_zones: *data
+      synthetic_data:
+        dt: &dt 0.001
+        alpha: &alpha 0.92
+        beta: &beta 0.54
+        kappa: &kappa 8.3
+        sigma: 0.14
+        epsilon: &epsilon 2
+        num_steps: 10000
+        origin_size_std: 0.1
+    Training:
+      batch_size: 2
+      true_parameters:
+        alpha: *alpha
+        beta: *beta
+        kappa: *kappa
+        sigma: 0
+        epsilon: *epsilon
+        dt: *dt
+    NeuralNet:
+      num_layers: 5
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: tanh
+        layer_specific:
+          -1: sigmoid
+      biases:
+        default: ~
+      learning_rate: 0.002

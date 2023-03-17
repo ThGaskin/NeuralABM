@@ -39,7 +39,7 @@ def test_data_loading():
                     }
                 }
             )
-        elif model in ["Kuramoto"]:
+        if model in ["Kuramoto", "HarrisWilsonNW"]:
             for ele in ["network", "eigen_frequencies", "training_data"]:
                 config["parameter_space"][model_name].update(
                     {

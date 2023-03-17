@@ -288,10 +288,7 @@ degree_error:
     - average_hellinger_distance: [!dag_tag samples, !dag_tag MLE, !dag_tag probabilities]
       tag: hellinger
     - average_relative_entropy: [ !dag_tag samples, !dag_tag MLE, !dag_tag probabilities ]
-      tag: relative_entropy
-    - pd.Index: [ [ 'Hellinger metric', 'Relative entropy'] ]
-      kwargs: {name: 'metric'}
-    - xr.concat: [[!dag_tag hellinger, !dag_tag relative_entropy], !dag_prev ]
+    - concat_along: [[!dag_tag hellinger, !dag_prev], 'metric', [ 'Hellinger metric', 'Relative entropy'] ]
     - .to_array: [!dag_prev ]
       file_cache:
         read: True

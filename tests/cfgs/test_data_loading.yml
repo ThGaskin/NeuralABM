@@ -48,3 +48,11 @@ Kuramoto:
     write_every: 1
     Kuramoto:
       N: 16
+
+HarrisWilsonNW:
+  model: HarrisWilsonNW
+  parameter_space:
+    num_epochs: 2
+    HarrisWilsonNW:
+      N_origin: 20
+      N_destination: 10
