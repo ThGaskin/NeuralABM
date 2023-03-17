@@ -219,7 +219,7 @@ loss_density:
   hue: loss
   y: loss
   s: 1
-  add_guide: False
+  add_colorbar: False
   cmap:
     continuous: true
     from_values:
@@ -253,10 +253,14 @@ marginals:
         data_vars:
           param1: !dag_tag param1
           loss: !dag_tag loss
-    - NeuralABM.compute_marginals: [ !dag_prev ]
+    - compute_marginals: [ !dag_prev ]
       kwargs:
         bins: 200
+        x: param1
+        p: loss
       tag: data
+  x: x
+  y: p
   color: *darkblue
   smooth_kwargs:
     enabled: true
