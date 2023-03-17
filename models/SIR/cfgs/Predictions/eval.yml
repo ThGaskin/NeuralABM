@@ -68,11 +68,7 @@ densities:
       - density: !dag_tag mean_true
         err: !dag_tag std_true
       tag: true_dset
-    - operation: pd.Index
-      args: [ [ 'true', 'predicted' ] ]
-      kwargs:
-        name: 'type'
-    - xr.concat: [ [ !dag_tag true_dset, !dag_tag pred_dset ], !dag_prev ]
+    - concat_along: [ [ !dag_tag true_dset, !dag_tag pred_dset ], 'type', [ 'true', 'predicted' ] ]
       tag: data
 
     - .sel: [!dag_tag true_dset, { kind: infected }]

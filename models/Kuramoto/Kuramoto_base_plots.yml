@@ -247,7 +247,7 @@ oscillations:
     - .squeeze: [!dag_tag phases]
     - mul: [!dag_prev , !dag_tag t ]
     - add: [!dag_tag eigen_frequencies , !dag_prev ]
-    - sin: [!dag_prev ]
+    - np.sin: [!dag_prev ]
       tag: data
   x: time
   hue: vertex_idx
@@ -307,6 +307,32 @@ error:
   transform:
     - sub: [!dag_tag prediction, !dag_tag true_values]
     - np.abs: [!dag_prev ]
+      tag: data
+
+# L1 prediction error on true edges
+error_on_true_edges:
+  based_on: error
+  transform:
+    - sub: [ !dag_tag prediction, !dag_tag true_values ]
+    - np.abs: [ !dag_prev ]
+      tag: l1_accuracy
+    - ==: [!dag_tag true_values, 0]
+    - xr.where: [!dag_prev , 1, 0]
+    - mul: [!dag_tag prediction, !dag_prev ]
+    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
+      tag: data
+
+# L1 prediction error on false edges
+error_on_false_edges:
+  based_on: error
+  transform:
+    - sub: [ !dag_tag prediction, !dag_tag true_values ]
+    - np.abs: [ !dag_prev ]
+      tag: l1_accuracy
+    - ==: [!dag_tag true_values, 0]
+    - xr.where: [!dag_prev , 1, 0]
+    - mul: [!dag_tag prediction, !dag_prev ]
+    - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
       tag: data
 
 # ======================================================================================================================

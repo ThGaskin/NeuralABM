@@ -4,6 +4,7 @@
 ---
 
 ![example workflow](https://github.com/ThGaskin/NeuralABM/actions/workflows/pytest.yml/badge.svg)
+![coverage badge](./coverage.svg)
 
 This project combines multi-agent models with a neural core, in order to estimate densities on ODE parameters
 (including adjacency matrices) from data. The project
@@ -17,7 +18,9 @@ and plotting.
 > **_Note_**: See the section on [configuration sets](#running-a-model-using-configuration-sets) for guidance on how to reproduce the plots from the
 > publications, once you have completed installation.
 > - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
-> https://doi.org/10.1073/pnas.2216415120
+> https://doi.org/10.1073/pnas.2216415120 (`HarrisWilson` and `SIR` models)
+> - T. Gaskin, M. Girolami, G. Pavliotis. *Inferring networks from time series: a neural approach.* (`Kuramoto` and
+> `HarrisWilsonNW` models)
 
 > **_Hint_**: If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
 >
@@ -30,7 +33,7 @@ and plotting.
 * [Training settings](#training-settings)
   * [Changing the loss function](#changing-the-loss-function)
 * [Loading data](#loading-data)
-* [Tests (WIP)](#-tests-wip)
+* [Tests](#tests)
 
 ## How to install
 #### 1. Clone this repository
@@ -297,7 +300,10 @@ folder.
 ## Tests
 The models and core functionalities (graph generation, neural network settings,
 vector, etc.) are unit tested. To run the tests, invoke
-```bash
-pytest tests
+```commandline
+pytest tests/
 ```
-from the main folder.
+from the main folder. This will run all tests; to output a coverage report, invoke
+```commandline
+coverage run -m pytest tests/ && coverage report -m
+```

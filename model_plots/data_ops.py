@@ -3,6 +3,7 @@ from operator import itemgetter
 from typing import Union
 
 import numpy as np
+import pandas as pd
 import scipy.signal
 import xarray as xr
 
@@ -167,6 +168,21 @@ def apply_along_dim_2d(func):
 # ----------------------------------------------------------------------------------------------------------------------
 # DATA RESHAPING AND REORGANIZING
 # ----------------------------------------------------------------------------------------------------------------------
+@is_operation("concat_along")
+def concat(objs: list, name: str, dims: list, *args, **kwargs):
+
+    """Combines the pd.Index and xr.concat functions into one.
+
+    :param objs: the xarrays to be concatenated
+    :param name: the name of the new dimension
+    :param dims: the coordinates of the new dimension
+    :param args: passed to xr.concat
+    :param kwargs: passed to xr.concat
+    :return:
+    """
+    return xr.concat(objs, pd.Index(dims, name=name), *args, **kwargs)
+
+
 @is_operation("flatten_dims")
 @apply_along_dim
 def flatten_dims(

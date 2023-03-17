@@ -152,12 +152,13 @@ def test_training():
 
                 # Repeat the training step on the same batch and assert that the loss has changed, meaning
                 # the internal parameters have changed
-                loss = torch.tensor(0.0, requires_grad=True)
                 net.optimizer.zero_grad()
-                y = net(x)
-                loss = torch.nn.functional.mse_loss(y, test_data[idx])
+                loss = torch.nn.functional.mse_loss(net(x), test_data[idx])
                 loss.backward()
                 net.optimizer.step()
-                current_loss = loss.detach().numpy()
-
+                current_loss = (
+                    torch.nn.functional.mse_loss(net(x), test_data[idx])
+                    .detach()
+                    .numpy()
+                )
                 assert current_loss != previous_loss
