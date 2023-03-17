@@ -3,15 +3,23 @@
 # Settings for the dataset, which is loaded externally or can be synthetically generated using the ABM
 Data:
   synthetic_data:
-    num_steps: 300
-    N_origin: !is-positive-int 100
-    N_destination: !is-positive-int 10
+
+    # Number of steps in the synthetic time series
+    num_steps: 500
+
+    # Origin zone and destination zone size
+    N_origin: !is-positive-int 10
+    N_destination: !is-positive-int 5
+
+    # Size, convenience, cost, noise, and responsiveness parameters
     alpha: !is-positive-or-zero &alpha 1.2
     beta: !is-positive-or-zero &beta 4
     kappa: !is-positive-or-zero &kappa 2
     sigma: !is-positive-or-zero &sigma 0
     epsilon: !is-positive &epsilon 10
-    dt: !is-positive &dt 0.01
+
+    # Time differential
+    dt: !is-positive &dt 0.001
 
     # Initialisation of the network weights
     init_network_weights:
@@ -25,23 +33,23 @@ Data:
       distribution: normal
       parameters:
         mean: 1
-        std: 0.1
+        std: 0.2
 
     # Fluctuations of the origin zones over time
-    origin_size_std: 0.0
+    origin_size_std: 0.05
 
     # Initialisation of the destination sizes
     init_dest_sizes:
       distribution: normal
       parameters:
-        mean: 0.1
-        std: 0.01
+        mean: 1
+        std: 0.2
 
   # Number of independently training sets to use
   training_set_size: 1
 
   # Number of training steps to use
-  num_training_steps: 100
+  num_training_steps: 300
 
 
 # Settings for the neural net architecture

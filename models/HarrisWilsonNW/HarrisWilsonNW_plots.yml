@@ -1,11 +1,14 @@
 ---
+# Plot the losses
 loss:
   based_on: loss
 
-matrices/true_adjacency_matrix:
+# True adjacency matrix
+Adjacency_matrices/true_adjacency_matrix:
   based_on: adjacency_matrix
 
-matrices/prediction:
+# Predicted adjacency matrix
+Adjacency_matrices/prediction:
   based_on: adjacency_matrix
   select:
     data:
@@ -13,30 +16,23 @@ matrices/prediction:
       transform:
         - .isel: [!dag_prev , {time: -1}]
 
-matrices/accuracy:
-  based_on: accuracy
+# L1 error on each edge
+Adjacency_matrices/error:
+  based_on: error
 
-matrices/accuracy_on_true_edges:
-  based_on: accuracy_on_true_edges
+# L1 error on true edges
+Adjacency_matrices/error_on_true_edges:
+  based_on: error_on_true_edges
 
-matrices/accuracy_on_false_edges:
-  based_on: accuracy_on_false_edges
+# L1 error on falsely predicted edges
+Adjacency_matrices/error_on_false_edges:
+  based_on: error_on_false_edges
 
-# Plot the synthetic time series
-time_series:
-  based_on: time_series
-
+# Compare the true and predicted time series
 predicted_time_series:
-  based_on: time_series
-  select:
-    data: output_data/predicted_time_series
+  based_on: prediction_comparison
 
-training_data:
-  based_on: time_series
-  select:
-    data:
-      path: training_data/training_data
-
+# Plot the origin sizes
 origin_sizes:
   based_on: time_series
   select:
