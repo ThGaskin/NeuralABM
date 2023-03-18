@@ -59,8 +59,8 @@ utopya --help
 ```
 
 > **_Note_**  On Apple Silicon devices running macOS 12.3+, follow [these](https://pytorch.org/blog/introducing-accelerated-pytorch-training-on-mac/)
-> instructions to install pytorch and enable GPU training. Your training device will then be set to 'mps'.
-> On all devices the GPU, where available, will always be the preferred training device.
+> instructions to install pytorch and enable GPU training. Note that pytorch for Apple Silicon with
+> GPU acceleration is still WIP.
 
 #### 3. Register the project and all models with utopya
 
