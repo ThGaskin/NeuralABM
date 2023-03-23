@@ -1,0 +1,466 @@
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+
+.variables:
+  colors: &colors
+    yellow:         &yellow           '#F5DDA9'
+    darkblue:       &darkblue         '#2F7194'
+    red:            &red              '#ec7070'
+    skyblue:        &skyblue          '#97c3d0'
+    darkgreen:      &darkgreen        '#48675A'
+    lightbrown:     &lightbrown       '#C6BFA2'
+    orange:         &orange           '#EC9F7E'
+    lightgreen:     &lightgreen       '#AFD8BC'
+    grey:           &grey             '#3D4244'
+    pink:           &pink             '#F8A6A6'
+
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:         &full_width         7.5
+    half_width:         &half_width         !expr 7.5 / 2
+    two_thirds_width:   &two_thirds_width   !expr 2 * 7.5 / 3
+    third_width:        &third_width        !expr 7.5 / 3
+    quarter_width:      &quarter_width      !expr 7.5 / 4
+    fifth_width:        &fifth_width        !expr 7.5 / 5
+    eighth_width:       &eighth_width       !expr 7.5 / 8
+
+.matrix_defaults:
+  style:
+    figure.figsize: [ *third_width, *third_width ]
+    axes.grid: False
+    axes.spines.top: True
+    axes.spines.right: True
+    axes.linewidth: 0.5
+  vmax: 1
+  helpers:
+    set_title:
+      title: ''
+    set_ticks:
+      x:
+        major: []
+      y:
+        major: []
+    set_labels:
+      x: ' '
+      y: ' '
+    set_limits:
+      y: [max, min]
+      x: [min, max]
+
+# ======================================================================================================================
+# ╔═╗╦  ╔═╗╔╦╗╔═╗
+# ╠═╝║  ║ ║ ║ ╚═╗
+# ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+
+# Plot the training and prediction loss
+loss:
+  based_on: .line_universe
+  hue: kind
+  figsize: [*half_width, *third_width]
+  select:
+    data:
+      path: output_data/Loss
+      transform:
+        - .sel: [!dag_prev , {kind: [Total loss, Data loss, L1 prediction error]}]
+    cutoff:
+      path: ../cfg
+      transform:
+        - recursive_getitem: [ !dag_prev , [ 'Kuramoto', 'Power_grid', 'cutoff_time' ] ]
+  helpers:
+    set_labels:
+      x: Iteration
+      y: Loss
+    set_scales:
+      y: log
+    set_hv_lines:
+      vlines:
+        - pos: !dag_result cutoff
+          color: *red
+          linestyle: 'dotted'
+
+# Plot the rolling average of the loss, its first derivative, and its second derivative
+rolling_losses:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    losses:
+      path: output_data/Loss
+      transform:
+        - .sel: [!dag_prev , {kind: Data loss}]
+          kwargs: {drop: true}
+    cutoff:
+      path: ../cfg
+      transform:
+        - recursive_getitem: [!dag_prev , ['Kuramoto', 'Power_grid', 'cutoff_time']]
+  dag_options:
+    meta_operations:
+      rolling_mean:
+        - .rolling: [!arg 0 ]
+          kwargs:
+            time: !arg 1
+        - .mean: [!dag_prev ]
+        - np.abs: [!dag_prev ]
+  transform:
+    - rolling_mean: [!dag_tag losses, 20]
+      tag: loss
+    - .diff: [!dag_tag loss ]
+      kwargs:
+        dim: time
+        label: lower
+    - np.abs: [!dag_prev ]
+    - rolling_mean: [!dag_prev , 20]
+      tag: first
+    - .diff: [!dag_tag loss ]
+      kwargs:
+        dim: time
+        label: lower
+    - .diff: [!dag_prev  ]
+      kwargs:
+        dim: time
+        label: lower
+    - np.abs: [!dag_prev ]
+    - rolling_mean: [!dag_prev , 20]
+      tag: second
+    - .isel: [!dag_tag loss, {time: !slice [~, -2]}]
+    - .isel: [!dag_tag first, {time: !slice [~, -1]}]
+    - pd.Index: [ [ '$\langle J \rangle$', '$\langle \partial_s  J\rangle$', '$ \langle \partial_{ss} J \rangle$' ] ]
+      kwargs: {name: 'order'}
+    - xr.concat: [[!dag_node -3, !dag_node -2, !dag_tag second], !dag_prev ]
+      tag: data
+  hue: order
+  helpers:
+    set_scales:
+      y: log
+    set_hv_lines:
+      vlines:
+        - pos: !dag_result cutoff
+          color: *red
+          linestyle: 'dotted'
+    set_labels:
+      x: Iteration
+      y: ' '
+    set_legend:
+      title: ''
+  style:
+    figure.figsize: [*half_width, *quarter_width]
+
+# Plot the prediction error on the matrices
+error:
+  based_on:
+    - error
+    - .matrix_defaults
+  norm:
+    name: LogNorm
+  vmin: 1e-7
+  vmax: ~
+  cbar_kwargs:
+    label: Prediction error $\vert \hat{a}_{ij} - a_{ij} \vert$
+  cmap:
+    from_values:
+      0: white
+      0.5: *yellow
+      1: *red
+
+# Plot the predicted and true phases over the entire dataset after the power cut, not just the training window
+phases:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    true_data:
+      path: training_data/phases
+      transform:
+        - .sel: &sel [!dag_prev , {vertex_idx: [241, 169, 480, 120, 310, 0]}]
+          kwargs:
+            method: nearest
+        - .sel: [!dag_prev , {time: !slice [10002, ~, ]}]
+    prediction:
+      path: output_data/predicted phases
+      transform:
+        - .sel: *sel
+          kwargs:
+            method: nearest
+        - .sel: [!dag_prev , {time: !slice [0, ~, ~]}]
+  transform:
+    - .coords: [!dag_tag true_data, 'time']
+    - .data: [!dag_prev ]
+    - .assign_coords: [!dag_tag prediction, {time: !dag_prev } ]
+    - concat_along: [[!dag_tag true_data, !dag_prev ], 'kind', ['True', 'Predicted']]
+      tag: concatenated_data
+    - .isel: [!dag_prev , {time: 0}]
+    - div: [!dag_tag concatenated_data, !dag_prev ]
+      tag: data
+  x: time
+  hue: kind
+  col: vertex_idx
+  col_wrap: 3
+  sharey: False
+  add_legend: False
+  figsize: [*full_width, *half_width]
+  helpers:
+    setup_figure:
+      nrows: 2
+      ncols: 4
+    set_legend:
+      use_legend: False
+    set_limits:
+      x: [10000, 15000]
+    call:
+      functions:
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: *pink
+          alpha: 0.2
+          zorder: -1
+          xmin: 10100
+          xmax: 10400
+          lw: 0
+    axis_specific:
+      11:
+        axis: [0, 0]
+        set_title:
+          title: 'Doncaster'
+        set_labels:
+          y: $\varphi_i(t)/\varphi_i(t=0)$
+      12:
+        axis: [1, 0]
+        set_title:
+          title: 'Bangor'
+      13:
+        axis: [2, 0]
+        set_title:
+          title: 'Aberdeen'
+      14:
+        axis: [0, 1]
+        set_title:
+          title: 'Cirencester'
+        set_labels:
+          y: $\varphi_i(t)/\varphi_i(t=0)$
+          x: $t$ [s]
+      21:
+        axis: [1, 1]
+        set_title:
+          title: 'Middlesbrough'
+        set_labels:
+          x: $t$ [s]
+      22:
+        axis: [2, 1]
+        set_title:
+          title: 'Truro'
+        set_labels:
+          x: $t$ [s]
+        set_ticks:
+          x:
+            major:
+              locs: !range [ 10000, 15000, 1000 ]
+              labels: !range [0, 50, 10]
+
+# Plot the training data
+perturbation:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    responses:
+      path: training_data/phases
+      transform:
+        - .sel: [!dag_prev , {vertex_idx: [257, 253, 112, 621]}]
+        - .sel: [!dag_prev , {time: !slice [8000, 15000]}]
+    training_start:
+      path: ../cfg
+      transform:
+        - recursive_getitem: [ !dag_prev , [ 'Kuramoto', 'Power_grid', 'training_start' ] ]
+    training_stop:
+      path: ../cfg
+      transform:
+        - recursive_getitem: [ !dag_prev , [ 'Kuramoto', 'Power_grid', 'training_stop' ] ]
+  transform:
+    - .sel: [!dag_tag responses, {time: 8000}]
+    - div: [!dag_tag responses, !dag_prev ]
+      tag: data
+  x: time
+  hue: vertex_idx
+  helpers:
+    set_legend:
+      use_legend: True
+      loc: upper left
+      custom_labels: [A, B, C, D]
+      handlelength: 1
+    set_title:
+      title: ~
+    set_labels:
+      x: Time since line failure [s]
+      y: $\varphi_i(t)/\varphi_i(t=0)$
+    set_hv_lines:
+      vlines:
+        - pos: 10000
+          color: *red
+          linestyle: dotted
+    set_ticks:
+      x:
+        major:
+          locs: !range [8000, 15000, 1000]
+          labels: !range [-20, 50, 10]
+
+    call:
+      functions:
+        - function: [matplotlib.pyplot, axvspan]
+          color: *pink
+          alpha: 0.2
+          zorder: -1
+          xmin: !dag_result training_start
+          xmax: !dag_result training_stop
+          lw: 0
+  style:
+    figure.figsize: [*half_width, *quarter_width]
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['black',
+                              '{colors[darkgreen]:}',
+                              '{colors[pink]:}',
+                              '{colors[lightgreen]:}',
+                              ])"
+      colors: *colors
+
+
+# Plot the accuracy on the true edges
+accuracy_on_true_edges: !pspace
+  based_on:
+    - .creator.universe
+    - .marginals
+
+  select:
+    predictions: output_data/predictions
+    true_values:
+      path: true_network/_adjacency_matrix
+    loss:
+      path: output_data/Loss
+      transform:
+        - .sel: [!dag_prev , {kind: Data loss}]
+          kwargs: {drop: true}
+        - mul: [ !dag_prev , -1 ]
+        - np.exp: [ !dag_prev ]
+
+  transform:
+    # Define a sweep over the first n edges with the highest relative error
+    - define: !sweep
+        default: 0
+        range: [15]
+      tag: idx
+
+    # Calculate the relative errors on the existing edges, filtering by edges where the prediction
+    # is below the unperturbed value.
+    - .isel: [!dag_tag predictions, {time: -1}]
+      kwargs: {drop: true}
+      tag: prediction
+    - sub: [!dag_prev , !dag_tag true_values]
+    - np.abs: [!dag_prev ]
+    - create_mask: [ !dag_tag true_values , '>', 0 ]
+    - xr.where: [ !dag_prev , !dag_tag true_values, 1 ]
+    - div: [ !dag_node -3, !dag_prev ]
+    - create_mask: [!dag_tag true_values , '>=', !dag_tag prediction]
+    - xr.where: [!dag_prev , !dag_node -2, 0]
+
+    # Get the n edges with the highest error
+    - largest_entry_indices: [!dag_prev , 15]
+      kwargs: {symmetric: true}
+      tag: indices_and_errors
+
+    # Get the data on those edges
+    - sel_matrix_indices: [!dag_tag predictions, !dag_prev ]
+    - .squeeze: [!dag_prev ]
+      kwargs: {drop: true}
+    - xr.Dataset:
+      - param1: !dag_prev
+        loss: !dag_tag loss
+
+    # Compute the marginals
+    - compute_marginals: [!dag_prev ]
+      kwargs:
+        bins: 1000
+        exclude_dim: [idx]
+        x: param1
+        p: loss
+    - .sel: [!dag_prev , {idx: !dag_tag idx}]
+      kwargs: {drop: true}
+      file_cache:
+        read: True
+        write: True
+      tag: data
+    - sel_matrix_indices: [ !dag_tag true_values, !dag_tag indices_and_errors ]
+      tag: true_vals
+
+    # Get the unperturbed value to plot as a dashed line
+    - getitem: [ !dag_tag true_vals , !dag_tag idx ]
+    - .data: [!dag_prev ]
+      tag: unperturbed_value
+
+    # Calculate the mean of the marginal to plot as a dashed line
+    - mean: [ !dag_tag data ]
+      kwargs:
+        x: x
+        p: p
+    - getitem: [!dag_prev , 'mean']
+    - .data: [!dag_prev ]
+      tag: mean
+
+    # Title formatting
+    # Get the edge indicators
+    - .sel: [!dag_tag indices_and_errors, {idx: !dag_tag idx}]
+    - getitem: [!dag_prev , 'i']
+    - .data: [!dag_prev ]
+      tag: i
+    - .sel: [!dag_tag indices_and_errors, {idx: !dag_tag idx}]
+    - getitem: [!dag_prev , 'j']
+    - .data: [!dag_prev ]
+      tag: j
+
+    # Calculate the p-value of the unperturbed value
+    - p_value: [ !dag_tag data ]
+      kwargs:
+        x: x
+        p: p
+        t: !dag_tag unperturbed_value
+    - getitem: [!dag_prev , 'p_value' ]
+    - .data: [!dag_prev ]
+    - np.around: [ !dag_prev , 3 ]
+    - str: [ !dag_prev ]
+      tag: p_value
+
+    # Get the relative error
+    - .sel: [!dag_tag indices_and_errors, {idx: !dag_tag idx}]
+    - getitem: [!dag_prev , 'relative_error']
+    - .data: [!dag_prev ]
+    - np.around: [!dag_prev , 3]
+    - str: [!dag_prev ]
+      tag: error
+
+    # Bundle everything into a title string
+    - .format: ["Edge: ({}, {}) \n $p$-value: {} \n rel. $L1$ error: {}", !dag_tag i, !dag_tag j , !dag_tag p_value, !dag_tag error ]
+      tag: title
+
+  x: x
+  y: p
+  smooth_kwargs:
+    enabled: true
+    sigma: 10
+  helpers:
+    set_labels:
+      x: ' '
+      y: ' '
+    set_title:
+      title: !dag_result title
+    set_hv_lines:
+      vlines:
+        - pos: !dag_result unperturbed_value
+          color: *red
+          linestyle: dotted
+        - pos: !dag_result mean
+          color: *darkgreen
+          linestyle: dotted
+  style:
+    figure.figsize: [*quarter_width, *quarter_width]

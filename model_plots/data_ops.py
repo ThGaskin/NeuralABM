@@ -726,3 +726,44 @@ def triangles_ndim(
         return res.rename("triangles")
     else:
         return res
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# MATRIX SELECTION POWERGRID OPERATIONS
+# ----------------------------------------------------------------------------------------------------------------------
+@is_operation("sel_matrix_indices")
+@apply_along_dim
+def matrix_indices_sel(ds: xr.DataArray, indices: xr.Dataset) -> xr.DataArray:
+
+    """Returns the predictions on the weights of the entries given by indices"""
+    return ds.isel(
+        i=(indices["i"]),
+        j=xr.DataArray(indices["j"]),
+    )
+
+
+@is_operation("largest_entry_indices")
+@apply_along_dim
+def largest_entry_indices(
+    ds: xr.DataArray, n: int, *, symmetric: bool = True
+) -> xr.Dataset:
+
+    """Returns the 2d-indices of the n largest entries in an adjacency matrix, as well as the corresponding values.
+    If the matrix is symmetric, only the upper triangle is considered. Sorted from highest to lowest."""
+
+    if symmetric:
+        indices_i, indices_j = np.unravel_index(
+            np.argsort(np.triu(ds.data).ravel()), np.shape(ds)
+        )
+    else:
+        indices_i, indices_j = np.unravel_index(
+            np.argsort(ds.data.ravel()), np.shape(ds)
+        )
+
+    i, j = indices_i[-n:][::-1], indices_j[-n:][::-1]
+    vals = ds.data[i, j]
+
+    return xr.Dataset(
+        data_vars=dict(i=("idx", i), j=("idx", j), relative_error=("idx", vals)),
+        coords=dict(idx=("idx", np.arange(len(i)))),
+    )

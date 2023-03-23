@@ -28,6 +28,8 @@ def get_data(
     seed: int,
     device: str,
     second_order: bool,
+    edges_to_cut: list = None,
+    power_cut_index: int
 ) -> (torch.Tensor, Union[nx.Graph, None]):
 
     """Either loads data from an external file or synthetically generates Kuramoto data (including the network)
@@ -163,6 +165,9 @@ def get_data(
 
         ABM = Kuramoto_ABM(**data_cfg, device=device)
 
+        # Save the edge weights on the edges that are being cut
+        weights = [network.get_edge_data(*e) for e in edges_to_cut]
+
         for idx in range(training_set_size):
 
             training_data[idx, 0, :, :] = base.random_tensor(
@@ -193,6 +198,18 @@ def get_data(
                     eigen_frequencies=eigen_frequencies[idx, i],
                     requires_grad=False,
                 )
+
+                # Power cut
+                if i == power_cut_index:
+                    for j, e in enumerate(edges_to_cut):
+                        network.remove_edge(e[0], e[1])
+                    adj_matrix = (
+                        torch.from_numpy(nx.to_numpy_array(network)).float().to(device)
+                    )
+
+        # Add edges back in after generation
+        for j, e in enumerate(edges_to_cut):
+            network.add_edge(e[0], e[1], weight=weights[j]["weight"])
 
         log.info("   Training data generated.")
 

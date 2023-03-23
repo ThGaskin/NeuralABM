@@ -43,6 +43,7 @@ class Kuramoto_NN:
         write_predictions_every: int = 1,
         write_start: int = 1,
         num_steps: int = 3,
+        cut_off_time: int,
         **__,
     ):
         """Initialize the model instance with a previously constructed RNG and
@@ -101,8 +102,8 @@ class Kuramoto_NN:
             compression=3,
         )
         self._dset_loss.attrs["dim_names"] = ["time", "kind"]
-        self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_loss.attrs["coords__time"] = [write_start, write_every]
+        self._dset_loss.attrs["coords_mode__time"] = "values"
+        self._dset_loss.attrs["coords__time"] = []
         self._dset_loss.attrs["coords_mode__kind"] = "values"
         self._dset_loss.attrs["coords__kind"] = [
             "Total loss",
@@ -121,11 +122,8 @@ class Kuramoto_NN:
             compression=3,
         )
         self._dset_predictions.attrs["dim_names"] = ["time", "i", "j"]
-        self._dset_predictions.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_predictions.attrs["coords__time"] = [
-            write_start,
-            max(self._write_predictions_every, 1),
-        ]
+        self._dset_predictions.attrs["coords_mode__time"] = "values"
+        self._dset_predictions.attrs["coords__time"] = []
         self._dset_predictions.attrs["coords_mode__i"] = "trivial"
         self._dset_predictions.attrs["coords_mode__j"] = "trivial"
 
@@ -139,6 +137,9 @@ class Kuramoto_NN:
         )
         self.dset_time.attrs["dim_names"] = ["epoch"]
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
+
+        # Powergrid only: when to cut off the additional forcing during training
+        self.cutoff_time = cut_off_time
 
     def epoch(
         self, *, training_data, eigen_frequencies, batch_size: int, second_order: bool
@@ -225,10 +226,16 @@ class Kuramoto_NN:
 
                         # Penalise the trace (which cannot be learned). Since the torch.trace function is not yet
                         # fully compatible with Apple Silicon GPUs, we must manually calculate it.
-                        trace_loss = torch.sum(predicted_adj_matrix.diag())
+                        trace_loss = torch.trace(predicted_adj_matrix)
 
                         # Add losses
                         loss = data_loss + symmetry_loss + trace_loss
+
+                        # This cutoff should be automatically calculated
+                        if self._time < self.cutoff_time:
+                            loss = loss + 10 * self.loss_function(
+                                predicted_adj_matrix, self.true_network
+                            )
 
                         # Perform a gradient descent step
                         loss.backward()
@@ -294,6 +301,9 @@ class Kuramoto_NN:
         """
         if self._time >= self._write_start and self._time % self._write_every == 0:
             self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
+            self._dset_loss.attrs["coords__time"] = np.append(
+                self._dset_loss.attrs["coords__time"], self._time
+            )
             self._dset_loss[-1, 0] = self.current_total_loss.cpu().numpy()
             self._dset_loss[-1, 1] = self.current_prediction_loss.cpu().numpy()
             self._dset_loss[-1, 2] = self.current_symmetry_loss.cpu().numpy()
@@ -317,6 +327,9 @@ class Kuramoto_NN:
                 and self._time % self._write_predictions_every == 0
             ):
                 log.debug(f"    Writing prediction data ... ")
+                self._dset_predictions.attrs["coords__time"] = np.append(
+                    self._dset_predictions.attrs["coords__time"], self._time
+                )
                 self._dset_predictions.resize(
                     self._dset_predictions.shape[0] + 1, axis=0
                 )
@@ -376,6 +389,7 @@ if __name__ == "__main__":
 
     # Get the training data and the network
     log.info("   Generating training data ...")
+    power_cut_index: int = model_cfg["Power_grid"].get("power_cut_index")
     training_data, eigen_frequencies, network = Kuramoto.DataGeneration.get_data(
         model_cfg["Data"],
         h5file,
@@ -383,6 +397,8 @@ if __name__ == "__main__":
         seed=seed,
         device=device,
         second_order=second_order,
+        edges_to_cut=model_cfg["Power_grid"].get("edges_to_cut"),
+        power_cut_index=power_cut_index,
     )
 
     # Initialise the neural net
@@ -432,6 +448,7 @@ if __name__ == "__main__":
         write_every=cfg["write_every"],
         write_predictions_every=write_predictions_every,
         write_start=cfg["write_start"],
+        cut_off_time=model_cfg["Power_grid"].get("cutoff_time", None),
     )
 
     log.info(
@@ -441,9 +458,36 @@ if __name__ == "__main__":
     # Train the neural net
     for i in range(num_epochs):
 
+        if (
+            model_cfg["Power_grid"].get("training_write_phase")[0]
+            <= i
+            < model_cfg["Power_grid"].get("training_write_phase")[1]
+        ):
+            model._write_every = model_cfg["Power_grid"].get("init_writes")
+            model._write_predictions_every = model_cfg["Power_grid"].get(
+                "init_prediction_writes"
+            )
+        if i == model_cfg["Power_grid"].get("training_write_phase")[1]:
+            model._write_every = cfg["write_every"]
+            model._write_predictions_every = write_predictions_every
+
         model.epoch(
-            training_data=training_data.to(device),
-            eigen_frequencies=eigen_frequencies.to(device),
+            training_data=training_data.to(device)[
+                :,
+                model_cfg["Power_grid"]
+                .get("training_start", None) : model_cfg["Power_grid"]
+                .get("training_stop", None),
+                :,
+                :,
+            ],
+            eigen_frequencies=eigen_frequencies.to(device)[
+                :,
+                model_cfg["Power_grid"]
+                .get("training_start", None) : model_cfg["Power_grid"]
+                .get("training_stop", None),
+                :,
+                :,
+            ],
             batch_size=batch_size,
             second_order=second_order,
         )
@@ -457,6 +501,15 @@ if __name__ == "__main__":
             f"                             trace:    {model.current_trace_loss}\n"
             f"                             total:    {model.current_total_loss}\n"
             f"            L1 prediction error: {model.current_prediction_error} \n"
+            f"            ----------------------------------------------------------------- \n"
+            f"            Prediction on edge (245, 250): {model.current_adjacency_matrix[245, 250]}; "
+            f"(unperturbed value: {model.true_network[245, 250]}) \n"
+            f"            Prediction on edge (250, 245): {model.current_adjacency_matrix[250, 245]}"
+            f" (unperturbed value: {model.true_network[250, 245]}) \n"
+            f"            Prediction on edge (244, 246): {model.current_adjacency_matrix[244, 246]}"
+            f" (unperturbed value: {model.true_network[244, 246]}) \n"
+            f"            Prediction on edge (246, 244): {model.current_adjacency_matrix[246, 244]}"
+            f" (unperturbed value: {model.true_network[246, 244]}) \n"
         )
 
         # Save neural net, if specified
@@ -470,8 +523,8 @@ if __name__ == "__main__":
 
     # Generate a complete dataset using the predicted parameters
     log.progress("   Generating predicted dataset ...")
-    predicted_time_series = training_data[0, :, :, :].clone()
-    for step in range(1 if second_order else 0, training_data.shape[1] - 1):
+    predicted_time_series = training_data[0, power_cut_index + 2 :, :, :].clone()
+    for step in range(1 if second_order else 0, predicted_time_series.shape[0] - 1):
         predicted_time_series[step + 1, :, :] = ABM.run_single(
             current_phases=predicted_time_series[step, :],
             current_velocities=(
@@ -482,7 +535,7 @@ if __name__ == "__main__":
             if second_order
             else None,
             adjacency_matrix=model.current_adjacency_matrix,
-            eigen_frequencies=eigen_frequencies[0, step, :, :],
+            eigen_frequencies=eigen_frequencies[0, step + power_cut_index, :, :],
             requires_grad=False,
         )
 

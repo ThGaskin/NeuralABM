@@ -1,0 +1,61 @@
+---
+paths:
+  model_note: UK_power_grid
+parameter_space:
+  num_epochs: 100
+  write_every: 50
+  seed: 69
+  write_predictions_every: 50
+  write_start: 1
+  Kuramoto:
+    second_order: true
+    Data:
+      write_adjacency_matrix: true
+      load_from_dir:
+        network: data/Kuramoto/UK_power_grid/nw_unperturbed_weighted.h5
+        eigen_frequencies: data/Kuramoto/UK_power_grid/data/uni0/data.h5
+        training_data: data/Kuramoto/UK_power_grid/data/uni0/data.h5
+        copy_data: True
+      synthetic_data:
+        N: 635
+        mean_degree: 4 # Set to real mean degree
+        type: random
+        num_steps: 20000
+        training_set_size: 1
+        sigma: 0
+        init_phases:
+          distribution: uniform
+          parameters:
+            lower: 1
+            upper: 1
+      dt: 0.01
+      gamma: 0.2
+      kappa: 60
+    NeuralNet:
+      num_layers: 5
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: tanh
+        layer_specific:
+          -1: Hardsigmoid
+      biases:
+        default: ~
+      initial_state: data/initial_complete_network
+    Training:
+      batch_size: 2
+      loss_function:
+        name: MSELoss
+      true_parameters:
+        sigma: 0
+    Power_grid:
+      power_cut_index: 10000
+      edges_to_cut:
+        - [256, 261]
+        - [255, 257]
+      training_start: 10100
+      training_stop: 10500
+      training_write_phase: [0, 2]
+      init_writes: 2
+      init_prediction_writes: 2
+      cutoff_time: 2600
