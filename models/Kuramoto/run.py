@@ -214,13 +214,9 @@ class Kuramoto_NN:
                     if counter % batch_size == 0:
 
                         # Enforce symmetry of the predicted adjacency matrix
-                        symmetry_loss = (
-                            self.loss_function(
-                                predicted_adj_matrix,
-                                torch.transpose(predicted_adj_matrix, 0, 1),
-                            )
-                            .clone()
-                            .detach()
+                        symmetry_loss = self.loss_function(
+                            predicted_adj_matrix,
+                            torch.transpose(predicted_adj_matrix, 0, 1),
                         )
 
                         # Penalise the trace (which cannot be learned). Since the torch.trace function is not yet
