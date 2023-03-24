@@ -133,6 +133,8 @@ The following configuration sets are included in the model:
 
 - `Computational_performance`: trains the model for 10 epochs for different network sizes, and plots the average
 compute times.
+- `Convexity`: plot the error on the predicted degree distribution as a function of the rank of the Gram matrix of
+observations
 - `N_100_example`: infers two networks with 100 nodes for noiseless and noisy training data, and plots the results,
 including the inferred degree and triangle distributions
 - `N_1000_example`: same as for `N_100_example`, but for 1000 nodes.

@@ -1,0 +1,206 @@
+---
+backups: {backup_cfg_files: true, backup_executable: false, include_git_info: true}
+cluster_mode: false
+cluster_params:
+  additional_run_dir_fstrs: ['job{job_id:}']
+  env: null
+  env_var_names:
+    slurm: {cluster_name: SLURM_CLUSTER_NAME, custom_out_dir: UTOPIA_CLUSTER_MODE_OUT_DIR,
+      job_account: SLURM_JOB_ACCOUNT, job_id: SLURM_JOB_ID, job_name: SLURM_JOB_NAME,
+      node_list: SLURM_JOB_NODELIST, node_name: SLURMD_NODENAME, num_nodes: SLURM_JOB_NUM_NODES,
+      num_procs: SLURM_CPUS_ON_NODE, timestamp: RUN_TIMESTAMP}
+  manager: slurm
+  node_list_parser_params: {slurm: condensed}
+data_manager:
+  create_groups:
+  - {Cls: MultiverseGroup, path: multiverse}
+  default_tree_cache_path: data/.tree_cache.d3
+  load_cfg:
+    cfg:
+      glob_str: config/*.yml
+      ignore: [config/parameter_space.yml, config/parameter_space_info.yml, config/full_parameter_space.yml,
+        config/full_parameter_space_info.yml, config/git_info_project.yml, config/git_info_framework.yml]
+      loader: yaml
+      path_regex: config/(\w+)_cfg.yml
+      required: true
+      target_path: cfg/{match:}
+    data:
+      enable_mapping: true
+      glob_str: data/uni*/data.h5
+      loader: hdf5_proxy
+      parallel: {enabled: false, min_files: 5, min_total_size: 104857600, processes: null}
+      path_regex: data/uni(\d+)/data.h5
+      required: true
+      target_path: multiverse/{match:}/data
+    pspace: {glob_str: config/parameter_space.yml, load_as_attr: true, loader: yaml_to_object,
+      required: true, target_path: multiverse, unpack_data: true}
+    uni_cfg:
+      glob_str: data/uni*/config.yml
+      loader: yaml
+      parallel: {enabled: true, min_files: 1000, min_total_size: 1048576}
+      path_regex: data/uni(\d+)/config.yml
+      required: true
+      target_path: multiverse/{match:}/cfg
+  out_dir: eval/{timestamp:}
+debug_level: 0
+executable_control: {run_from_tmpdir: false}
+parameter_space: !pspace
+  Kuramoto:
+    Data:
+      alpha: 0
+      beta: 1
+      dt: 0.02
+      kappa: 1
+      load_from_dir: {network: null}
+      synthetic_data:
+        N: 20
+        eigen_frequencies:
+          distribution: uniform
+          parameters: {lower: 1, upper: 3}
+          time_series_std: 0.0
+        init_phases:
+          distribution: uniform
+          parameters: {lower: 0, upper: 6.283}
+        network:
+          graph_props:
+            WattsStrogatz: {p_rewire: 0.2}
+            is_directed: false
+            is_weighted: true
+          mean_degree: 6
+          type: random
+        num_steps: 3
+        sigma: 0
+        training_set_size: !pdim
+          as_type: null
+          assert_unique: true
+          default: 2
+          values: [2, 4, 8, 16]
+      write_adjacency_matrix: true
+    NeuralNet:
+      activation_funcs:
+        default: tanh
+        layer_specific: {-1: HardSigmoid}
+      biases: {default: null}
+      learning_rate: 0.002
+      nodes_per_layer: {default: 20}
+      num_layers: 5
+      optimizer: Adam
+    Training:
+      batch_size: 1
+      device: cpu
+      loss_function: {name: MSELoss}
+      true_parameters: {sigma: 0.0}
+  calculate_data_rank: true
+  log_levels: {backend: warning, model: info}
+  monitor_emit_interval: 2.0
+  num_epochs: !coupled-pdim
+    as_type: null
+    default: 10
+    target_name: training_set_size
+    values: [4000, 2000, 1000, 500]
+  num_steps: 3
+  root_model_name: Kuramoto
+  seed: !pdim
+    as_type: null
+    assert_unique: true
+    default: 0
+    range: [5]
+  write_every: 40
+  write_predictions_every: 40
+  write_start: 1
+parameters_to_validate:
+  [Kuramoto, Data, alpha]: !is-positive-or-zero 0
+  [Kuramoto, Data, beta]: !is-positive 1
+  [Kuramoto, Data, dt]: !is-positive 0.01
+  [Kuramoto, Data, kappa]: !is-positive 1
+  [Kuramoto, Data, synthetic_data, N]: !is-positive-int 16
+  [Kuramoto, Data, synthetic_data, eigen_frequencies, distribution]: !param
+    default: uniform
+    is_any_of: [uniform, normal]
+  [Kuramoto, Data, synthetic_data, eigen_frequencies, time_series_std]: !is-positive-or-zero 0.0
+  [Kuramoto, Data, synthetic_data, init_phases, distribution]: !param
+    default: uniform
+    is_any_of: [uniform, normal]
+  [Kuramoto, Data, synthetic_data, network, graph_props, WattsStrogatz, p_rewire]: !is-probability 0.2
+  [Kuramoto, Data, synthetic_data, network, graph_props, is_directed]: !is-bool False
+  [Kuramoto, Data, synthetic_data, network, graph_props, is_weighted]: !is-bool True
+  [Kuramoto, Data, synthetic_data, network, mean_degree]: !is-positive-int 5
+  [Kuramoto, Data, synthetic_data, network, type]: !param
+    default: random
+    dtype: <U0
+    is_any_of: [random, star, regular, WattsStrogatz, BarabasiAlbert, BollobasRiordan]
+  [Kuramoto, Data, synthetic_data, num_steps]: !is-positive-int 5
+  [Kuramoto, Data, synthetic_data, sigma]: !is-positive-or-zero 0.0
+  [Kuramoto, Data, synthetic_data, training_set_size]: !is-positive-int 40
+  [Kuramoto, NeuralNet, learning_rate]: !is-positive 0.002
+  [Kuramoto, NeuralNet, nodes_per_layer, default]: !is-positive-int 20
+  [Kuramoto, NeuralNet, num_layers]: !is-positive-int 5
+  [Kuramoto, Training, batch_size]: !is-positive-int 1
+  [Kuramoto, Training, true_parameters, sigma]: !is-positive-or-zero 0.0
+paths: {model_note: Convexity, out_dir: ~/utopya_output}
+perform_sweep: false
+perform_validation: true
+plot_manager:
+  base_cfg_pools: [utopya_base, framework_base, project_base, model_base]
+  cfg_exists_action: raise
+  creator_init_kwargs:
+    multiverse: {}
+    pyplot: {}
+    universe: {}
+  out_dir: ''
+  raise_exc: false
+  save_plot_cfg: true
+  shared_creator_init_kwargs:
+    style:
+      figure.figsize: [8.0, 5.0]
+  use_dantro_base_cfg_pool: true
+reporter:
+  report_formats:
+    progress_bar:
+      info_fstr: '{total_progress:>5.1f}% '
+      min_report_intv: 0.5
+      num_cols: adaptive
+      parser: progress_bar
+      show_times: true
+      times_fstr: '| {elapsed:>7s} elapsed | ~{est_left:>7s} left '
+      times_fstr_final: '| finished in {elapsed:} '
+      times_kwargs: {mode: from_buffer, progress_buffer_size: 90}
+      write_to: stdout_noreturn
+    report_file:
+      min_num: 4
+      min_report_intv: 10
+      parser: report
+      show_individual_runtimes: true
+      task_label_plural: universes
+      task_label_singular: universe
+      write_to:
+        file: {path: _report.txt}
+    sweep_info:
+      fstr: "Sweeping over the following parameter space:\n\n{sweep_info:}"
+      parser: pspace_info
+      write_to:
+        file: {path: _sweep_info.txt, skip_if_empty: true}
+        log: {lvl: 18, skip_if_empty: true}
+run_kwargs: {stop_conditions: null, timeout: null}
+worker_kwargs:
+  forward_raw: true
+  forward_streams: in_single_run
+  popen_kwargs: {encoding: utf8}
+  save_streams: true
+  streams_log_lvl: null
+worker_manager:
+  interrupt_params: {exit: false, grace_period: 5.0, send_signal: SIGINT}
+  lines_per_poll: 20
+  nonzero_exit_handling: raise
+  num_workers: auto
+  periodic_task_callback: null
+  poll_delay: 0.05
+  rf_spec:
+    after_abort: [progress_bar, report_file]
+    after_work: [progress_bar, report_file]
+    before_working: [sweep_info]
+    monitor_updated: [progress_bar]
+    task_finished: [progress_bar, report_file]
+    task_spawned: [progress_bar]
+    while_working: [progress_bar]
+  save_streams_on: [monitor_updated]

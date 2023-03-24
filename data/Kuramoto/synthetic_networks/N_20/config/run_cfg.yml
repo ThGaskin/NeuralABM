@@ -1,0 +1,37 @@
+---
+paths:
+  model_note: Convexity
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 0
+    range: [5]
+  num_epochs: !coupled-sweep
+    default: 10
+    values: [4000, 2000, 1000, 500]
+    target_name: training_set_size
+  write_start: 1
+  write_every: 40
+  write_predictions_every: 40
+  calculate_data_rank: true
+  Kuramoto:
+    Data:
+      write_adjacency_matrix: true
+      load_from_dir:
+        network:
+      synthetic_data:
+        num_steps: 3
+        training_set_size: !sweep
+          default: 2
+          values: [2, 4, 8, 16]
+        N: 20
+        sigma: 0
+        network:
+          type: random
+          mean_degree: 6
+          graph_props:
+            is_directed: False
+      dt: 0.02
+      alpha: 0
+    Training:
+      batch_size: 1

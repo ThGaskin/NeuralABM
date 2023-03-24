@@ -24,6 +24,7 @@
 .default_style:
   style:
     text.usetex:        True
+    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
     mathtext.fontset:   cm
     font.family:        serif
     font.size:          &font_size 10

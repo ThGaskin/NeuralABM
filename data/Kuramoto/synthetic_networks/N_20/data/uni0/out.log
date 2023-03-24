@@ -1,0 +1,100 @@
+Log of 'out' stream of WorkerTask 'uni0'
+---
+
+INFO    Using 'cpu' as training device. Number of threads: 8
+INFO    Generating training data ...
+INFO    Generating graph ...
+INFO    Generating eigenfrequencies  ...
+INFO    Generating training data ...
+INFO    Training data generated.
+INFO    Network generated and saved.
+INFO    Initializing the neural net; input size: 20, output size: 400 ...
+INFO    Initialized model 'Kuramoto'. Now commencing training for 10 epochs ...
+PROGRESS    Completed epoch 1 / 10 in 0.04481697082519531 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.0011246707290410995
+                             symmetry: 0.00016695799422450364
+                             trace:    9.847126960754395
+                             total:    9.848418235778809
+            L1 prediction error: 0.42744576930999756
+
+PROGRESS    Completed epoch 2 / 10 in 0.003526926040649414 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.0010883375070989132
+                             symmetry: 0.00044475679169408977
+                             trace:    9.422922134399414
+                             total:    9.424455642700195
+            L1 prediction error: 0.42659661173820496
+
+PROGRESS    Completed epoch 3 / 10 in 0.0034258365631103516 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.0010501325596123934
+                             symmetry: 0.0003653801104519516
+                             trace:    8.627657890319824
+                             total:    8.629073143005371
+            L1 prediction error: 0.4242178201675415
+
+PROGRESS    Completed epoch 4 / 10 in 0.0030541419982910156 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.0009759381646290421
+                             symmetry: 0.00019741119467653334
+                             trace:    7.493716239929199
+                             total:    7.494889736175537
+            L1 prediction error: 0.41883614659309387
+
+PROGRESS    Completed epoch 5 / 10 in 0.0033402442932128906 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.0008454039925709367
+                             symmetry: 0.00011246701615164056
+                             trace:    6.169034957885742
+                             total:    6.169992923736572
+            L1 prediction error: 0.4106767177581787
+
+PROGRESS    Completed epoch 6 / 10 in 0.003609180450439453 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.0007046242244541645
+                             symmetry: 0.00010693832882679999
+                             trace:    4.820205211639404
+                             total:    4.821016788482666
+            L1 prediction error: 0.40112540125846863
+
+PROGRESS    Completed epoch 7 / 10 in 0.0035598278045654297 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.0005779782659374177
+                             symmetry: 4.048545815749094e-05
+                             trace:    3.5333051681518555
+                             total:    3.533923625946045
+            L1 prediction error: 0.3913142681121826
+
+PROGRESS    Completed epoch 8 / 10 in 0.002990245819091797 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.0004598592349793762
+                             symmetry: 2.8391130399540998e-05
+                             trace:    2.3664820194244385
+                             total:    2.3669703006744385
+            L1 prediction error: 0.38179221749305725
+
+PROGRESS    Completed epoch 9 / 10 in 0.0028209686279296875 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.00036627461668103933
+                             symmetry: 1.59983665071195e-05
+                             trace:    1.4571723937988281
+                             total:    1.4575546979904175
+            L1 prediction error: 0.37315407395362854
+
+PROGRESS    Completed epoch 10 / 10 in 0.003013134002685547 s
+            -----------------------------------------------------------------
+            Loss components: data:     0.00028828662470914423
+                             symmetry: 8.351052201760467e-06
+                             trace:    0.7955425381660461
+                             total:    0.7958391904830933
+            L1 prediction error: 0.3655147850513458
+
+INFO    Simulation run finished.
+PROGRESS    Generating predicted dataset ...
+INFO    Calculating rank of training data ...
+INFO    Wrapping up ...
+SUCCESS    All done.
+
+---
+end of log. exit code: 0

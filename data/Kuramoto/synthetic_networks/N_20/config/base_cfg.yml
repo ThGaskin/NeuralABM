@@ -1,0 +1,518 @@
+# This file provides the basic configuration for the utopya Multiverse
+#
+# It is read in by the Multiverse during initialization and is subsequently
+# updated by other configuration files to generate the meta configuration of
+# the Multiverse, which determines all details of how a run is performed.
+#
+# The top-level keys here are used to configure different parts of Multiverse:
+#   - properties of the Multiverse itself: `paths`, `perform_sweep`
+#   - properties of attributes: `worker_manager`, `run_kwargs`, ...
+#   - and the parameter space that is passed on to the model instance
+#
+# NOTE that this configuration file documents some features in the comments.
+#      This cannot be exhaustive. Check the docstrings of the functions for
+#      further information.
+---
+# Multiverse configuration ....................................................
+# Output paths
+paths:
+  # base output directory
+  out_dir: ~/utopya_output
+
+  # model note is added to the output directory path
+  model_note: ~
+
+  # From the two above, the run directory will be created at:
+  #     <out_dir>/<model_name>/<timestamp>_<model_note>/
+  # Subfolders will be:  config, eval, data
+
+# Control of the backup of files that belong to a simulation
+backups:
+  # Whether to save all involved config files granularly, i.e. one by one.
+  # If false, only the resulting meta_cfg is saved to the config subdirectory.
+  backup_cfg_files: true
+
+  # Whether to save the executable
+  backup_executable: false
+
+  # Whether to store git information of the project (and framework)
+  include_git_info: true
+
+# Control of the model executable
+executable_control:
+  # Whether to copy the executable to a temporary directory at the
+  # initialization of the Multiverse and execute it from there. This way,
+  # accidental changes to the executable _during_ a simulation are prevented.
+  run_from_tmpdir: true
+
+# Whether to perfom a parameter sweep
+# Is evaluated by the Multiverse.run method
+perform_sweep: false
+# NOTE This will be ignored if run_single or run_sweep are called directly.
+#      Also, the `parameter_space` key (see below) will need to span at least
+#      a volume of 1 in order to be sweep-able.
+
+# Whether to perform parameter validation
+# For large sweeps, validation can take quite some time. For such scenarios, it
+# might make sense to disable parameter validation by setting this to false.
+perform_validation: true
+
+# Parameters that are to be validated
+# This is a mapping of key sequence -> Parameter object
+parameters_to_validate: {}
+
+
+
+# Reporter ....................................................................
+# The Multiverse owns a Reporter object to report on the progress of the
+# WorkerManager. Part of its configuration happens using its init kwargs, which
+# are defined in the following.
+# The rest of the configuration happens on the WorkerManager-side (see there).
+reporter:
+  # Define report formats, which are accessible, e.g. from the WorkerManager
+  report_formats:
+    progress_bar:                     # Name of the report format specification
+      parser: progress_bar            # The parser to use
+      write_to: stdout_noreturn       # The writer to use
+      min_report_intv: 0.5            # Required time (in s) between writes
+
+      # -- All further kwargs on this level are passed to the parser
+      # Terminal width for the progress bar
+      # Can also be `adaptive` (poll each time), or `fixed` (poll once)
+      num_cols: adaptive
+
+      # The format string to use for progress information
+      # Available keys:
+      #   - `total_progress` (in %)
+      #   - `active_progress` (mean progress of _active_ simulations, in %)
+      #   - `cnt` (dict of counters: `total`, `finished`, `active`)
+      info_fstr: "{total_progress:>5.1f}% "
+      # Example of how to access counters in format string:
+      # info_fstr: "finished {cnt[finished]}/{cnt[total]} "
+
+      # Whether to show time information alongside the progress bar
+      show_times: true
+
+      # How to display time information.
+      # Available keys: `elapsed`, `est_left`, `est_end`, `start`, `now`
+      # (see `times` parser for more information)
+      times_fstr: "| {elapsed:>7s} elapsed | ~{est_left:>7s} left "
+      times_fstr_final: "| finished in {elapsed:} "
+      times_kwargs:
+        # How to compute the estimated time left to finish the work session
+        # Available modes:
+        #   - `from_start`:  extrapolates from progress made since start
+        #   - `from_buffer`: uses a buffer to store recent progress
+        #                    information and use the oldest value for
+        #                    making the estimate; see `progress_buffer_size`
+        mode: from_buffer
+
+        # Number of records kept for computing ETA in `from_buffer` mode.
+        # This is in units of parser invocations, so goes back *at least* a
+        # a time interval of `min_report_intv * progress_buffer_size`.
+        # If the reporter is called less frequently (e.g. because of a larger
+        # model-side `monitor_emit_interval`), this interval will be longer.
+        progress_buffer_size: 90
+
+    # Creates a report file containing runtime statistics
+    report_file:
+      parser: report
+      write_to:
+        file:
+          path: _report.txt
+      min_report_intv: 10             # don't update this one too often
+      min_num: 4                      # min. number of universes for statistics
+      show_individual_runtimes: true  # for large number of universes, disable
+      task_label_singular: universe
+      task_label_plural: universes
+
+    # Creates a parameter sweep information file
+    sweep_info:
+      parser: pspace_info
+      write_to:
+        file:
+          path: _sweep_info.txt
+          skip_if_empty: true
+        log:
+          lvl: 18
+          skip_if_empty: true
+      fstr: "Sweeping over the following parameter space:\n\n{sweep_info:}"
+
+  # Can define a default format to use
+  # default_format: ~
+
+
+# Worker Manager ..............................................................
+# Initialization arguments for the WorkerManager
+worker_manager:
+  # Specify how many processes work in parallel
+  num_workers: auto
+  # can be: an int, 'auto' (== #CPUs). For values <= 0: #CPUs - num_workers
+
+  # Delay between polls [seconds]
+  poll_delay: 0.05
+  # NOTE: If this value is too low, the main thread becomes very busy.
+  #       If this value is too high, the log output from simulations is not
+  #       read from the line buffer frequently enough.
+
+  # Maximum number of lines to read from each task's stream per poll cycle.
+  # Choosing a value that is too large may affect poll performance in cases
+  # where the task generates many lines of output.
+  # Set to -1 to read *all* available lines from the stream upon each poll.
+  lines_per_poll: 20
+
+  # Periodic task callback (in units of poll events). Set None to deactivate.
+  periodic_task_callback: ~
+
+  # How to react upon a simulation exiting with non-zero exit code
+  nonzero_exit_handling: raise
+  # can be: ignore, warn, warn_all, raise
+  # warn_all will also warn if the simulation was terminated by the frontend
+  # raise will lead to a SystemExit with the error code of the simulation
+
+  # How to handle keyboard interrupts
+  interrupt_params:
+    # Which signal to send to the workers
+    send_signal: SIGINT  # can be any valid signal name
+    # NOTE that only SIGINT and SIGTERM lead to a graceful shutdown on C++ side
+
+    # How long to wait for workers to shut down before calling SIGKILL on them
+    grace_period: 5.
+    # WARNING Choosing a grace period that is shorter than the duration of one
+    #         iteration step of your model might lead to corrupted HDF5 data!
+
+    # Whether to exit after working; exit code will be 128 + abs(signum)
+    exit: false
+
+  # In which events to save streams *during* the work session
+  # May be: `monitor_updated`, `periodic_callback`
+  save_streams_on: [monitor_updated]
+
+  # Reporters to invoke at different points of the WorkerManager's operation.
+  # Keys refer to events, values are lists of report format names, which can be
+  # defined via the WorkerManagerReporter (see `reporter.report_formats` above)
+  rf_spec:
+    before_working: [sweep_info]
+    while_working: [progress_bar]
+    task_spawned: [progress_bar]
+    monitor_updated: [progress_bar]
+    task_finished: [progress_bar, report_file]
+    after_work: [progress_bar, report_file]
+    after_abort: [progress_bar, report_file]
+
+
+# Configuration for the WorkerManager.start_working method
+run_kwargs:
+  # Total timeout (in s) of a run; to ignore, set to ~
+  timeout: ~
+
+  # A list of StopCondition objects to check during the run _for each worker_.
+  # The entries of the following list are OR-connected, i.e. it suffices that
+  # one is fulfilled for the corresponding worker to be stopped
+  stop_conditions: ~
+  # See docs for how to set these up:
+  #   https://docs.utopia-project.org/html/usage/run/stop-conditions.html
+
+
+# The defaults for the worker_kwargs
+# These are passed to the setup function of each WorkerTask before spawning
+worker_kwargs:
+  # Whether to save the streams of each Universe to a log file
+  save_streams: true
+  # This file is saved only after the WorkerTask has finished in order to
+  # reduce I/O operations on files
+
+  # Whether to forward the streams to stdout
+  forward_streams: in_single_run
+  # can be: true, false, or 'in_single_run' (print only in single runs)
+
+  # Whether to forward the raw stream output or only those lines that were not
+  # parsable to yaml, i.e.: only the lines that came _not_ from the monitor
+  forward_raw: true
+
+  # The log level at which the streams should be forwarded to stdout
+  streams_log_lvl: ~  # if None, uses print instead of the logging module
+
+  # Arguments to subprocess.Popen
+  popen_kwargs:
+    # The encoding of the streams (STDOUT, STDERR) coming from the simulation.
+    # NOTE If your locale is set to some other encoding, or the simulation uses
+    #      a custom one, overwrite this value accordingly via the user config.
+    encoding: utf8
+
+
+# Cluster mode configuration ..................................................
+# Whether cluster mode is enabled
+cluster_mode: false
+
+# Parameters to configure the cluster mode
+cluster_params:
+  # Specify the workload manager to use.
+  # The names of environment variables are chosen accordingly.
+  manager: slurm   # available:  slurm
+
+  # The environment to look for parameters in. If not given, uses os.environ
+  env: ~
+
+  # Specify the name of environment variables for each supported manager
+  # The resolved values are available at the top level of the dict that is
+  # returned by Multiverse.resolved_cluster_params
+  env_var_names:
+    slurm:
+      # --- Required variables ---
+      # ID of the job
+      job_id: SLURM_JOB_ID
+
+      # Number of available nodes
+      num_nodes: SLURM_JOB_NUM_NODES
+
+      # List of node names
+      node_list: SLURM_JOB_NODELIST
+
+      # Name of the current node
+      node_name: SLURMD_NODENAME  # sic!
+
+      # This is used for the name of the run
+      timestamp: RUN_TIMESTAMP
+
+      # --- Optional values ---
+      # Name of the job
+      job_name: SLURM_JOB_NAME
+
+      # Account from which the job is run
+      job_account: SLURM_JOB_ACCOUNT
+
+      # Number of processes on current node
+      num_procs: SLURM_CPUS_ON_NODE
+
+      # Cluster name
+      cluster_name: SLURM_CLUSTER_NAME
+
+      # Custom output directory
+      custom_out_dir: UTOPIA_CLUSTER_MODE_OUT_DIR
+
+    # Could have more managers here, e.g.: docker
+
+  # Which parser to use to extract node names from node list
+  node_list_parser_params:
+    slurm: condensed  # e.g.: node[002,004-011,016]
+
+  # Which additional info to include into the name of the run directory, i.e.
+  # after the timestamp and before the model directory. All information that
+  # is extracted from the environment variables is available as keyword
+  # argument to format. Should be a sequence of format strings.
+  additional_run_dir_fstrs: [ "job{job_id:}" ]
+
+
+# Data Manager ................................................................
+# The DataManager takes care of loading the data into a tree-like structure
+# after the simulations are finished.
+# It is based on the DataManager class from the dantro package. See there for
+# full documentation.
+data_manager:
+  # Where to create the output directory for this DataManager, relative to
+  # the run directory of the Multiverse.
+  out_dir: eval/{timestamp:}
+  # The {timestamp:} placeholder is replaced by the current timestamp such that
+  # future DataManager instances that operate on the same data directory do
+  # not create collisions.
+  # Directories are created recursively, if they do not exist.
+
+  # Define the structure of the data tree beforehand; this allows to specify
+  # the types of groups before content is loaded into them.
+  # NOTE The strings given to the Cls argument are mapped to a type using a
+  #      class variable of the DataManager
+  create_groups:
+    - path: multiverse
+      Cls: MultiverseGroup
+
+  # Where the default tree cache file is located relative to the data
+  # directory. This is used when calling DataManager.dump and .restore without
+  # any arguments, as done e.g. in the Utopia CLI.
+  default_tree_cache_path: data/.tree_cache.d3
+
+  # Supply a default load configuration for the DataManager
+  # This can then be invoked using the dm.load_from_cfg() method.
+  load_cfg:
+    # Load the frontend configuration files from the config/ directory
+    # Each file refers to a level of the configuration that is supplied to
+    # the Multiverse: base <- user <- model <- run <- update
+    cfg:
+      loader: yaml                          # The loader function to use
+      glob_str: 'config/*.yml'              # Which files to load
+      ignore:                               # Which files to ignore
+        - config/parameter_space.yml
+        - config/parameter_space_info.yml
+        - config/full_parameter_space.yml
+        - config/full_parameter_space_info.yml
+        - config/git_info_project.yml
+        - config/git_info_framework.yml
+      required: true                        # Whether these files are required
+      path_regex: config/(\w+)_cfg.yml      # Extract info from the file path
+      target_path: cfg/{match:}             # ...and use in target path
+
+    # Load the parameter space object into the MultiverseGroup attributes
+    pspace:
+      loader: yaml_to_object                # Load into ObjectContainer
+      glob_str: config/parameter_space.yml
+      required: true
+      load_as_attr: true
+      unpack_data: true                     # ... and store as ParamSpace obj.
+      target_path: multiverse
+
+    # Load the configuration files that are generated for _each_ simulation
+    # These hold all information that is available to a single simulation and
+    # are in an explicit, human-readable form.
+    uni_cfg:
+      loader: yaml
+      glob_str: data/uni*/config.yml
+      required: true
+      path_regex: data/uni(\d+)/config.yml
+      target_path: multiverse/{match:}/cfg
+      parallel:
+        enabled: true
+        min_files: 1000
+        min_total_size: 1048576  # 1 MiB
+
+    # Example: Load the binary output data from each simulation.
+    # data:
+    #   loader: hdf5_proxy
+    #   glob_str: data/uni*/data.h5
+    #   required: true
+    #   path_regex: data/uni(\d+)/data.h5
+    #   target_path: multiverse/{match:}/data
+    #   enable_mapping: true   # see DataManager for content -> type mapping
+
+    #   # Options for loading data in parallel (speeds up CPU-limited loading)
+    #   parallel:
+    #     enabled: false
+
+    #     # Number of processes to use; negative is deduced from os.cpu_count()
+    #     processes: ~
+
+    #     # Threshold values for parallel loading; if any is below these
+    #     # numbers, loading will *not* be in parallel.
+    #     min_files: 5
+    #     min_total_size: 104857600  # 100 MiB
+
+    # The resulting data tree is then:
+    #  └┬ cfg
+    #     └┬ base
+    #      ├ meta
+    #      ├ model
+    #      ├ run
+    #      └ update
+    #   └ multiverse
+    #     └┬ 0
+    #        └┬ cfg
+    #         └ data
+    #           └─ ...
+    #      ├ 1
+    #      ...
+
+
+# Plot Manager ................................................................
+# The PlotManager, also from the dantro package, supplies plotting capabilities
+# using the data in the DataManager.
+plot_manager:
+  # Save the plots to the same directory as that of the data manager
+  out_dir: ""
+
+  # Whether to raise exceptions for plotting errors. false: only log them
+  raise_exc: false
+
+  # How to handle already existing plot configuration files
+  cfg_exists_action: raise
+  # NOTE If in cluster mode, this value is set to 'skip' by the Multiverse
+
+  # Save all plot configurations alongside the plots
+  save_plot_cfg: true
+
+  # Include dantro's base plot configuration pool
+  use_dantro_base_cfg_pool: true
+
+  # Base plot configuration pools
+  # These specify the base plot configurations that are made available for each
+  # model run, updated and extended in the order specified here and themselves
+  # based on the dantro base config pool.
+  #
+  # In some cases, defining additional pools can be useful, e.g. to generate
+  # publication-ready output without redundantly defining plots or styles.
+  #
+  # This is expected to be a list of 2-tuples in form (name, dict or path).
+  # If the second entry is a string, it may be a format string and it will have
+  # access to `model_name` and the model's `paths` dict.
+  # If there is no file available at the given path, will warn about it and use
+  # an empty pool for that entry.
+  #
+  # There are some special keys, which can be used instead of the 2-tuple:
+  #   `utopya_base`, `framework_base`, `project_base`, `model_base`
+  # These expand to a respective configuration file path, depending on the
+  # framework, project, or model that is being used.
+  base_cfg_pools:
+    - utopya_base
+    - framework_base
+    - project_base
+    - model_base
+
+  # Initialization arguments for all creators
+  shared_creator_init_kwargs:
+    style:
+      figure.figsize: [8., 5.]  # 16:10
+
+  # Can set creator-specific initialization arguments here
+  creator_init_kwargs:
+    pyplot: {}
+    universe: {}
+    multiverse: {}
+
+
+# Parameter Space .............................................................
+# Only entries below this one will be available to the model executable.
+#
+# The content of the `parameter_space` level is parsed by the frontend and then
+# dumped to a file, the path to which is passed to the binary as positional
+# argument.
+parameter_space:
+  # Set a default PRNG seed
+  seed: 42
+
+  # Number of steps to perform
+  num_steps: 3
+
+  # At which step the write_data method should be invoked for the first time
+  write_start: 0
+
+  # Starting from write_start, how frequently write_data should be called
+  write_every: 1
+  # NOTE `write_start` and `write_every` are passed along to sub-models. Every
+  #       sub model can overwrite this entry by adding an entry in their model
+  #       configuration level (analogous to `log_levels`.)
+
+  # Log levels
+  # NOTE The framework may define further levels in here but may also choose
+  #      to ignore these entries altogether. The `model` and `backend` keys
+  #      are those that are accessible from the utopya CLI.
+  log_levels:
+    model: info
+
+    backend: warning
+    # TODO Implement setting this via CLI… perhaps even more general?
+    #      Coolest would be: allow frameworks to provide a mapping of each CLI
+    #      debug level to an update dict.
+
+  # Monitoring
+  # How frequently to send a monitoring message to the frontend; note that the
+  # timing needs to be implemented by the model itself
+  monitor_emit_interval: 2.
+
+  # The path to the config file to load
+  # output_path: /abs/path/to/uni<#>/cfg.yml
+  # NOTE This entry is always added by the frontend. Depending on which
+  #      universe is to be simulated, the <#> is set.
+
+  # Below here, the model configuration starts, i.e. the config that is used by
+  # a model instance. It's meant to be nested under the model name itself and
+  # a node of that name will always be added.
+  # <model_name>:
+    # ... more parameters ...
