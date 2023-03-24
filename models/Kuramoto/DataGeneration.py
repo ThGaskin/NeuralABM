@@ -27,7 +27,6 @@ def get_data(
     *,
     seed: int,
     device: str,
-    second_order: bool,
 ) -> (torch.Tensor, Union[nx.Graph, None]):
 
     """Either loads data from an external file or synthetically generates Kuramoto data (including the network)
@@ -100,7 +99,8 @@ def get_data(
 
     # Get the config and number of agents
     dt: float = cfg.get("dt")
-    gamma: float = cfg.get("gamma")
+    alpha: float = cfg.get("alpha")
+    beta: float = cfg.get("beta")
     kappa: float = cfg.get("kappa")
     data_cfg: dict = cfg.get("synthetic_data")
     nw_cfg: dict = data_cfg.pop("network", {})
@@ -108,7 +108,7 @@ def get_data(
     # If network was loaded, set the number of nodes to be the network size
     if network is not None:
         data_cfg.update(dict(N=network.number_of_nodes()))
-    data_cfg.update(dict(dt=dt, gamma=gamma, kappa=kappa))
+    data_cfg.update(dict(dt=dt, alpha=alpha, beta=beta, kappa=kappa))
     N: int = data_cfg["N"]
 
     # If network was not loaded, generate the network
@@ -170,13 +170,13 @@ def get_data(
             )
 
             # For the second-order dynamics, the initial velocities must also be given
-            if second_order:
+            if ABM.alpha != 0:
                 training_data[idx, 1, :, :] = training_data[idx, 0, :, :] + torch.rand(
                     N, 1
                 )
 
             # Second order dynamics require an additional initial condition and so start one step later
-            t_0 = 0 if not second_order else 1
+            t_0 = 1 if ABM.alpha != 0 else 0
 
             # Run the ABM for n iterations and write the data
             for i in range(t_0, num_steps):
@@ -186,9 +186,7 @@ def get_data(
                     current_velocities=(
                         training_data[idx, i] - training_data[idx, i - 1]
                     )
-                    / ABM.dt
-                    if second_order
-                    else None,
+                    / ABM.dt,
                     adjacency_matrix=adj_matrix,
                     eigen_frequencies=eigen_frequencies[idx, i],
                     requires_grad=False,

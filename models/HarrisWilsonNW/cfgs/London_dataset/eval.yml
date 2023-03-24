@@ -32,11 +32,6 @@
 # ╠═╝║  ║ ║ ║ ╚═╗
 # ╩  ╩═╝╚═╝ ╩ ╚═╝
 # ======================================================================================================================
-
-# Plot the training loss and prediction error
-loss:
-  based_on: loss
-
 # Inferred and true degree distribution
 degree:
   based_on: degree_marginal
@@ -50,6 +45,7 @@ degree:
     set_limits:
       x: [10, 17]
     set_legend:
-      custom_labels: [Inferred network, True network]
+      custom_labels: [Inferred network, Transport network]
+      handlelength: 1.5
   style:
     figure.figsize: [*half_width, *third_width]

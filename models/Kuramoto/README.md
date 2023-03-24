@@ -9,15 +9,13 @@ The oscillators are coupled via
 an adjacency matrix ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cmathbf%7BA%7D%20=%20(a_%7Bij%7D))
 via the differential equation
 
-> ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cdfrac%7B%5Cmathrm%7Bd%7D%5Cvarphi_i%7D%7B%5Cmathrm%7Bd%7Dt%7D%20=%20%5Comega_i%20&plus;%20%5Ckappa%5Csum_j%20a_%7Bij%7D%20%5Csin(%5Cvarphi_j%20-%5Cvarphi_i)%20&plus;%20%5Csigma%20%5Cmathrm%7Bd%7DB_i)
+> ![equation](https://latex.codecogs.com/svg.image?\alpha&space;\dfrac{\mathrm{d}^2\varphi_i(t)}{\mathrm{d}t^2}&space;&plus;&space;\beta&space;\dfrac{\mathrm{d}\varphi_i(t)}{\mathrm{d}t}=\omega_i&space;&plus;&space;\kappa\sum_{j}a_{ij}\sin(\varphi_j&space;-&space;\varphi_i)&space;&plus;&space;\sigma&space;\mathrm{d}B_i)
 
-where ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ckappa) is a network coupling
-constant and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DB_i) is random noise with variance
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Csigma). The model also exists in a second-order
-version,
-
-> ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cgamma%20%5Cdfrac%7B%5Cmathrm%7Bd%7D%5E2%5Cvarphi_i%7D%7B%5Cmathrm%7Bd%7Dt%5E2%7D%20&plus;%20%5Cdfrac%7B%5Cmathrm%7Bd%7D%5Cvarphi_i%7D%7B%5Cmathrm%7Bd%7Dt%7D%20=%20%5Comega_i%20&plus;%20%5Csum_j%20a_%7Bij%7D%20%5Csin(%5Cvarphi_j-%5Cvarphi_i)%20&plus;%20%5Cmathrm%7Bd%7DB_i)
-
+where ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Calpha) is the inertia coefficient,
+![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cbeta) the friction coefficient,
+![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ckappa) the coupling coefficient,
+and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DB_i) is random noise with variance
+![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Csigma).
 In this model, we infer the network from observations of the phases.
 
 ### Model parameters
@@ -65,14 +63,15 @@ Data:
   # Time differential
   dt: 0.01
 
-  # Dampening coefficient (second order only)
-  gamma: 1
+  # Inertia coefficient
+  alpha: 0
 
-  # Network coupling scaling value
+  # Friction coefficient; must be strictly positive
+  beta: 1
+
+  # Coupling coefficient; must be strictly positive
   kappa: 1
 
-# Whether to use a second order model
-second_order: False
 ```
 `N` controls the number of vertices in the network; `network.mean_degree` and
 `network.type` set the network mean degree and the network topology (see below).
@@ -86,9 +85,8 @@ and specify the variance of the fluctuations via `eigen_frequencies.time_series_
 `sigma` controls the noise of the data; `training_set_size` sets the number of time series to
 generate from different initial conditions, and `num_steps` sets the number of steps per training set.
 
-`second_order` determines whether to use a second-order Kuramoto model; if set, use the `gamma` key to set
-the coefficient on the second derivative. `dt` sets the time differential, and `kappa` controls
-the network coupling coefficient.
+`alpha`, `beta`, and `kappa` set the coefficients of the differentials: set `alpha: 0` to
+use a first-order model (default). `dt` sets the time differential.
 
 ### Controlling the network topology
 
@@ -130,3 +128,31 @@ turning this off if the loaded data is large, to avoid flooding the disc with du
 The training settings are controlled as described in the main README. When running the numerical solver during training,
 you can set the noise level to use via the ``Training.true_parameters.sigma`` entry. By default, this is
 zero, meaning the solver runs the noiseless version of the equations.
+
+### Configuration sets
+The following configuration sets are included in the model:
+
+- `Computational_performance`: trains the model for 10 epochs for different network sizes, and plots the average
+compute times.
+- `N_100_example`: infers two networks with 100 nodes for noiseless and noisy training data, and plots the results,
+including the inferred degree and triangle distributions
+- `N_1000_example`: same as for `N_100_example`, but for 1000 nodes.
+- `Noise_performance`: trains the model and plots the Hellinger and relative entropy errors on the degree and triangle
+marginals as a function of the noise on the training data
+- `Regression_comparison`: compares the prediction performance to that of OLS regression, both for first- and second-order
+equations
+
+You can run these sets simply by calling
+
+```commandline
+utopya run Kuramoto --cs name_of_cs
+```
+
+> **_Note_**: The power grid simulations are provided on a separate branch (`Powergrid_simulations`). To switch
+> to that branch, call
+> ```commandline
+> git checkout Powergrid_simulations
+> ```
+> This branch contains an additional `UK_power_grid` configuration set.
+> The original data used is not available, but the `UK_power_grid` configuration set will generate a synthetic replacement
+> network and infer line failures on that.
