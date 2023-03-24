@@ -25,8 +25,7 @@ Data:
       parameters:
         lower: 1
         upper: 3
-      time_series: !is-bool false
-      time_series_std: 0.0
+      time_series_std: !is-positive-or-zero 0.0
 
     # Initial distribution of the phases
     init_phases:

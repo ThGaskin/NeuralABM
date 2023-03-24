@@ -41,7 +41,6 @@ Data:
       parameters:
         lower: 1
         upper: 3
-      time_series: false
       time_series_std: 0.0
 
     # Initial distribution of the phases
@@ -79,8 +78,8 @@ The `eigen_frequencies` and `init_phases` keys set the initial distributions of 
 node eigenfrequencies and the initial phases. The `distribution` key can be either `uniform` or
 `normal`, and the `parameters` dictionary specifies the relevant parameters for the distribution
 (`lower` and `upper` for uniform, and `mean` and `std` for normal distributions.)
-The eigenfrequencies can be static or a time series (set `eigen_frequencies.time_series` to `true`
-and specify the variance of the fluctuations via `eigen_frequencies.time_series_std`).
+The eigenfrequencies are a time series that fluctuate with variance `eigen_frequencies.time_series_std`);
+set to 0 to use static eigenfrequencies.
 
 `sigma` controls the noise of the data; `training_set_size` sets the number of time series to
 generate from different initial conditions, and `num_steps` sets the number of steps per training set.

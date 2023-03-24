@@ -125,30 +125,25 @@ def get_data(
         num_steps: int = data_cfg.get("num_steps")
         training_set_size: int = data_cfg.get("training_set_size")
 
-        # If set, generate a time series of i.i.d distributed eigenfrequencies
-        if data_cfg.get("eigen_frequencies")["time_series"]:
-            eigen_frequencies = base.random_tensor(
-                **data_cfg.get("eigen_frequencies"),
-                size=(training_set_size, 1, N, 1),
-                device=device,
-            )
-            for _ in range(num_steps):
-                eigen_frequencies = torch.concat(
+        # Generate a time series of i.i.d distributed eigenfrequencies
+        eigen_frequencies = base.random_tensor(
+            **data_cfg.get("eigen_frequencies"),
+            size=(training_set_size, 1, N, 1),
+            device=device,
+        )
+        for _ in range(num_steps):
+            eigen_frequencies = torch.concat(
+                (
                     eigen_frequencies,
-                    eigen_frequencies[:, -1, :, :]
+                    eigen_frequencies[:, -1, :, :].unsqueeze(1)
                     + torch.normal(
-                        0,
+                        0.0,
                         data_cfg.get("eigen_frequencies")["time_series_std"],
                         size=(training_set_size, 1, N, 1),
                     ),
-                )
-
-        # Else simply repeat the static eigenfrequencies
-        else:
-            eigen_frequencies = base.random_tensor(
-                **data_cfg.get("eigen_frequencies"), size=(1, 1, N, 1), device=device
-            ).repeat(training_set_size, num_steps + 1, 1, 1)
-
+                ),
+                dim=1,
+            )
     # If training data was not loaded, generate
     if training_data is None:
 
