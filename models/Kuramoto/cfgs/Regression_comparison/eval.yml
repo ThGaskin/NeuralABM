@@ -49,9 +49,9 @@ regression_comparison: !pspace
         path: true_network/_adjacency_matrix
         transform: [.data]
     subspace:
-      second_order: !sweep
-        default: False
-        values: [False, True]
+      alpha: !sweep
+        default: 0
+        values: [0, 1]
   transform:
     - sub: [!dag_tag regression_data, !dag_tag true_values]
     - np.abs: [!dag_prev ]
@@ -60,7 +60,7 @@ regression_comparison: !pspace
     - sub: [!dag_tag NN_prediction, !dag_tag true_values]
     - np.abs: [!dag_prev ]
     - .sum: [!dag_prev , ['i', 'j']]
-    - concat_along: [[!dag_prev, !dag_tag regression_error], 'type', [ 'Neural scheme', 'OLS regression' ] ]
+    - concat_along: [[!dag_prev , !dag_tag regression_error], 'type', [ 'Neural scheme', 'OLS regression' ] ]
     - .squeeze: [!dag_prev ]
       tag: data
     - .mean: [!dag_tag data , 'seed']
@@ -88,7 +88,7 @@ regression_comparison: !pspace
       use_legend: !coupled-sweep
         default: True
         values: [True, False]
-        target_name: second_order
+        target_name: alpha
       title: ~
     set_title:
       title: ~
