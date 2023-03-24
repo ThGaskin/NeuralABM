@@ -13,9 +13,9 @@ def regression(
     h5file: h5.File,
     dt: float,
     *,
-    second_order: bool,
-    gamma: float = None,
-    kappa: float = 1,
+    alpha: float,
+    beta: float,
+    kappa: float
 ):
     """Estimates the network from first- or second-order dynamics via an OLS-regression, and stores the predictions in
     an h5.File.
@@ -24,19 +24,20 @@ def regression(
     :param eigenfrequencies: the eigenfrequencies of the nodes
     :param h5file: the h5 file to write the predictions to
     :param dt: the time differential of the forward Euler method
-    :param second_order: whether to use second order dynamics
-    :param gamma: the coefficient of the first derivative used in the second-order dynamics
-    :param kappa: the network coupling coefficient
+    :param alpha: the inertia coefficient
+    :param beta: the friction coefficient
+    :param kappa: the coupling coefficient
     """
 
     # Extract the number of nodes from the training data
     N = training_data.shape[2]
 
-    if not second_order:
+    if alpha == 0:
         # Stack the observations into a matrix for each node
         X = torch.transpose(
             torch.reshape(
-                torch.diff(training_data, dim=1) / dt - eigenfrequencies[:, :-1, :, :],
+                beta * torch.diff(training_data, dim=1) / dt
+                - eigenfrequencies[:, :-1, :, :],
                 (-1, N),
             ),
             0,
@@ -56,8 +57,8 @@ def regression(
 
         X = torch.transpose(
             torch.reshape(
-                torch.diff(velocities, dim=1) / dt
-                + gamma * velocities[:, :-1, :, :]
+                alpha * torch.diff(velocities, dim=1) / dt
+                + beta * velocities[:, :-1, :, :]
                 - eigenfrequencies[:, 2:, :, :],
                 (-1, N),
             ),
@@ -71,7 +72,7 @@ def regression(
             N,
         )
 
-    t_0 = 0 if not second_order else 1
+    t_0 = 1 if alpha != 0 else 0
     for dset in range(G.shape[0]):
         for step in range(0, G.shape[1]):
             G[dset, step] = torch.sin(

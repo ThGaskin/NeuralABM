@@ -13,12 +13,12 @@ parameter_space:
       write_adjacency_matrix: true
       load_from_dir:
         network: data/Kuramoto/UK_power_grid/nw_unperturbed_weighted.h5
-        eigen_frequencies: data/Kuramoto/UK_power_grid/data/uni0/data.h5
+        eigen_frequencies: data/Kuramoto/UK_power_grid/UK_powergrid_capacities.h5
         training_data: data/Kuramoto/UK_power_grid/data/uni0/data.h5
         copy_data: True
       synthetic_data:
-        N: 635
-        mean_degree: 4 # Set to real mean degree
+        N: 631
+        mean_degree: 2.4
         type: random
         num_steps: 20000
         training_set_size: 1

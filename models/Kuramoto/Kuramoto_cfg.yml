@@ -25,8 +25,7 @@ Data:
       parameters:
         lower: 1
         upper: 3
-      time_series: !is-bool false
-      time_series_std: 0.0
+      time_series_std: !is-positive-or-zero 0.0
 
     # Initial distribution of the phases
     init_phases:
@@ -46,17 +45,17 @@ Data:
     # Number of individual time series
     training_set_size: !is-positive-int 40
 
-  # Time differential
-  dt: !is-positive 0.01
+  # Inertia parameter
+  alpha: !is-positive-or-zero 0
 
-  # Dampening coefficient (second order only)
-  gamma: !is-positive 1
+  # Friction coefficient
+  beta: !is-positive 1
 
-  # Network coupling scaling value
+  # Couling coefficient
   kappa: !is-positive 1
 
-# Whether to use a second order model
-second_order: !is-bool False
+  # Time differential
+  dt: !is-positive 0.01
 
 # Neural net configuration
 NeuralNet:

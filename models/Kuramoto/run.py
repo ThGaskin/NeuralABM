@@ -142,7 +142,11 @@ class Kuramoto_NN:
         self.cutoff_time = cut_off_time
 
     def epoch(
-        self, *, training_data, eigen_frequencies, batch_size: int, second_order: bool
+        self,
+        *,
+        training_data,
+        eigen_frequencies,
+        batch_size: int,
     ):
 
         """Trains the model for a single epoch.
@@ -151,7 +155,6 @@ class Kuramoto_NN:
         :param eigen_frequencies: the time series of the nodes' eigenfrequencies
         :param batch_size: the number of training data time frames to process before updating the neural net
             parameters
-        :param second_order: whether the dynamics are second order
         """
 
         # Track the start time
@@ -159,7 +162,7 @@ class Kuramoto_NN:
 
         # Generate the batch ids
         batches = np.arange(
-            0 if not second_order else 1, training_data.shape[1], batch_size
+            0 if self.ABM.alpha == 0 else 1, training_data.shape[1], batch_size
         )
         if len(batches) == 1:
             batches = np.append(batches, training_data.shape[1] - 1)
@@ -186,13 +189,10 @@ class Kuramoto_NN:
                 current_values = dset[batch_idx].clone()
                 current_values.requires_grad_(True)
 
-                # Calculate the current velocities if the dynamics are second order
+                # Calculate the current velocities
                 current_velocities = (
-                    (dset[batch_idx].clone() - dset[batch_idx - 1].clone())
-                    / self.ABM.dt
-                    if second_order
-                    else None
-                )
+                    dset[batch_idx].clone() - dset[batch_idx - 1].clone()
+                ) / self.ABM.dt
 
                 for ele in range(batch_idx + 1, batches[batch_no + 1] + 1):
 
@@ -215,18 +215,14 @@ class Kuramoto_NN:
                     if counter % batch_size == 0:
 
                         # Enforce symmetry of the predicted adjacency matrix
-                        symmetry_loss = (
-                            self.loss_function(
-                                predicted_adj_matrix,
-                                torch.transpose(predicted_adj_matrix, 0, 1),
-                            )
-                            .clone()
-                            .detach()
+                        symmetry_loss = self.loss_function(
+                            predicted_adj_matrix,
+                            torch.transpose(predicted_adj_matrix, 0, 1),
                         )
 
                         # Penalise the trace (which cannot be learned). Since the torch.trace function is not yet
                         # fully compatible with Apple Silicon GPUs, we must manually calculate it.
-                        trace_loss = torch.trace(predicted_adj_matrix)
+                        trace_loss = torch.sum(predicted_adj_matrix.diag())
 
                         # Add losses
                         loss = data_loss + symmetry_loss + trace_loss
@@ -274,17 +270,13 @@ class Kuramoto_NN:
                         data_loss = torch.tensor(0.0, requires_grad=True)
 
                         # Update the current phases and phase velocities to the true values
-                        if second_order:
-                            current_velocities = dset[ele] - dset[ele - 1]
+                        current_velocities = dset[ele] - dset[ele - 1]
                         current_values = dset[ele]
 
                     else:
 
-                        # Update the velocities, if required
-                        if second_order:
-                            current_velocities = (
-                                new_values - current_values
-                            ) / self.ABM.dt
+                        # Update the velocities
+                        current_velocities = (new_values - current_values) / self.ABM.dt
 
                         current_values = new_values.clone().detach()
 
@@ -385,8 +377,6 @@ if __name__ == "__main__":
     training_data_group = h5file.create_group("training_data")
     output_data_group = h5file.create_group("output_data")
 
-    second_order = model_cfg.get("second_order", False)
-
     # Get the training data and the network
     log.info("   Generating training data ...")
     power_cut_index: int = model_cfg["Power_grid"].get("power_cut_index")
@@ -396,7 +386,6 @@ if __name__ == "__main__":
         training_data_group,
         seed=seed,
         device=device,
-        second_order=second_order,
         edges_to_cut=model_cfg["Power_grid"].get("edges_to_cut"),
         power_cut_index=power_cut_index,
     )
@@ -489,7 +478,6 @@ if __name__ == "__main__":
                 :,
             ],
             batch_size=batch_size,
-            second_order=second_order,
         )
 
         # Print progress message
@@ -524,16 +512,16 @@ if __name__ == "__main__":
     # Generate a complete dataset using the predicted parameters
     log.progress("   Generating predicted dataset ...")
     predicted_time_series = training_data[0, power_cut_index + 2 :, :, :].clone()
-    for step in range(1 if second_order else 0, predicted_time_series.shape[0] - 1):
+    for step in range(
+        0 if model.ABM.alpha == 0 else 1, predicted_time_series.shape[0] - 1
+    ):
         predicted_time_series[step + 1, :, :] = ABM.run_single(
             current_phases=predicted_time_series[step, :],
             current_velocities=(
                 predicted_time_series[step, :, :]
                 - predicted_time_series[step - 1, :, :]
             )
-            / ABM.dt
-            if second_order
-            else None,
+            / ABM.dt,
             adjacency_matrix=model.current_adjacency_matrix,
             eigen_frequencies=eigen_frequencies[0, step + power_cut_index, :, :],
             requires_grad=False,
@@ -564,8 +552,8 @@ if __name__ == "__main__":
             eigen_frequencies,
             h5file,
             model_cfg["Data"]["dt"],
-            second_order=second_order,
-            gamma=model_cfg["Data"]["gamma"],
+            alpha=model_cfg["Data"]["alpha"],
+            beta=model_cfg["Data"]["beta"],
             kappa=model_cfg["Data"]["kappa"],
         )
 

@@ -27,7 +27,6 @@ def get_data(
     *,
     seed: int,
     device: str,
-    second_order: bool,
     edges_to_cut: list = None,
     power_cut_index: int
 ) -> (torch.Tensor, Union[nx.Graph, None]):
@@ -102,7 +101,8 @@ def get_data(
 
     # Get the config and number of agents
     dt: float = cfg.get("dt")
-    gamma: float = cfg.get("gamma")
+    alpha: float = cfg.get("alpha")
+    beta: float = cfg.get("beta")
     kappa: float = cfg.get("kappa")
     data_cfg: dict = cfg.get("synthetic_data")
     nw_cfg: dict = data_cfg.pop("network", {})
@@ -110,7 +110,7 @@ def get_data(
     # If network was loaded, set the number of nodes to be the network size
     if network is not None:
         data_cfg.update(dict(N=network.number_of_nodes()))
-    data_cfg.update(dict(dt=dt, gamma=gamma, kappa=kappa))
+    data_cfg.update(dict(dt=dt, alpha=alpha, beta=beta, kappa=kappa))
     N: int = data_cfg["N"]
 
     # If network was not loaded, generate the network
@@ -118,7 +118,6 @@ def get_data(
 
         log.info("   Generating graph ...")
         network: nx.Graph = base.generate_graph(N=N, **nw_cfg, seed=seed)
-
     # If eigenfrequencies were not loaded, generate
     if eigen_frequencies is None:
 
@@ -127,30 +126,25 @@ def get_data(
         num_steps: int = data_cfg.get("num_steps")
         training_set_size: int = data_cfg.get("training_set_size")
 
-        # If set, generate a time series of i.i.d distributed eigenfrequencies
-        if data_cfg.get("eigen_frequencies")["time_series"]:
-            eigen_frequencies = base.random_tensor(
-                **data_cfg.get("eigen_frequencies"),
-                size=(training_set_size, 1, N, 1),
-                device=device,
-            )
-            for _ in range(num_steps):
-                eigen_frequencies = torch.concat(
+        # Generate a time series of i.i.d distributed eigenfrequencies
+        eigen_frequencies = base.random_tensor(
+            **data_cfg.get("eigen_frequencies"),
+            size=(training_set_size, 1, N, 1),
+            device=device,
+        )
+        for _ in range(num_steps):
+            eigen_frequencies = torch.concat(
+                (
                     eigen_frequencies,
-                    eigen_frequencies[:, -1, :, :]
+                    eigen_frequencies[:, -1, :, :].unsqueeze(1)
                     + torch.normal(
-                        0,
+                        0.0,
                         data_cfg.get("eigen_frequencies")["time_series_std"],
                         size=(training_set_size, 1, N, 1),
                     ),
-                )
-
-        # Else simply repeat the static eigenfrequencies
-        else:
-            eigen_frequencies = base.random_tensor(
-                **data_cfg.get("eigen_frequencies"), size=(1, 1, N, 1), device=device
-            ).repeat(training_set_size, num_steps + 1, 1, 1)
-
+                ),
+                dim=1,
+            )
     # If training data was not loaded, generate
     if training_data is None:
 
@@ -175,13 +169,13 @@ def get_data(
             )
 
             # For the second-order dynamics, the initial velocities must also be given
-            if second_order:
+            if ABM.alpha != 0:
                 training_data[idx, 1, :, :] = training_data[idx, 0, :, :] + torch.rand(
                     N, 1
                 )
 
             # Second order dynamics require an additional initial condition and so start one step later
-            t_0 = 0 if not second_order else 1
+            t_0 = 1 if ABM.alpha != 0 else 0
 
             # Run the ABM for n iterations and write the data
             for i in range(t_0, num_steps):
@@ -191,9 +185,7 @@ def get_data(
                     current_velocities=(
                         training_data[idx, i] - training_data[idx, i - 1]
                     )
-                    / ABM.dt
-                    if second_order
-                    else None,
+                    / ABM.dt,
                     adjacency_matrix=adj_matrix,
                     eigen_frequencies=eigen_frequencies[idx, i],
                     requires_grad=False,
