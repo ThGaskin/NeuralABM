@@ -12,7 +12,8 @@ class Kuramoto_ABM:
         N: int,
         sigma: float,
         dt: float,
-        gamma: float,
+        alpha: float,
+        beta: float,
         kappa: float,
         device: str,
         **__,
@@ -23,8 +24,9 @@ class Kuramoto_ABM:
         :param N: the number of nodes in the network
         :param sigma: the default noise variance
         :param dt: the time differential to use
-        :param gamma: the parameter used for the second-order model
-        :param kappa: the scaling value used for the network coupling
+        :param alpha: the inertia coefficient
+        :param beta: the friction coefficient
+        :param kappa: the coupling coefficient
         :param **__: other kwargs (ignored)
         """
 
@@ -37,10 +39,13 @@ class Kuramoto_ABM:
         # Time differential
         self.dt = torch.tensor(dt, device=device, dtype=torch.float)
 
-        # Dampening coefficient (second order only)
-        self.gamma = torch.tensor(gamma, device=device, dtype=torch.float)
+        # Inertia coefficient
+        self.alpha = torch.tensor(alpha, device=device, dtype=torch.float)
 
-        # Scaling value for network coupling
+        # Friction coefficient
+        self.beta = torch.tensor(beta, device=device, dtype=torch.float)
+
+        # Coupling coefficient
         self.kappa = torch.tensor(kappa, device=device, dtype=torch.float)
 
         # Training device to use
@@ -62,6 +67,7 @@ class Kuramoto_ABM:
         :param current_velocities: the current velocities of the oscillators. If this is not None, a
             second-order Kuramoto scheme is used
         :param adjacency_matrix: the coupling network
+        :param eigen_frequencies: the current eigenfrequencies
         :param sigma: (optional) the noise to use during training. Defaults to the model default.
         :param requires_grad: whether the resulting values require differentiation
         :return: the updated values
@@ -74,11 +80,13 @@ class Kuramoto_ABM:
         diffs = torch.sin(current_phases - torch.reshape(current_phases, (self.N,)))
 
         # First-order dynamics
-        if current_velocities is None:
+        if self.alpha == 0:
 
             new_phases = (
                 new_phases
-                + (
+                + 1
+                / self.beta
+                * (
                     eigen_frequencies
                     + torch.reshape(
                         torch.matmul(self.kappa * adjacency_matrix, diffs).diag(),
@@ -95,13 +103,15 @@ class Kuramoto_ABM:
             new_phases = (
                 new_phases
                 + (
-                    (
+                    1
+                    / self.alpha
+                    * (
                         eigen_frequencies
                         + torch.reshape(
                             torch.matmul(self.kappa * adjacency_matrix, diffs).diag(),
                             (self.N, 1),
                         )
-                        - self.gamma * current_velocities
+                        - self.beta * current_velocities
                     )
                     * self.dt
                     + current_velocities
