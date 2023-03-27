@@ -1,0 +1,33 @@
+uniform:
+  distribution: uniform
+  parameters:
+    lower: 0
+    upper: 2
+
+uniform2:
+  distribution: uniform
+  parameters:
+    lower: -1.2
+    upper: 2.5
+
+point:
+  distribution: uniform
+  parameters:
+    lower: -1.2
+    upper: -1.2
+
+# This should fail
+uniform3:
+  distribution: uniform
+  parameters:
+    lower: 3.2
+    upper: 3.1
+  _raises: ValueError
+  _match: Upper bound must be greater or equal to lower bound
+
+# Normal distribution
+normal:
+  distribution: normal
+  parameters:
+    mean: 0.5
+    std: 3.1

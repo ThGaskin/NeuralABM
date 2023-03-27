@@ -3,13 +3,13 @@ dirty: true
 git_diff: /Users/thomasgaskin/utopya_output/SIR/220927-081223_ABM_data/config/git_diff_project.patch
 git_status:
 - [M, models/HarrisWilson/ABM.py]
-- ['', M models/HarrisWilson/HarrisWilson_cfg.yml]
-- ['', M models/HarrisWilson/cfgs/London_dataset/run.yml]
+- ['', M models/HarrisWilson/HarrisWilsonNW_cfg.yml]
+- ['', M models/HarrisWilson/cfgs/N_750_example/run.yml]
 - ['', M models/HarrisWilson/cfgs/Loss_landscape/run.yml]
 - ['', M models/HarrisWilson/cfgs/Marginals/eval.yml]
 - ['', M models/HarrisWilson/cfgs/Marginals/run.yml]
 - ['', M models/HarrisWilson/cfgs/Performance_analysis/run.yml]
-- ['', M models/HarrisWilson/cfgs/Sample_run/run.yml]
+- ['', M models/HarrisWilson/cfgs/N_100_example/run.yml]
 - ['', M models/SIR/SIR_cfg.yml]
 - ['', M models/SIR/cfgs/Predictions/eval.yml]
 - ['', M models/SIR/cfgs/Predictions/run.yml]
@@ -20,4 +20,3 @@ latest_commit: {author: Thomas Gaskin <tgaskin@live.co.uk>, author_date: '2022-0
   refs: main, tree: e7cf2a87c250ec96d41e480b9d33048039a740cb}
 project_base_dir: /Users/thomasgaskin/Neural_ABM
 project_name: NeuralABM
-

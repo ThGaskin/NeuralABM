@@ -1,0 +1,142 @@
+.variables:
+  page_widths:
+    full_width:           &full_width         7.5
+    half_width:           &half_width         !expr 7.5 / 2
+    third_width:          &third_width        !expr 7.5 / 3
+    quarter_width:        &quarter_width      !expr 7.5 / 4
+    fifth_width:          &fifth_width        !expr 7.5 / 5
+    eighth_width:         &eighth_width       !expr 7.5 / 8
+    two_thirds_width:     &two_thirds_width   !expr 2* 7.5 / 3
+  colors: &colors
+    yellow:               &yellow             '#F5DDA9'
+    darkblue:             &darkblue           '#2F7194'
+    red:                  &red                '#ec7070'
+    skyblue:              &skyblue            '#97c3d0'
+    green:                &green              '#48675A'
+    lightbrown:           &lightbrown         '#C6BFA2'
+    orange:               &orange             '#EC9F7E'
+    lightgreen:           &lightgreen         '#AFD8BC'
+    grey:                 &grey               '#3D4244'
+    pink:                 &pink               '#F8A6A6'
+
+# ======================================================================================================================
+# ╔═╗╦  ╔═╗╔╦╗╔═╗
+# ╠═╝║  ║ ║ ║ ╚═╗
+# ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+
+loss: !pspace
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+  select_and_combine:
+    fields:
+      loss: output_data/Loss
+    subspace:
+      N: !sweep
+        default: 10
+        values: [10, 20, 40, 100, 200]
+  transform:
+    - .mean: [!dag_tag loss, 'seed' ]
+      tag: mean
+    - .std: [!dag_tag loss, 'seed']
+    - xr.Dataset:
+      - y: !dag_tag mean
+        yerr: !dag_prev
+      tag: data
+  x: time
+  y: y
+  yerr: yerr
+  hue: kind
+  helpers:
+    set_scales:
+      y: log
+  style:
+    figure.figsize: [ *half_width, *quarter_width ]
+
+time_and_loss:
+  based_on:
+    - .creator.multiverse
+  module: model_plots.Kuramoto
+  plot_func: time_and_loss
+  select_and_combine:
+    fields:
+      loss:
+        path: output_data/Prediction error
+        transform:
+          - .isel: [!dag_prev , {time: -1}]
+            kwargs: {drop: true}
+      time: output_data/computation_time
+      time_regression:
+        path: regression_data/computation_time
+  transform:
+    - .mean: [!dag_tag loss, 'seed' ]
+      tag: mean_loss
+    - .std: [!dag_tag loss, 'seed']
+    - xr.Dataset:
+      - y: !dag_tag mean_loss
+        yerr: !dag_prev
+      tag: loss_data
+
+    - .mean: [!dag_tag time, 'seed' ]
+    - .mean: [!dag_prev , 'epoch']
+    - .squeeze: [!dag_prev ]
+      tag: mean_time
+    - .mean: [!dag_tag time, 'seed']
+    - .std: [!dag_prev , 'epoch']
+    - .squeeze: [!dag_prev ]
+    - xr.Dataset:
+      - y: !dag_tag mean_time
+        yerr: !dag_prev
+      tag: CPU_time
+    - .mean: [!dag_tag time_regression, 'seed']
+      tag: regression_time
+    - import_and_call: [ pandas, read_csv, 'data/Kuramoto/GPU_times.csv' ]
+      kwargs:
+        index_col: 0
+    - xr.Dataset: [!dag_prev ]
+      tag: GPU_time
+  compute_only: [loss_data, CPU_time, GPU_time, regression_time]
+  helpers:
+    set_labels:
+      x: $N$
+      y: 'Time [s]'
+    set_texts:
+      texts:
+        - x: 15
+          y: 140
+          s: 'OLS (CPU)'
+          color: 'black'
+        - x: 200
+          y: 70
+          s: 'Neural (CPU)'
+          color: *green
+          zorder: 10
+        - x: 100
+          y: 0.1
+          s: 'Neural (GPU)'
+          color: *pink
+          zorder: 10
+        - x: 280
+          y: 0.4
+          s: '$L1$ error'
+          color: *darkblue
+    set_title:
+      title: ~
+    set_scales:
+      y: log
+    set_limits:
+      x: [min, max]
+  file_ext: pdf
+  loss_color: *darkblue
+  CPU_color: *green
+  GPU_color: *pink
+  regression_color: 'black'
+  style:
+    axes.spines.right: True
+    figure.figsize: [*third_width, !expr 7.5/3 * 1.2]
+    font.size: &font_size 11
+    axes.labelsize: *font_size
+    legend.fontsize: *font_size
+    xtick.labelsize: *font_size
+    ytick.labelsize: *font_size

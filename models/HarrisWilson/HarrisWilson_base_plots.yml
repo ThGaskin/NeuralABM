@@ -29,15 +29,15 @@
     savefig.bbox: tight
     axes.prop_cycle: !format
       fstr: "cycler('color', ['{colors[yellow]:}',
-        '{colors[darkblue]:}',
-        '{colors[red]:}',
-        '{colors[skyblue]:}',
-        '{colors[green]:}',
-        '{colors[lightbrown]:}',
-        '{colors[orange]:}',
-        '{colors[lightgreen]:}',
-        '{colors[grey]:}'
-        ])"
+                              '{colors[darkblue]:}',
+                              '{colors[red]:}',
+                              '{colors[skyblue]:}',
+                              '{colors[green]:}',
+                              '{colors[lightbrown]:}',
+                              '{colors[orange]:}',
+                              '{colors[lightgreen]:}',
+                              '{colors[grey]:}'
+                              ])"
       colors: *colors
     axes.grid: True
     axes.spines.top: False
@@ -143,17 +143,17 @@ loss_potential:
           - mul: [!dag_prev , -1]
   transform:
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag param1
-          loss: !dag_tag loss
+      - x: !dag_tag param1
+        loss: !dag_tag loss
       tag: data
 
-  x: param1
+  x: x
   hue: loss
   y: loss
-  s: 1
-  add_guide: False
+  s: 4
+  alpha: 0.2
+  linewidths: 0
+  add_colorbar: False
   cmap:
     continuous: true
     from_values:
@@ -210,13 +210,13 @@ marginals:
           - np.exp: [!dag_prev ]
   transform:
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag param1
-          loss: !dag_tag loss
-    - NeuralABM.compute_marginals: [!dag_prev ]
+      - x: !dag_tag param1
+        p: !dag_tag loss
+    - compute_marginals: [ !dag_prev ]
       kwargs:
         bins: 1000
+        x: x
+        p: p
       tag: data
   smooth_kwargs:
     enabled: true

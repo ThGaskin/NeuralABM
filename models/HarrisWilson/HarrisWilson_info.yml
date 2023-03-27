@@ -25,7 +25,7 @@ paths:
 metadata:
   description: Model description
   long_description: >
-    This model ... 
+    This model ...
 
   version: "0.1"
   author: Thomas Gaskin

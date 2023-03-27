@@ -1,0 +1,168 @@
+---
+# Simple deep example
+basic_deep:
+  num_layers: 2
+  nodes_per_layer:
+    default: 5
+  activation_funcs:
+    default: sigmoid
+  biases:
+    default: ~
+
+# Deep example with different number of nodes on each layer
+different_num_nodes:
+  num_layers: 10
+  nodes_per_layer:
+    default: 5
+    layer_specific:
+      0: 6
+      3: 1
+      -1: 10
+  activation_funcs:
+    default: sigmoid
+  biases:
+    default: ~
+
+# Deep example with different activation functions
+different_activation_funcs:
+  num_layers: 3
+  nodes_per_layer:
+    default: 5
+  activation_funcs:
+    default: linear
+    layer_specific:
+      0: sigmoid
+      2: relu
+      -1: tanh
+  biases:
+    default: ~
+
+# Deep example with different biases
+bias:
+  num_layers: 5
+  nodes_per_layer:
+    default: 5
+  activation_funcs:
+    default: sigmoid
+  biases:
+    default: [-3, -2]
+    layer_specific:
+      0: [1, 2]
+      -1: [2, 3]
+
+# Deep example with bias only on some layers:
+some_bias:
+  num_layers: 5
+  nodes_per_layer:
+    default: 5
+  activation_funcs:
+    default: sigmoid
+  biases:
+    default: ~
+    layer_specific:
+      0: [1, 2]
+      -1: [2, 3]
+
+# Deep example with activation funcs requiring args and kwargs
+activation_funcs_with_args:
+  num_layers: 5
+  nodes_per_layer:
+    default: 5
+  activation_funcs:
+    default:
+      name: HardTanh
+      args:
+        - -2
+        - +2
+  biases:
+    default: ~
+
+# Deep example with activation funcs requiring args and kwargs
+activation_funcs_with_args_2:
+  num_layers: 5
+  nodes_per_layer:
+    default: 5
+  activation_funcs:
+    default:
+      name: HardTanh
+      args:
+        - -2
+        - +2
+    layer_specific:
+      0: tanh
+      -1:
+        name: Softplus
+        args:
+          - 1.5
+          - 18
+  biases:
+    default: ~
+
+
+# Shallow case with no activation function
+simple_shallow:
+  num_layers: 1
+  nodes_per_layer:
+    default: 5
+  activation_funcs:
+    default: ~
+  biases:
+    default: ~
+
+# Shallow case with activation function
+shallow_with_activation_funcs:
+  num_layers: 1
+  nodes_per_layer:
+    default: 5
+  activation_funcs:
+    default: tanh
+  biases:
+    default: ~
+
+# Shallow case with bias
+shallow_with_bias:
+  num_layers: 1
+  nodes_per_layer:
+    default: 1
+  activation_funcs:
+    default: tanh
+  biases:
+    default: [-1, 1]
+
+# Different optimiser function
+SGD_optimizer:
+  num_layers: 1
+  nodes_per_layer:
+    default: 10
+  activation_funcs:
+    default: linear
+  biases:
+    default: ~
+  optimiser: SGD
+  learning_rate: 0.1
+
+# Default torch bias
+Default_bias:
+  num_layers: 3
+  nodes_per_layer:
+    default: 10
+  activation_funcs:
+    default: linear
+  biases:
+    default: default
+  optimiser: SGD
+  learning_rate: 0.1
+
+Default_bias2:
+  num_layers: 5
+  nodes_per_layer:
+    default: 10
+  activation_funcs:
+    default: linear
+  biases:
+    default: [0, 1]
+    layer_specific:
+      2: default
+      -1: default
+  optimiser: SGD
+  learning_rate: 0.1

@@ -1,0 +1,18 @@
+---
+coupled_dims:
+- full_path: [num_epochs]
+  name: num_epochs
+  target_name: training_set_size
+  values: [4000, 2000, 1000, 500]
+dims:
+- full_path: [Kuramoto, Data, synthetic_data, training_set_size]
+  name: training_set_size
+  values: [2, 4, 8, 16]
+- full_path: [seed]
+  name: seed
+  values: [0, 1, 2, 3, 4]
+num_coupled_dims: 1
+num_dims: 2
+perform_sweep: false
+shape: [4, 5]
+volume: 20

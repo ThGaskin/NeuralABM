@@ -159,4 +159,3 @@ worker_manager:
     task_spawned: [progress_bar]
     while_working: [progress_bar]
   save_streams_on: [monitor_updated]
-

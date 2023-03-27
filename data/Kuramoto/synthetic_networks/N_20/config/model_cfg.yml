@@ -1,0 +1,82 @@
+Data:
+  synthetic_data:
+
+    # The number of nodes in the network
+    N: !is-positive-int 16
+
+    # Network configuration
+    network:
+      mean_degree: !is-positive-int 5
+      type: !param
+        default: random
+        dtype: str
+        is_any_of: [random, star, regular, WattsStrogatz, BarabasiAlbert, BollobasRiordan]
+      graph_props:
+        is_directed: !is-bool false
+        is_weighted: !is-bool true
+        WattsStrogatz:
+          p_rewire: !is-probability 0.2
+
+    # Initial distribution of the eigenfrequencies
+    eigen_frequencies:
+      distribution: !param
+        default: uniform
+        is_any_of: [uniform, normal]
+      parameters:
+        lower: 1
+        upper: 3
+      time_series_std: !is-positive-or-zero 0.0
+
+    # Initial distribution of the phases
+    init_phases:
+      distribution: !param
+        default: uniform
+        is_any_of: [ uniform, normal ]
+      parameters:
+        lower: 0
+        upper: 6.283
+
+    # Noise variance on the training data
+    sigma: !is-positive-or-zero 0.0
+
+    # Length of time series
+    num_steps: !is-positive-int 5
+
+    # Number of individual time series
+    training_set_size: !is-positive-int 40
+
+  # Inertia parameter
+  alpha: !is-positive-or-zero 0
+
+  # Friction coefficient
+  beta: !is-positive 1
+
+  # Couling coefficient
+  kappa: !is-positive 1
+
+  # Time differential
+  dt: !is-positive 0.01
+
+# Neural net configuration
+NeuralNet:
+  num_layers: !is-positive-int 5
+  nodes_per_layer:
+    default: !is-positive-int 20
+  activation_funcs:
+    default: tanh
+    layer_specific:
+      -1: HardSigmoid
+  biases:
+    default: ~
+  learning_rate: !is-positive 0.002
+  optimizer: Adam
+
+# Training configuration
+Training:
+  device: cpu
+  batch_size: !is-positive-int 1
+  loss_function:
+    name: MSELoss
+  true_parameters:
+    # Noise variance to use for the numerical solver during training
+    sigma: !is-positive-or-zero 0.0

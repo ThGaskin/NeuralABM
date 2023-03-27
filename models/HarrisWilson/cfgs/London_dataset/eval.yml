@@ -68,17 +68,21 @@ low_noise/alpha:
 
     # Compute the model marginals
     - xr.Dataset:
-      - param1: !dag_tag param1
-        loss: !dag_tag loss
-    - operation: NeuralABM.compute_marginals
+      - x: !dag_tag param1
+        p: !dag_tag loss
+    - .assign_coords: [!dag_prev , {'metric': ['temporal', 'spatial']}]
+    - operation: compute_marginals
       args: [!dag_prev ]
       kwargs:
-        along_dim: metric
+        exclude_dim:
+          - metric
         bins: 1000
-        labels: &labels ["temporal metric", "spatial metric"]
         clip: [0, 2]
+        x: x
+        p: p
       tag: data
-
+  x: x
+  y: p
   hue: metric
   helpers:
     call:
@@ -124,15 +128,20 @@ low_noise/kappa:
         idx: 1
   transform:
     - xr.Dataset:
-      - param1: !dag_tag param1
-        loss: !dag_tag loss
-    - operation: NeuralABM.compute_marginals
-      args: [!dag_prev ]
+      - x: !dag_tag param1
+        p: !dag_tag loss
+    - .assign_coords: [!dag_prev , {'metric': ['temporal', 'spatial']}]
+    - operation: compute_marginals
+      args: [ !dag_prev ]
       kwargs:
-        along_dim: metric
+        exclude_dim:
+          - metric
         bins: 1000
-        labels: *labels
+        x: x
+        p: p
       tag: data
+  x: x
+  y: p
   hue: metric
   helpers:
     set_labels:

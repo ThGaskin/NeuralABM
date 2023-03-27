@@ -34,10 +34,10 @@ _:
   style:
     figure.figsize: [ *half_width, *fifth_width ]
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[darkblue]:}', 
-                              '{colors[green]:}', 
-                              '{colors[yellow]:}', 
-                              '{colors[skyblue]:}', 
+      fstr: "cycler('color', ['{colors[darkblue]:}',
+                              '{colors[green]:}',
+                              '{colors[yellow]:}',
+                              '{colors[skyblue]:}',
                               '{colors[lightbrown]:}',
                               '{colors[red]:}'
                               ])"
@@ -60,17 +60,21 @@ marginal_alpha:
   # Calculate marginals along the noise dimension
   transform:
     - xr.Dataset:
-      - param1: !dag_tag param1
-        loss: !dag_tag loss
-    - operation: NeuralABM.compute_marginals
+      - x: !dag_tag param1
+        p: !dag_tag loss
+    - .assign_coords: [ !dag_prev , { sigma: [ 0, 0.25, 0.5, 1, 1.5 ] } ]
+    - operation: compute_marginals
       args: [ !dag_prev ]
       kwargs:
-        along_dim: sigma
-        labels: [0, 0.25, 0.5, 1, 1.5]
+        exclude_dim:
+          - sigma
         bins: 1000
+        x: x
+        p: p
       tag: data
 
-  # Hue indicates noise level
+  x: x
+  y: p
   hue: sigma
 
   smooth_kwargs:
@@ -203,92 +207,87 @@ peak_widths:
   transform:
     # alpha
     - xr.Dataset:
-      - param1: !dag_tag alpha
-        loss: !dag_tag loss
-    - operation: NeuralABM.compute_marginals
+      - x: !dag_tag alpha
+        p: !dag_tag loss
+    - .assign_coords: [!dag_prev , {sigma: [ 0, 0.25, 0.5, 1, 1.5 ]}]
+    - operation: compute_marginals
       args: [ !dag_prev ]
       kwargs:
-        along_dim: sigma
-        labels: [ 0, 0.25, 0.5, 1, 1.5 ]
+        exclude_dim:
+          - sigma
         bins: 1000
-    - operation: NeuralABM.compute_avg_peak_widths
+        x: x
+        p: p
+    - getitem: [!dag_prev , 'p']
+    - operation: average_peak_widths
       args: [!dag_prev ]
       kwargs:
-        along_dim: sigma
+        exclude_dim:
+          - sigma
         prominence: 0.5
         width: [~, ~]
+        pad: False
       tag: peaks_alpha
 
-    # Beta. Since scipy.find_peaks cannot find peaks at the beginning of the data,
-    # we need to add an additional point to the marginals to ensure the peak at b=0 is found
+    # beta
     - xr.Dataset:
-      - param1: !dag_tag beta
-        loss: !dag_tag loss
-    - operation: NeuralABM.compute_marginals
+      - x: !dag_tag beta
+        p: !dag_tag loss
+    - .assign_coords: [!dag_prev , {sigma: [ 0, 0.25, 0.5, 1, 1.5 ]}]
+    - operation: compute_marginals
       args: [ !dag_prev ]
       kwargs:
-        along_dim: sigma
-        labels: [ 0, 0.25, 0.5, 1, 1.5 ]
+        exclude_dim:
+          - sigma
         bins: 1000
-      tag: marginals_beta
-
-    # Add padding
-    - tuple: [ [['sigma', 'bin_idx'], [[-0.001], [-0.001], [-0.001], [-0.001], [-0.001]]]]
-      tag: dim1
-    - tuple: [[['sigma', 'bin_idx'], [[0], [0] , [0], [0], [0]]]]
-      tag: dim2
-    - xr.Dataset:
-        coords:
-          sigma: [0.0, 0.25, 0.5, 1.0, 1.5]
-          bin_idx: [-1]
-        data_vars:
-          param1: !dag_tag dim1
-          prob: !dag_tag dim2
-    - xr.merge: [[!dag_prev , !dag_tag marginals_beta ]]
-
-    # Get peak widths
-    - operation: NeuralABM.compute_avg_peak_widths
+        x: x
+        p: p
+    - getitem: [!dag_prev , 'p']
+    - operation: average_peak_widths
       args: [!dag_prev ]
       kwargs:
-        along_dim: sigma
+        exclude_dim:
+          - sigma
         prominence: 0.5
         width: [~, ~]
+        pad: True
       tag: peaks_beta
 
     # kappa
     - xr.Dataset:
-      - param1: !dag_tag kappa
-        loss: !dag_tag loss
-    - operation: NeuralABM.compute_marginals
+      - x: !dag_tag kappa
+        p: !dag_tag loss
+    - .assign_coords: [!dag_prev , {sigma: [ 0, 0.25, 0.5, 1, 1.5 ]}]
+    - operation: compute_marginals
       args: [ !dag_prev ]
       kwargs:
-        along_dim: sigma
-        labels: [ 0, 0.25, 0.5, 1, 1.5 ]
+        exclude_dim:
+          - sigma
         bins: 1000
-    - operation: NeuralABM.compute_avg_peak_widths
+        x: x
+        p: p
+    - getitem: [!dag_prev , 'p']
+    - operation: average_peak_widths
       args: [!dag_prev ]
       kwargs:
-        along_dim: sigma
+        exclude_dim:
+          - sigma
         prominence: 1
         distance: 8
         height: 10
         width: [~, ~]
+        pad: False
       tag: peaks_kappa
 
     # Combine
-    - operation: pd.Index
-      args: [ [ '$\hat{\beta}$', '$\hat{\alpha}$', '$\hat{\kappa}$' ] ]
-      kwargs:
-        name: 'parameter'
-    - xr.concat: [ [ !dag_tag peaks_beta, !dag_tag peaks_alpha, !dag_tag peaks_kappa ], !dag_prev ]
+    - concat_along: [ [ !dag_tag peaks_beta, !dag_tag peaks_alpha, !dag_tag peaks_kappa ], 'parameter', [ '$\hat{\beta}$', '$\hat{\alpha}$', '$\hat{\kappa}$' ]]
       tag: data
 
   x: sigma
   y: mean
   yerr: std
   hue: parameter
-  ms: 4
-  marker: 'o'
+  ms: 0
   helpers:
     set_labels:
       x: Training data noise $\sigma$
@@ -297,8 +296,8 @@ peak_widths:
       title: ''
   style:
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[green]:}', 
-                              '{colors[darkblue]:}', 
-                              '{colors[red]:}', 
+      fstr: "cycler('color', ['{colors[green]:}',
+                              '{colors[darkblue]:}',
+                              '{colors[red]:}',
                               '{colors[skyblue]:}'])"
       colors: *colors

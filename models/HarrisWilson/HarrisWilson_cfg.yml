@@ -3,42 +3,74 @@
 # Settings for the dataset, which is loaded externally or can be synthetically generated using the ABM
 Data:
   synthetic_data:
+
+    # Number of time series steps
     num_steps: 3000
+
+    # Number of origin sizes
     N_origin: !is-positive-int 100
+
+    # Number of destination zone sizes
     N_destination: !is-positive-int 10
+
+    # Model parameters: size, convenience, cost, responsiveness, noise parameters
     alpha: !is-positive-or-zero 1.2
     beta: !is-positive-or-zero 4
     kappa: !is-positive-or-zero 2
-    delta: !is-positive-or-zero 0.1
-    sigma: !is-positive-or-zero 0
     epsilon: !is-positive 10
-    dt: !is-positive 0.01
-    init_weights:
-      mean: !param
-        default: 1.2
-        limits: [0, ~]
-        dtype: float
-      std: !param
-        default: 1.2
-        limits: [0, ~]
-        dtype: float
+    sigma: !is-positive-or-zero 0
 
+    # Time differential
+    dt: !is-positive 0.01
+
+    # Settings for the initial origin size distribution
+    origin_sizes:
+      distribution: !param
+        default: normal
+        is_any_of: [uniform, normal]
+      parameters:
+        mean: 0.1
+        std: 0.01
+
+    # Settings for the initial destination size distribution
+    init_dest_sizes:
+      distribution: !param
+        default: normal
+        is_any_of: [ uniform, normal ]
+      parameters:
+        mean: 0.1
+        std: 0.01
+
+    # Settings for the initialisation of the weight matrix
+    init_weights:
+      distribution: !param
+        default: normal
+        is_any_of: [uniform, normal]
+      parameters:
+        mean: 1.2
+        std: 1.2
+
+  # Number of steps of the time series to use for training
+  training_data_size: 1
 
 # Settings for the neural net architecture
 NeuralNet:
-  num_layers: !is-positive-int 2
-  nodes_per_layer: !is-positive-int 20
+  num_layers: 1
+  nodes_per_layer:
+    default: !is-positive-int 20
   activation_funcs:
-    -1: abs
-  bias: !is-bool True
-  init_bias: [0, 4]
+    default: linear
+    layer_specific:
+      1: abs
+  biases:
+    default: [0, 4]
   learning_rate: !is-positive 0.002
 
 # Settings for the neural net training
 Training:
-  to_learn: [alpha, beta, kappa, delta, sigma]
+  to_learn: [alpha, beta, kappa, sigma]
+  loss_function:
+    name: MSELoss
   batch_size: !is-positive-int 1
-
-# Whether to write out the computation time for each epoch
-write_time: False
-
+  device: cpu
+  epsilon: 1

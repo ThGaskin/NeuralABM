@@ -1,0 +1,53 @@
+---
+# Losses
+loss:
+  based_on: loss
+
+# True network (as a graph)
+network:
+  based_on: network
+
+# True adjacency matrix
+Adjacency_matrices/true_adjacency_matrix:
+  based_on: adjacency_matrix
+
+# Predicted adjacency matrix
+Adjacency_matrices/prediction:
+  based_on: adjacency_matrix
+  select:
+    data:
+      path: output_data/predictions
+      transform:
+        - .isel: [!dag_prev , {time: -1}]
+
+# L1 error on each edge
+Adjacency_matrices/error:
+  based_on: error
+
+# L1 error on true edges
+Adjacency_matrices/error_on_true_edges:
+  based_on: error_on_true_edges
+
+# L1 error on falsely predicted edges
+Adjacency_matrices/error_on_false_edges:
+  based_on: error_on_false_edges
+
+# Polar plot of the training phases
+Training_data/polar_phases:
+  based_on: phases
+
+# Line plot of the training phases
+Training_data/line_phases:
+  based_on: phases_lines
+
+# Oscillations of the nodes
+Training_data/oscillations:
+  based_on: oscillations
+
+# Plot a predicted time series
+predicted_time_series:
+  based_on: phases_lines
+  select:
+    data:
+      path: output_data/predicted phases
+      transform: ~

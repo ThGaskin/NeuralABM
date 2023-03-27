@@ -1,0 +1,23 @@
+---
+paths:
+  model_note: N_100_example
+perform_sweep: True
+parameter_space:
+  num_epochs: 10
+  write_every: 15
+  write_start: 15
+  write_predictions_every: 15
+  seed: 20
+  Kuramoto:
+    Data:
+      synthetic_data:
+        num_steps: 10
+        training_set_size: 750
+        N: 100
+        sigma: !sweep
+          default: 0
+          values: [0, 1e-3]
+        network:
+          mean_degree: 6
+    Training:
+      batch_size: 5

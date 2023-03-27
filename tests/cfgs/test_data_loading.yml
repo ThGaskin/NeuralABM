@@ -1,0 +1,58 @@
+# Load from folder
+HW1:
+  model: HarrisWilson
+  parameter_space:
+    num_epochs: 2
+    write_every: 1
+    HarrisWilson:
+      Data:
+        load_from_dir: data/HarrisWilson/synthetic_data/noiseless/N_100_M_10
+
+# Load from csv
+HW2:
+  model: HarrisWilson
+  parameter_space:
+    num_epochs: 2
+    write_every: 1
+    HarrisWilson:
+      Data:
+        load_from_dir:
+          network: data/HarrisWilson/London_data/exp_times.csv
+          origin_zones: data/HarrisWilson/London_data/origin_sizes.csv
+          destination_zones: data/HarrisWilson/London_data/dest_sizes.csv
+
+# Generate synthetic data
+HW3:
+  model: HarrisWilson
+  parameter_space:
+    num_epochs: 2
+    write_every: 1
+    HarrisWilson:
+      N_origin: 50
+      M_destination: 10
+      num_steps: 10
+
+# Load SIR
+SIR1:
+  model: SIR
+  parameter_space:
+    num_epochs: 2
+    write_every: 1
+    SIR:
+      N: 150
+
+Kuramoto:
+  model: Kuramoto
+  parameter_space:
+    num_epochs: 2
+    write_every: 1
+    Kuramoto:
+      N: 16
+
+HarrisWilsonNW:
+  model: HarrisWilsonNW
+  parameter_space:
+    num_epochs: 2
+    HarrisWilsonNW:
+      N_origin: 20
+      N_destination: 10

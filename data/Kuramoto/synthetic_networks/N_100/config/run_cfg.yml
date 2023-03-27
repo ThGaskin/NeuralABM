@@ -1,0 +1,11 @@
+parameter_space:
+  num_epochs: 0
+  Kuramoto:
+    Data:
+      synthetic_data:
+        N: 100
+        network:
+          mean_degree: 20
+          type: random
+        num_steps: 1
+        training_set_size: 1

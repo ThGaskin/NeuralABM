@@ -33,4 +33,3 @@ root_model_name: SIR
 seed: 0
 write_every: 1
 write_start: 1
-

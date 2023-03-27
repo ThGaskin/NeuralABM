@@ -1,0 +1,91 @@
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+.variables:
+  colors: &colors
+    yellow:       &yellow       '#F5DDA9'
+    darkblue:     &darkblue     '#2F7194'
+    red:          &red          '#ec7070'
+    skyblue:      &skyblue      '#97c3d0'
+    green:        &green        '#48675A'
+    lightbrown:   &lightbrown   '#C6BFA2'
+    orange:       &orange       '#EC9F7E'
+    lightgreen:   &lightgreen   '#AFD8BC'
+    grey:         &grey         '#3D4244'
+
+  # Page widths in inches for latex documents: ensures easy integration into latex documents
+  page_widths:
+    full_width:         &full_width         7.5
+    half_width:         &half_width         !expr 7.5 / 2
+    two_thirds_width:   &two_thirds_width   !expr 2 * 7.5 / 3
+    third_width:        &third_width        !expr 7.5 / 3
+    quarter_width:      &quarter_width      !expr 7.5 / 4
+    fifth_width:        &fifth_width        !expr 7.5 / 5
+    eighth_width:       &eighth_width       !expr 7.5 / 8
+
+.matrix_defaults:
+  style:
+    figure.figsize: [ *third_width, *third_width ]
+    axes.grid: False
+    axes.spines.top: True
+    axes.spines.right: True
+    axes.linewidth: 0.5
+  vmax: 1
+  helpers:
+    set_title:
+      title: ''
+    set_ticks:
+      x:
+        major: []
+      y:
+        major: []
+    set_labels:
+      x: ' '
+      y: ' '
+    set_limits:
+      y: [max, min]
+      x: [min, max]
+
+# ======================================================================================================================
+# ╔═╗╦  ╔═╗╔╦╗╔═╗
+# ╠═╝║  ║ ║ ║ ╚═╗
+# ╩  ╩═╝╚═╝ ╩ ╚═╝
+# ======================================================================================================================
+# Plot the training and prediction loss
+loss:
+  based_on: loss
+  figsize: [*half_width, *third_width]
+
+# Plot the marginal degree distribution
+degree_marginal:
+  based_on: degree_marginal
+  dag_options:
+    define:
+      upper_bin: 50
+  smooth_kwargs:
+    enabled: True
+    sigma: 2.5
+  helpers:
+    set_legend:
+      use_legend: False
+    set_limits:
+      x: [5, 35]
+      y: [0, 0.15]
+  style:
+    figure.figsize: [*half_width, *quarter_width]
+
+# Plot the marginal triangle distribution
+triangle_marginal:
+  based_on: triangle_marginal
+  dag_options:
+    define:
+      upper_bin: 50
+  helpers:
+    set_limits:
+      x: [0, 25]
+    set_legend:
+      use_legend: False
+  style:
+    figure.figsize: [ *half_width, *quarter_width ]

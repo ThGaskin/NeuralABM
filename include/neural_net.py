@@ -1,84 +1,151 @@
+from typing import Any, List, Sequence, Union
+
 import torch
 from torch import nn
-from typing import Any, List, Union
 
-# -----------------------------------------------------------------------------
-# -- NN utility functions -----------------------------------------------------
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+# -- NN utility functions ----------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 
 
-def get_activation_funcs(n_layers: int, cfg: Union[str, dict] = None) -> List[Any]:
+def sigmoid(beta=torch.tensor(1.0)):
+    """Extends the torch.nn.sigmoid activation function by allowing for a slope parameter."""
 
-    """Extracts the activation functions from the config"""
+    return lambda x: torch.sigmoid(beta * x)
 
-    def return_function(name: str):
-        if name in ['Linear', 'linear', 'lin', 'None']:
-            return None
-        elif name in ['sigmoid', 'Sigmoid']:
-            return torch.sigmoid
-        elif name in ['relu', 'ReLU']:
-            return torch.relu
-        elif name in ['sin', 'sine']:
-            return torch.sin
-        elif name in ['cos', 'cosine']:
-            return torch.cos
-        elif name in ['tanh']:
-            return torch.tanh
-        elif name in ['abs']:
-            return torch.abs
-        else:
-            raise ValueError(f"Unrecognised activation function {name}!")
 
-    funcs = [None] * (n_layers+1)
+# Pytorch activation functions.
+# Pairs of activation functions and whether they are part of the torch.nn module, in which case they must be called
+# via func(*args, **kwargs)(x).
 
-    if cfg is None:
-        return funcs
-    elif isinstance(cfg, str):
-        return [return_function(cfg)] * (n_layers + 1)
-    elif isinstance(cfg, dict):
-        for val in cfg.keys():
-            if val in [0]:
-                funcs[0] = return_function(cfg[0])
-            elif val in [-1]:
-                funcs[-1] = return_function(cfg[-1])
+
+ACTIVATION_FUNCS = {
+    "abs": [torch.abs, False],
+    "celu": [torch.nn.CELU, True],
+    "cos": [torch.cos, False],
+    "cosine": [torch.cos, False],
+    "elu": [torch.nn.ELU, True],
+    "gelu": [torch.nn.GELU, True],
+    "hardshrink": [torch.nn.Hardshrink, True],
+    "hardsigmoid": [torch.nn.Hardsigmoid, True],
+    "hardswish": [torch.nn.Hardswish, True],
+    "hardtanh": [torch.nn.Hardtanh, True],
+    "leakyrelu": [torch.nn.LeakyReLU, True],
+    "linear": [None, False],
+    "logsigmoid": [torch.nn.LogSigmoid, True],
+    "mish": [torch.nn.Mish, True],
+    "prelu": [torch.nn.PReLU, True],
+    "relu": [torch.nn.ReLU, True],
+    "rrelu": [torch.nn.RReLU, True],
+    "selu": [torch.nn.SELU, True],
+    "sigmoid": [sigmoid, True],
+    "silu": [torch.nn.SiLU, True],
+    "sin": [torch.sin, False],
+    "sine": [torch.sin, False],
+    "softplus": [torch.nn.Softplus, True],
+    "softshrink": [torch.nn.Softshrink, True],
+    "swish": [torch.nn.SiLU, True],
+    "tanh": [torch.nn.Tanh, True],
+    "tanhshrink": [torch.nn.Tanhshrink, True],
+    "threshold": [torch.nn.Threshold, True],
+}
+
+
+def get_architecture(
+    input_size: int, output_size: int, n_layers: int, cfg: dict
+) -> List[int]:
+
+    # Apply default to all hidden layers
+    _nodes = [cfg.get("default")] * n_layers
+
+    # Update layer-specific settings
+    _layer_specific = cfg.get("layer_specific", {})
+    for layer_id, layer_size in _layer_specific.items():
+        _nodes[layer_id] = layer_size
+
+    return [input_size] + _nodes + [output_size]
+
+
+def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
+
+    """Extracts the activation functions from the config. The config is a dictionary containing the
+    default activation function, and a layer-specific entry detailing exceptions from the default. 'None' entries
+    are interpreted as linear layers.
+
+    .. Example:
+        activation_funcs:
+          default: relu
+          layer_specific:
+            0: ~
+            2: tanh
+            3:
+              name: HardTanh
+              args:
+                - -2  # min_value
+                - +2  # max_value
+    """
+
+    def _single_layer_func(layer_cfg: Union[str, dict]) -> callable:
+
+        """Return the activation function from an entry for a single layer"""
+
+        # Entry is a single string
+        if isinstance(layer_cfg, str):
+            _f = ACTIVATION_FUNCS[layer_cfg.lower()]
+            if _f[1]:
+                return _f[0]()
             else:
-                funcs[val-1] = return_function(cfg[val])
+                return _f[0]
 
-        return funcs
-    else:
-        raise ValueError(f"Unrecognised argument {cfg} for 'activation_funcs'!")
+        # Entry is a dictionary containing args and kwargs
+        elif isinstance(layer_cfg, dict):
+            _f = ACTIVATION_FUNCS[layer_cfg.get("name").lower()]
+            if _f[1]:
+                return _f[0](*layer_cfg.get("args", ()), **layer_cfg.get("kwargs", {}))
+            else:
+                return _f[0]
+
+        elif layer_cfg is None:
+            _f = ACTIVATION_FUNCS["linear"][0]
+
+        else:
+            raise ValueError(f"Unrecognized activation function {cfg}!")
+
+    # Use default activation function on all layers
+    _funcs = [_single_layer_func(cfg.get("default"))] * (n_layers + 1)
+
+    # Change activation functions on specified layers
+    _layer_specific = cfg.get("layer_specific", {})
+    for layer_id, layer_cfg in _layer_specific.items():
+        _funcs[layer_id] = _single_layer_func(layer_cfg)
+
+    return _funcs
 
 
-def get_optimizer(name):
+def get_bias(n_layers: int, cfg: dict) -> List[Any]:
 
-    """Returns the optimizer from the config"""
+    """Extracts the bias initialisation settings from the config. The config is a dictionary containing the
+    default, and a layer-specific entry detailing exceptions from the default. 'None' entries
+    are interpreted as unbiased layers.
 
-    if name == 'Adagrad':
-        return torch.optim.Adagrad
-    elif name == 'Adam':
-        return torch.optim.Adam
-    elif name == 'AdamW':
-        return torch.optim.AdamW
-    elif name == 'SparseAdam':
-        return torch.optim.SparseAdam
-    elif name == 'Adamax':
-        return torch.optim.Adamax
-    elif name == 'ASGD':
-        return torch.optim.ASGD
-    elif name == 'LBFGS':
-        return torch.optim.LBFGS
-    elif name == 'NAdam':
-        return torch.optim.NAdam
-    elif name == 'RAdam':
-        return torch.optim.RAdam
-    elif name == 'RMSprop':
-        return torch.optim.RMSprop
-    elif name == 'Rprop':
-        return torch.optim.Rprop
-    elif name == 'SGD':
-        return torch.optim.SGD
-    else:
-        raise ValueError(f'Unrecognized opimiser {name}!')
+    .. Example:
+        biases:
+          default: ~
+          layer_specific:
+            0: [-1, 1]
+            3: [2, 3]
+    """
+
+    # Use the default value on all layers
+    biases = [cfg.get("default")] * (n_layers + 1)
+
+    # Amend bias on specified layers
+    _layer_specific = cfg.get("layer_specific", {})
+    for layer_id, layer_bias in _layer_specific.items():
+        biases[layer_id] = layer_bias
+
+    return biases
+
 
 # -----------------------------------------------------------------------------
 # -- Neural net class ---------------------------------------------------------
@@ -86,69 +153,83 @@ def get_optimizer(name):
 
 
 class NeuralNet(nn.Module):
+    OPTIMIZERS = {
+        "Adagrad": torch.optim.Adagrad,
+        "Adam": torch.optim.Adam,
+        "AdamW": torch.optim.AdamW,
+        "SparseAdam": torch.optim.SparseAdam,
+        "Adamax": torch.optim.Adamax,
+        "ASGD": torch.optim.ASGD,
+        "LBFGS": torch.optim.LBFGS,
+        "NAdam": torch.optim.NAdam,
+        "RAdam": torch.optim.RAdam,
+        "RMSprop": torch.optim.RMSprop,
+        "Rprop": torch.optim.Rprop,
+        "SGD": torch.optim.SGD,
+    }
 
-    def __init__(self,
-                 *,
-                 input_size: int,
-                 output_size: int,
-                 num_layers: int,
-                 nodes_per_layer: int,
-                 activation_funcs: dict = None,
-                 optimizer: str = 'Adam',
-                 learning_rate: float = 0.001,
-                 bias: bool = False,
-                 init_bias: tuple = None,
-                 **__):
+    def __init__(
+        self,
+        *,
+        input_size: int,
+        output_size: int,
+        num_layers: int,
+        nodes_per_layer: dict,
+        activation_funcs: dict,
+        biases: dict,
+        optimizer: str = "Adam",
+        learning_rate: float = 0.001,
+        **__,
+    ):
         """
 
         :param input_size: the number of input values
         :param output_size: the number of output values
         :param num_layers: the number of hidden layers
-        :param nodes_per_layer: the number of neurons in the hidden layers
+        :param nodes_per_layer: a dictionary specifying the number of nodes per layer
         :param activation_funcs: a dictionary specifying the activation functions to use
-        :param learning_rate: the learning rate of the optimizer
-        :param bias: whether to initialise the layers with a bias
-        :param init_bias: the interval from which to uniformly initialise the bias
+        :param biases: a dictionary containing the initialisation parameters for the bias
+        :param optimizer: the name of the optimizer to use. Default is the torch.optim.Adam optimizer.
+        :param learning_rate: the learning rate of the optimizer. Default is 1e-3.
         :param __: Additional model parameters (ignored)
         """
 
-        super(NeuralNet, self).__init__()
+        super().__init__()
         self.flatten = nn.Flatten()
 
         self.input_dim = input_size
         self.output_dim = output_size
         self.hidden_dim = num_layers
+
+        # Get architecture, activation functions, and layer bias
+        self.architecture = get_architecture(
+            input_size, output_size, num_layers, nodes_per_layer
+        )
         self.activation_funcs = get_activation_funcs(num_layers, activation_funcs)
-        architecture = [input_size] + [nodes_per_layer] * num_layers + [output_size]
+        self.bias = get_bias(num_layers, biases)
 
         # Add the neural net layers
         self.layers = nn.ModuleList()
-        for i in range(len(architecture) - 1):
-            layer = nn.Linear(architecture[i], architecture[i + 1], bias=bias)
+        for i in range(len(self.architecture) - 1):
+            layer = nn.Linear(
+                self.architecture[i],
+                self.architecture[i + 1],
+                bias=self.bias[i] is not None,
+            )
 
-            # Initialise the biases of the layers with a uniform distribution on init_bias
-            if bias and init_bias is not None:
-                torch.nn.init.uniform_(layer.bias, init_bias[0], init_bias[1])
+            # Initialise the biases of the layers with a uniform distribution
+            if self.bias[i] is not None:
+                # Use the pytorch default if indicated
+                if self.bias[i] == "default":
+                    torch.nn.init.uniform_(layer.bias)
+                # Initialise the bias on explicitly provided intervals
+                else:
+                    torch.nn.init.uniform_(layer.bias, self.bias[i][0], self.bias[i][1])
+
             self.layers.append(layer)
 
         # Get the optimizer
-        self.optimizer = get_optimizer(optimizer)(self.parameters(), lr=learning_rate)
-
-        # Initialize the loss tracker dictionary, which can be used to evaluate the training progress
-        self._loss_tracker: dict = {'iteration': [], 'training_loss': [], 'parameter_loss': []}
-
-    @property
-    def loss_tracker(self) -> dict:
-        return self._loss_tracker
-
-    # Updates the loss tracker with a time value and the loss values
-    def update_loss_tracker(self, it, *, training_loss, parameter_loss):
-        self._loss_tracker['iteration'].append(it)
-        self._loss_tracker['training_loss'].append(training_loss)
-        self._loss_tracker['parameter_loss'].append(parameter_loss)
-
-    def reset_loss_tracker(self):
-        self._loss_tracker = {'iteration': [], 'training_loss': [], 'parameter_loss': []}
+        self.optimizer = self.OPTIMIZERS[optimizer](self.parameters(), lr=learning_rate)
 
     # ... Evaluation functions .........................................................................................
 

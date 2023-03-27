@@ -119,14 +119,3 @@ marginals/kappa:
     set_labels:
       x: '$\kappa$'
       y: '$\rho(\kappa)$'
-    
-# Plot the marginal density in delta
-marginals/delta:
-  based_on: marginals
-  select_and_combine:
-    fields:
-      param1: delta
-  helpers:
-    set_labels:
-      x: '$\delta$'
-      y: '$\rho(\delta)$'
