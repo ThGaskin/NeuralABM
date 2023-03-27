@@ -1,0 +1,20 @@
+---
+dirty: true
+git_diff: /Users/thomasgaskin/utopya_output/Kuramoto/230324-154123_Convexity/config/git_diff_project.patch
+git_status:
+- [M, models/Kuramoto/Kuramoto_base_plots.yml]
+- ['', M models/Kuramoto/README.md]
+- ['', M models/Kuramoto/__init__.py]
+- [AM, models/Kuramoto/cfgs/Convexity/eval.yml]
+- [AM, models/Kuramoto/cfgs/Convexity/run.yml]
+- ['', M models/Kuramoto/regression.py]
+- ['', M models/Kuramoto/run.py]
+- [??, data/Kuramoto/UK_power_grid/]
+have_git_repo: true
+latest_commit: {author: Thomas Gaskin <tgaskin@live.co.uk>, author_date: '2023-03-24
+    12:06:24', commit: ea16ccfde6cdd34dffedf69b8144d11c80e3a724, gitdir: /Users/thomasgaskin/NeuralABM/.git,
+  message: "Merge pull request #27 from ThGaskin/change_Kuramoto_parameters\nAdd alpha\
+    \ parameter to Kuramoto", parent: cab05f68bd39f94031c822a45dd1e362baf162f6, refs: add_convexity_analysis,
+  tree: b0fca2b8be0c143666af66219810b954b5d04fab}
+project_base_dir: /Users/thomasgaskin/NeuralABM
+project_name: NeuralABM

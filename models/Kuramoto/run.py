@@ -557,6 +557,11 @@ if __name__ == "__main__":
             kappa=model_cfg["Data"]["kappa"],
         )
 
+    # If specified, calculate the ranks of the Gram matrices for each node
+    if cfg.get("calculate_data_rank", False):
+        log.info("   Calculating rank of training data ...")
+        Kuramoto.rank(training_data, h5file, alpha=ABM.alpha)
+
     log.info("   Wrapping up ...")
 
     h5file.close()
