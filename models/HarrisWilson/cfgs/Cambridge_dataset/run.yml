@@ -41,3 +41,40 @@ parameter_space:
       device: cpu # cuda
       num_threads: 1
     # write_time: True
+
+        # network: !sweep
+        # default: data/HarrisWilson/Cambridge_data/driving_metrics_exp_times.csv
+        # values: [data/HarrisWilson/Cambridge_data/driving_metrics_exp_times.csv,
+        #          data/HarrisWilson/Cambridge_data/driving_metrics_exp_distances.csv]
+        # network: !sweep
+        # default: data/HarrisWilson/Cambridge_data/transit_metrics_exp_times.csv
+        # values: [
+        #     data/HarrisWilson/Cambridge_data/transit_metrics_exp_times.csv,
+        #     data/HarrisWilson/Cambridge_data/transit_metrics_exp_distances.csv]
+        # network: !sweep
+            # default: data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times.csv
+            # values: [
+            #     data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times.csv,
+            #     data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_distances.csv]
+        # network: !sweep
+        #   default: data/HarrisWilson/Cambridge_data/walking_metrics_exp_times.csv
+        #   values: [
+        #         data/HarrisWilson/Cambridge_data/walking_metrics_exp_times.csv,
+        #         data/HarrisWilson/Cambridge_data/walking_metrics_exp_distances.csv]
+          # name: metric
+        origin_zones: data/HarrisWilson/Cambridge_data/origin_sizes_max_normalised.csv
+        destination_zones: data/HarrisWilson/Cambridge_data/dest_sizes_max_normalised.csv
+    NeuralNet:
+      init_bias: [ 0, 10 ]
+      num_layers: 1
+      nodes_per_layer: 20
+      optimizer: Adam
+      learning_rate: 0.002
+    Training:
+      to_learn: [alpha, beta, kappa, delta]
+      true_parameters:
+        sigma: !sweep
+          default: 0
+          values: [0.01414214, 0.14142136]
+      device: cpu
+      num_threads: 1
