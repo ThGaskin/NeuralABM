@@ -1,76 +1,43 @@
-worker_manager: 
+worker_manager:
   num_workers: 8
-perform_sweep: True  
+perform_sweep: True
 paths:
   model_note: Cambridge_dataset
   out_dir: outputs/
 parameter_space:
   seed: !sweep
     default: 2
-    range: [20]
-  num_epochs: 20000
+    range: [30]
+  num_epochs: 10000
+  num_steps: 10
   write_start: 1
   write_every: 1
+  write_predictions_every: 1
   HarrisWilson:
     Data:
-      load_from_dir: 
-        network: data/HarrisWilson/Cambridge_data/exp_distances_unit_interval.csv
-        # network: data/HarrisWilson/Cambridge_data/driving_metrics_exp_distances_unit_interval.csv
+      load_from_dir:
+        network: data/HarrisWilson/Cambridge_data/clustered_facilities_sample_20x20_euclidean_20_01_2023_clustered_facilities_sample_20x20_ripleys_k_1000_euclidean_destination_adjusted_normalised_boundary_only_edge_corrected_cost_matrix_sum_normalised.csv
         # network: !sweep
-        #   default: data/HarrisWilson/Cambridge_data/driving_metrics_exp_times_unit_interval.csv
+        #   default:
         #   values: [
-        #         data/HarrisWilson/Cambridge_data/driving_metrics_exp_times_unit_interval.csv,
-        #         data/HarrisWilson/Cambridge_data/driving_metrics_exp_distances_unit_interval.csv]
-        # network: !sweep
-        #   default: data/HarrisWilson/Cambridge_data/transit_metrics_exp_times_unit_interval.csv
-        #   values: [
-        #       data/HarrisWilson/Cambridge_data/transit_metrics_exp_times_unit_interval.csv,
-        #       data/HarrisWilson/Cambridge_data/transit_metrics_exp_distances_unit_interval.csv
         #   ]
-        # network: !sweep
-        #   default: data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times_unit_interval.csv
-        #   values: [
-        #       data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times_unit_interval.csv,
-        #       data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_distances_unit_interval.csv]
-        # network: !sweep
-        #   default: data/HarrisWilson/Cambridge_data/walking_metrics_exp_times_unit_interval.csv
-        #   values: [
-        #       data/HarrisWilson/Cambridge_data/walking_metrics_exp_times_unit_interval.csv,
-        #       data/HarrisWilson/Cambridge_data/walking_metrics_exp_distances_unit_interval.csv]
-
-        # network: !sweep
-        # default: data/HarrisWilson/Cambridge_data/driving_metrics_exp_times.csv
-        # values: [data/HarrisWilson/Cambridge_data/driving_metrics_exp_times.csv,
-        #          data/HarrisWilson/Cambridge_data/driving_metrics_exp_distances.csv]
-        # network: !sweep
-        # default: data/HarrisWilson/Cambridge_data/transit_metrics_exp_times.csv
-        # values: [
-        #     data/HarrisWilson/Cambridge_data/transit_metrics_exp_times.csv,
-        #     data/HarrisWilson/Cambridge_data/transit_metrics_exp_distances.csv]
-        # network: !sweep
-            # default: data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times.csv
-            # values: [
-            #     data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_times.csv,
-            #     data/HarrisWilson/Cambridge_data/bicycling_metrics_exp_distances.csv]
-        # network: !sweep
-        #   default: data/HarrisWilson/Cambridge_data/walking_metrics_exp_times.csv
-        #   values: [
-        #         data/HarrisWilson/Cambridge_data/walking_metrics_exp_times.csv,
-        #         data/HarrisWilson/Cambridge_data/walking_metrics_exp_distances.csv]
-          # name: metric
-        origin_zones: data/HarrisWilson/Cambridge_data/origin_sizes_max_normalised.csv
-        destination_zones: data/HarrisWilson/Cambridge_data/dest_sizes_max_normalised.csv
+        origin_zones: data/HarrisWilson/Cambridge_data/lsoas_origin_demand_sum_normalised.csv
+        destination_zones: data/HarrisWilson/Cambridge_data/msoas_number_of_jobs_factor_10000_normalised.csv
     NeuralNet:
-      init_bias: [ 0, 10 ]
+      init_bias: [0, 4]
       num_layers: 1
       nodes_per_layer: 20
       optimizer: Adam
       learning_rate: 0.002
     Training:
-      to_learn: [alpha, beta, kappa, delta]
+      to_learn: [alpha, beta, kappa]
+      batch_size: 1
       true_parameters:
+        delta: 0.10230179028132994 # 0.10230179028132994
+        # kappa: 0.012787723785166245 # 0.012787723785166245
         sigma: !sweep
           default: 0
           values: [0.01414214, 0.14142136]
-      device: cpu
+      device: cpu # cuda
       num_threads: 1
+    # write_time: True

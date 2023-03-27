@@ -1,47 +1,47 @@
 ---
 .variables:
-  base_path:        &base_path    data/HarrisWilson
-  loss_limit:       &loss_limit   1e-15
+  base_path: &base_path data/HarrisWilson
+  loss_limit: &loss_limit 1e-15
 
   colors: &colors
-    yellow:         &yellow       '#F5DDA9'
-    darkblue:       &darkblue     '#2F7194'
-    red:            &red          '#ec7070'
-    skyblue:        &skyblue      '#97c3d0'
-    green:          &green        '#48675A'
-    lightbrown:     &lightbrown   '#C6BFA2'
-    orange:         &orange       '#EC9F7E'
-    lightgreen:     &lightgreen   '#AFD8BC'
-    grey:           &grey         '#3D4244'
+    yellow: &yellow "#F5DDA9"
+    darkblue: &darkblue "#2F7194"
+    red: &red "#ec7070"
+    skyblue: &skyblue "#97c3d0"
+    green: &green "#48675A"
+    lightbrown: &lightbrown "#C6BFA2"
+    orange: &orange "#EC9F7E"
+    lightgreen: &lightgreen "#AFD8BC"
+    grey: &grey "#3D4244"
 
 .default_style:
   style:
-    text.usetex:        True
-    mathtext.fontset:   cm
-    font.family:        serif
-    font.size:          &font_size 9
-    axes.titlesize:     *font_size
-    axes.labelsize:     *font_size
-    legend.fontsize:    *font_size
-    xtick.labelsize:    *font_size
-    ytick.labelsize:    *font_size
-    grid.linewidth:     0.5
-    savefig.bbox:       tight
+    text.usetex: True
+    mathtext.fontset: cm
+    font.family: serif
+    font.size: &font_size 9
+    axes.titlesize: *font_size
+    axes.labelsize: *font_size
+    legend.fontsize: *font_size
+    xtick.labelsize: *font_size
+    ytick.labelsize: *font_size
+    grid.linewidth: 0.5
+    savefig.bbox: tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[yellow]:}', 
-                              '{colors[darkblue]:}', 
-                              '{colors[red]:}', 
-                              '{colors[skyblue]:}', 
-                              '{colors[green]:}', 
-                              '{colors[lightbrown]:}', 
-                              '{colors[orange]:}', 
-                              '{colors[lightgreen]:}',
-                              '{colors[grey]:}'
-                              ])"
+      fstr: "cycler('color', ['{colors[yellow]:}',
+        '{colors[darkblue]:}',
+        '{colors[red]:}',
+        '{colors[skyblue]:}',
+        '{colors[green]:}',
+        '{colors[lightbrown]:}',
+        '{colors[orange]:}',
+        '{colors[lightgreen]:}',
+        '{colors[grey]:}'
+        ])"
       colors: *colors
-    axes.grid:          True
-    axes.spines.top:    False
-    axes.spines.right:  False
+    axes.grid: True
+    axes.spines.top: False
+    axes.spines.right: False
 
   helpers:
     save_figure:
@@ -100,21 +100,22 @@ predictions:
     alpha:
       path: alpha
       transform:
-        - .data: [ !dag_prev ]
+        - .data: [!dag_prev ]
     beta:
       path: beta
       transform:
-        - .data: [ !dag_prev ]
+        - .data: [!dag_prev ]
     kappa:
       path: kappa
       transform:
-        - .data: [ !dag_prev ]
+        - .data: [!dag_prev ]
     delta:
       path: delta
       transform:
-        - .data: [ !dag_prev ]
+        - .data: [!dag_prev ]
   transform:
-    - xr.concat: [[ !dag_tag alpha, !dag_tag beta, !dag_tag kappa, !dag_tag delta ] ]
+    - xr.concat:
+        [[!dag_tag alpha, !dag_tag beta, !dag_tag kappa, !dag_tag delta]]
       kwargs:
         dim: values
         combine_attrs: drop
@@ -123,7 +124,7 @@ predictions:
   helpers:
     set_labels:
       x: iteration
-      y: ' '
+      y: " "
 
 # -- Plot of the training loss density over the parameter space  -------------------------------------------------------
 # One-dimensional loss potential
@@ -131,7 +132,7 @@ loss_potential:
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.scatter
-  expected_multiverse_ndim: [1,2,3,4,5]
+  expected_multiverse_ndim: [1, 2, 3, 4, 5]
   select_and_combine:
     fields:
       param1: alpha
@@ -163,7 +164,6 @@ loss_potential:
     set_labels:
       y: &loss_label '$-\log_{10}(J)$'
 
-
 # Two-dimensional loss potential
 loss_potential_3d:
   based_on:
@@ -180,7 +180,7 @@ loss_potential_3d:
           param1: !dag_tag param1
           param2: !dag_tag param2
           loss: !dag_tag loss
-    - .stack: [!dag_prev , {' ': ['seed', 'time']}, False]
+    - .stack: [!dag_prev , { " ": ["seed", "time"] }, False]
       tag: data
   x: param2
   y: param1
@@ -193,12 +193,11 @@ loss_potential_3d:
         label: *loss_label
         rotation: 90
       rotate_z_label: False
-  
 
 # Marginal probability densities
 marginals:
   based_on: .creator.multiverse
-  expected_multiverse_ndim: [1,2,3,4,5]
+  expected_multiverse_ndim: [1, 2, 3, 4, 5]
   module: model_plots.HarrisWilson
   plot_func: plot_prob_density
   select_and_combine:
@@ -206,8 +205,8 @@ marginals:
       loss:
         path: loss
         transform:
-          - np.maximum: [ !dag_prev , *loss_limit ]
-          - mul: [ !dag_prev , -1 ]
+          - np.maximum: [!dag_prev , *loss_limit]
+          - mul: [!dag_prev , -1]
           - np.exp: [!dag_prev ]
   transform:
     - xr.Dataset:
@@ -215,7 +214,7 @@ marginals:
         data_vars:
           param1: !dag_tag param1
           loss: !dag_tag loss
-    - NeuralABM.compute_marginals: [ !dag_prev ]
+    - NeuralABM.compute_marginals: [!dag_prev ]
       kwargs:
         bins: 1000
       tag: data
@@ -226,7 +225,7 @@ marginals:
 # Destination size predictions
 destination_sizes_predictions:
   based_on: .creator.multiverse
-  expected_multiverse_ndim: [1,2,3,4,5]
+  expected_multiverse_ndim: [1, 2, 3, 4, 5]
   module: model_plots.HarrisWilson
   plot_func: plot_destination_size_predictions
   select_and_combine:
@@ -234,13 +233,13 @@ destination_sizes_predictions:
       time_series:
         path: time_series
         transform:
-          - .isel: [!dag_prev , {'time': -1}]
+          - .isel: [!dag_prev , { "time": -1 }]
             kwargs:
               drop: true
       training_data:
         path: training_data
         transform:
-          - .isel: [!dag_prev , {'time': -1}] # Select the time to plot here
+          - .isel: [!dag_prev , { "time": -1 }] # Select the time to plot here
             kwargs:
               drop: true
   transform:
@@ -249,16 +248,16 @@ destination_sizes_predictions:
         data_vars:
           time_series: !dag_tag time_series
           training_data: !dag_tag training_data
-    - NeuralABM.compute_empirical_mean: [ !dag_tag time_series ]
+    - NeuralABM.compute_empirical_mean: [!dag_tag time_series]
       kwargs:
         dims: seed
       tag: x_predictions
-    - NeuralABM.compute_empirical_mean: [ !dag_tag training_data ]
+    - NeuralABM.compute_empirical_mean: [!dag_tag training_data]
       kwargs:
         dims: seed
       tag: x_data
-              
-  hue: sigma   
+
+  hue: sigma
   helpers:
     set_labels:
       y: $W_j$
@@ -293,7 +292,7 @@ network:
       path: data/network/_vertices
       transform:
         - .attrs: [!dag_prev ]
-        - getitem: [!dag_prev , 'node_type']
+        - getitem: [!dag_prev , "node_type"]
     origin_sizes:
       path: data/HarrisWilson/origin_sizes
       transform:
@@ -301,11 +300,12 @@ network:
     destination_sizes:
       path: data/HarrisWilson/training_data
       transform:
-        - .isel: [!dag_prev , {'time': -1}] # Select the time to plot here
+        - .isel: [!dag_prev , { "time": -1 }] # Select the time to plot here
           kwargs:
             drop: true
   transform:
-    - xr.concat: [[!dag_tag origin_sizes, !dag_tag destination_sizes], 'zone_id']
+    - xr.concat:
+        [[!dag_tag origin_sizes, !dag_tag destination_sizes], "zone_id"]
       tag: sizes
 
   register_property_maps:

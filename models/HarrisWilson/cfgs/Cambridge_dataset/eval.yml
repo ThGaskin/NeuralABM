@@ -1,53 +1,57 @@
 ---
 _:
   colors: &colors
-    yellow:             &yellow           '#F5DDA9'
-    darkblue:           &darkblue         '#2F7194'
-    red:                &red              '#ec7070'
-    skyblue:            &skyblue          '#97c3d0'
-    green:              &green            '#48675A'
-    lightbrown:         &lightbrown       '#C6BFA2'
-    orange:             &orange           '#EC9F7E'
-    lightgreen:         &lightgreen       '#AFD8BC'
-    grey:               &grey             '#3D4244'
-    lightgrey:          &lightgrey        '#D6D6D6'
+    yellow: &yellow "#F5DDA9"
+    darkblue: &darkblue "#2F7194"
+    red: &red "#ec7070"
+    skyblue: &skyblue "#97c3d0"
+    green: &green "#48675A"
+    lightbrown: &lightbrown "#C6BFA2"
+    orange: &orange "#EC9F7E"
+    lightgreen: &lightgreen "#AFD8BC"
+    grey: &grey "#3D4244"
+    lightgrey: &lightgrey "#D6D6D6"
+
+  # True parameters
+  true_parameters:
+    alpha: &alpha 0.2
+    beta: &beta 2.0
+    kappa: &kappa 0.012787723785166245
+    delta: &delta 0.10230179028132994
 
   # Page widths in inches for latex documents: ensures easy integration into latex documents
   page_widths:
-    full_width:         &full_width       7.00787402
-    half_width:         &half_width       !expr 7.00787402 / 2
-    third_width:        &third_width      !expr 7.00787402 / 3
-    quarter_width:      &quarter_width    !expr 7.00787402 / 4
-    fifth_width:        &fifth_width      !expr 7.00787402 / 5
+    full_width: &full_width 7.00787402
+    half_width: !expr &half_width 7.00787402 / 2
+    third_width: !expr &third_width 7.00787402 / 3
+    quarter_width: !expr &quarter_width 7.00787402 / 4
+    fifth_width: !expr &fifth_width 7.00787402 / 5
 
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
 #   ╩ ╚═╝╩ ╩╩  ╩═╝╩ ╩ ╩ ╚═╝╚═╝
 # ======================================================================================================================
+# Loss landscape
+.defaults:
+  style:
+    figure.figsize: [*half_width, *fifth_width]
+
 # Defaults for marginals plots
 .theta_defaults:
   based_on: marginals
   file_ext: pdf
   style:
-    figure.figsize: [ *half_width, *half_width ]
+    figure.figsize: [*half_width, *half_width]
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[yellow]:}', '{colors[green]:}'])"
+      fstr: "cycler('color', ['{colors[skyblue]:}'])"
+      #, '{colors[green]:}', '{colors[grey]:}', '{colors[red]:}', '{colors[skyblue]:}', '{colors[lightbrown]:}', '{colors[orange]:}', '{colors[darkblue]:}', '{colors[lightgreen]:}', '{colors[lightgrey]:}'])"
       colors: *colors
 
   # Smoothing settings for marginals
   smooth_kwargs:
     enabled: true
     sigma: 4
-
-.x_defaults:
-  based_on: destination_sizes_predictions
-  file_ext: pdf
-  style:
-      figure.figsize: [ *half_width, *half_width ]
-      axes.prop_cycle: !format
-        fstr: "cycler('color', ['{colors[yellow]:}', '{colors[green]:}'])"
-        colors: *colors
 
 # ======================================================================================================================
 #  ╦  ╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔═╗╦═╗╔═╗╦═╗╦╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
@@ -56,8 +60,7 @@ _:
 # ======================================================================================================================
 
 # low_noise/size_prediction:
-  # based_on: .x_defaults
-
+# based_on: .x_defaults
 
 # ======================================================================================================================
 #  ╦ ╦╦╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔═╗╦═╗╔═╗╦═╗╦╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
@@ -65,58 +68,64 @@ _:
 #  ╩ ╩╩╚═╝╩ ╩  ╝╚╝╚═╝╩╚═╝╚═╝  ╩  ╩╚═╚═╝╩═╝╩╚═╝ ╩ ╩╚═╝╝╚╝╚═╝
 # ======================================================================================================================
 
-
-
 # ======================================================================================================================
 #  ╦  ╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
 #  ║  ║ ║║║║  ║║║║ ║║╚═╗║╣   ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
 #  ╩═╝╚═╝╚╩╝  ╝╚╝╚═╝╩╚═╝╚═╝  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
 # ======================================================================================================================
 # -- Marginal density for alpha for the different metrics, including the MCMC density (low noise regime) ---------------
-# low_noise/alpha:
-#   based_on: .theta_defaults
-#   select_and_combine:
-#     fields:
-#       param1: alpha
-#     subspace:
-#       sigma:
-#         idx: 1
-#   transform:
-#     # Compute the model marginals
-#     - xr.Dataset:
-#       kwargs:
-#         data_vars:
-#           param1: !dag_tag param1
-#           loss: !dag_tag loss
-#     - operation: NeuralABM.compute_marginals
-#       args: [!dag_prev ]
-#       kwargs:
-#         # along_dim: metric
-#         bins: 1000
-#         # labels: &labels ['temporal metric', 'spatial metric']
-#         # clip: [0, 2]
-#       tag: data
-#   # hue: metric
-#   helpers:
-#     set_labels:
-#       x: '$\alpha$'
-#       y: ' '
-#     set_legend:
-#       use_legend: False
+low_noise/alpha:
+  based_on: .theta_defaults
+  select_and_combine:
+    fields:
+      param1: alpha
+    # subspace:
+    # sigma:
+    # idx: 1
+  transform:
+    # Compute the model marginals
+    - xr.Dataset:
+      kwargs:
+        data_vars:
+          param1: !dag_tag param1
+          loss: !dag_tag loss
+    - operation: NeuralABM.compute_marginals
+      args: [!dag_prev ]
+      kwargs:
+        # along_dim: metric
+        bins: 1000
+        # labels:
+        #   &labels [
+        #     "all facility euclidean",
+        #     "sample 20 facilities shortest path",
+        #   ]
+        # clip: [0, 2]
+      tag: data
 
-# # -- Marginal density for beta for the different metrics, including the MCMC density (low noise regime) ---------------
-# low_noise/beta:
-#   based_on: low_noise/alpha
-#   select_and_combine:
-#     fields:
-#       param1: beta
-#   helpers:
-#     set_legend:
-#       use_legend: False
-#     set_labels:
-#       x: '$\beta$'
-#     set_limits:
-#       x: [0.0, 2.0]
+  # hue: metric
+  helpers:
+    set_labels:
+      x: '$\alpha$'
+      y: " "
+    set_legend:
+      use_legend: True
+    # set_limits:
+    # x: [0.0, 2.0]
+
+# -- Marginal density for beta for the different metrics, including the MCMC density (low noise regime) ---------------
+low_noise/beta:
+  based_on: low_noise/alpha
+  select_and_combine:
+    fields:
+      param1: beta
+  helpers:
+    set_legend:
+      use_legend: True
+    set_labels:
+      x: '$\beta$'
+    # set_limits:
+    # x: [0.0, 2.0]
+
 # -- Marginal density for sigma for the different metrics, including the MCMC density (low noise regime) ---------------
 # low_noise/sigma:
 #   based_on: low_noise/alpha
@@ -131,27 +140,26 @@ _:
 
 # -- Marginal density for kappa for the different metrics (low noise regime) -------------------------------------------
 low_noise/kappa:
-  based_on: .theta_defaults
+  based_on: low_noise/alpha
   select_and_combine:
     fields:
       param1: kappa
-    subspace:
-      sigma:
-        idx: 1
-  transform:
-    - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag param1
-          loss: !dag_tag loss
-    - operation: NeuralABM.compute_marginals
-      args: [ !dag_prev ]
-      kwargs:
-        bins: 1000
-      tag: data
+    # subspace:
+    # sigma:
+    # idx: 1
   helpers:
     set_labels:
       x: '$\kappa$'
+    set_limits:
+      x: [0.0, 1.0]
+    # Indicate the true value of kappa
+    set_hv_lines:
+      vlines:
+        - pos: 0.104695597550123 #1.032979113228289 #0.18845207559022142 #0.104695597550123 # 1.0329791132282888
+          color: *red
+          zorder: 5
+          linestyle: dotted
+          linewidth: 1
 
 # -- Marginal density for delta for the different metrics, including the MCMC density (low noise regime) ---------------
 low_noise/delta:
@@ -165,7 +173,7 @@ low_noise/delta:
     set_labels:
       x: '$\delta$'
     set_limits:
-      x: [0.0, 0.5]
+      x: [0.0, 1.0]
 
 # ======================================================================================================================
 #  ╦ ╦╦╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
@@ -174,34 +182,33 @@ low_noise/delta:
 # ======================================================================================================================
 
 # -- Marginal density for alpha for the different metrics, including the MCMC density (high noise regime) --------------
-# high_noise/alpha:
-#   based_on: low_noise/alpha
-#   select_and_combine:
-#     subspace:
-#       sigma:
-#         idx: 2
-# # -- Marginal density for beta for the different metrics, including the MCMC density (high noise regime) ---------------
-# high_noise/beta:
-#   based_on: low_noise/beta
-#   select_and_combine:
-#     subspace:
-#       sigma:
-#         idx: 2
-#   smooth_kwargs:
-#     sigma: 10
-#   # helpers:
-#     # set_limits:
-#       # x: [0.0, 10]
+high_noise/alpha:
+  based_on: low_noise/alpha
+  select_and_combine:
+    subspace:
+      sigma:
+        idx: 2
+# -- Marginal density for beta for the different metrics, including the MCMC density (high noise regime) ---------------
+high_noise/beta:
+  based_on: low_noise/beta
+  select_and_combine:
+    subspace:
+      sigma:
+        idx: 2
+  smooth_kwargs:
+    sigma: 10
+  # helpers:
+  # set_limits:
+  # x: [0.0, 10]
 
-  
-# high_noise/sigma:
-#   based_on: low_noise/sigma
-#   select_and_combine:
-#     subspace:
-#       sigma:
-#         idx: 2
-#   smooth_kwargs:
-#     sigma: 10
+high_noise/sigma:
+  based_on: low_noise/sigma
+  select_and_combine:
+    subspace:
+      sigma:
+        idx: 2
+  smooth_kwargs:
+    sigma: 10
 
 # -- Marginal density for kappa for the different metrics (high noise regime) ------------------------------------------
 high_noise/kappa:
@@ -222,14 +229,16 @@ high_noise/delta:
         idx: 2
   smooth_kwargs:
     sigma: 10
-# loss:
-#  based_on: loss
 
-# predictions:
-#   based_on: predictions
-#   helpers:
-#     set_legend:
-#       custom_labels: ['alpha','beta','$\kappa$','$\delta$'] 
+loss:
+  based_on: loss
+
+predictions:
+  based_on: predictions
+  helpers:
+    set_legend:
+      custom_labels:
+        ['$\hat{\alpha}$', '$\hat{\beta}$', '$\hat{\kappa}$', '$\hat{\delta}$']
 
 # Plot the density of the loss over delta
 loss_potential/kappa:
@@ -271,24 +280,98 @@ beta_kappa:
         path: kappa
   transform:
     - xr.Dataset:
-      - param1: !dag_tag param1
-        param2: !dag_tag param2
-        loss: !dag_tag loss
-    - .stack: [ !dag_prev , { ' ': [ 'seed', 'time' ] }, False ]
+        - param1: !dag_tag param1
+          param2: !dag_tag param2
+          loss: !dag_tag loss
+    - .stack: [!dag_prev , { " ": ["seed", "time"] }, False]
       tag: data
-    - getitem: [ !dag_tag data, param1 ]
-    - getitem: [ !dag_prev , 0]
-    - getitem: [ !dag_prev , !slice [ &path_start 0, &path_stop 5000 ]]
+    - getitem: [!dag_tag data, param1]
+    - getitem: [!dag_prev , 0]
+    - getitem: [!dag_prev , !slice [&path_start 0, &path_stop 5000]]
       tag: path_y
-    - getitem: [ !dag_tag data, param2 ]
-    - getitem: [ !dag_prev , 0 ]
-    - getitem: [ !dag_prev , !slice [ *path_start, *path_stop ] ]
+    - getitem: [!dag_tag data, param2]
+    - getitem: [!dag_prev , 0]
+    - getitem: [!dag_prev , !slice [*path_start, *path_stop]]
       tag: path_x
-    - getitem: [ !dag_tag data, loss ]
-    - getitem: [ !dag_prev , 0 ]
-    - getitem: [ !dag_prev , !slice [ *path_start, *path_stop ] ]
+    - getitem: [!dag_tag data, loss]
+    - getitem: [!dag_prev , 0]
+    - getitem: [!dag_prev , !slice [*path_start, *path_stop]]
       tag: path_z
   helpers:
     set_labels:
       x: '$\beta$'
       y: '$\kappa$'
+
+loss_landscape/alpha:
+  based_on:
+    - loss_potential
+    - .defaults
+  select_and_combine:
+    fields:
+      param1: alpha
+  helpers:
+    set_labels:
+      x: '$\alpha$'
+    # set_hv_lines:
+    #   vlines:
+    #     - pos: *alpha
+    #       color: *red
+    #       zorder: 1
+    #       linestyle: dotted
+
+loss_landscape/beta:
+  based_on:
+    - loss_potential
+    - .defaults
+  select_and_combine:
+    fields:
+      param1: beta
+  helpers:
+    set_labels:
+      x: '$\beta$'
+    # set_hv_lines:
+    #   vlines:
+    #     - pos: *beta
+    #       color: *red
+    #       zorder: 1
+    #       linestyle: dotted
+
+loss_landscape/kappa:
+  based_on:
+    - loss_potential
+    - .defaults
+  select_and_combine:
+    fields:
+      param1: kappa
+  helpers:
+    set_labels:
+      x: '$\kappa$'
+    set_hv_lines:
+      vlines:
+        - pos: *kappa
+          color: *red
+          zorder: 1
+          linestyle: dotted
+
+loss_landscape/delta:
+  based_on:
+    - loss_potential
+    - .defaults
+  select_and_combine:
+    fields:
+      param1: delta
+  helpers:
+    set_labels:
+      x: '$\delta$'
+    set_hv_lines:
+      vlines:
+        - pos: *delta
+          color: *red
+          zorder: 1
+          linestyle: dotted
+
+destination_sizes_predictions:
+  based_on:
+    - destination_sizes_predictions
+    - .defaults
+  file_ext: pdf
