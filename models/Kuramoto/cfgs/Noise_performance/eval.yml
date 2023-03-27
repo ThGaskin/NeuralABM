@@ -288,10 +288,10 @@ degree_error:
     - average_hellinger_distance: [!dag_tag samples, !dag_tag MLE, !dag_tag probabilities]
       tag: hellinger
     - average_relative_entropy: [ !dag_tag samples, !dag_tag MLE, !dag_tag probabilities ]
-    - concat_along: [[!dag_tag hellinger, !dag_prev], 'metric', [ 'Hellinger metric', 'Relative entropy'] ]
+    - concat_along: [[!dag_tag hellinger, !dag_prev ], 'metric', [ 'Hellinger metric', 'Relative entropy'] ]
     - .to_array: [!dag_prev ]
       file_cache:
-        read: True
+        read: False
         write: True
       tag: data
 
@@ -310,15 +310,15 @@ degree_error:
       x: log
     set_tick_locators:
       x:
-        major: {base: 10, name: LogLocator, numticks: 5}
+        major: {base: 10, name: LogLocator, numticks: 12}
         minor:
           base: 10
           name: LogLocator
-          numticks: 10
+          numticks: 12
           subs: [0.2, 0.4, 0.6, 0.8]
-
   style:
     figure.figsize: [*third_width, *third_width]
+
 
 # The different error metrics for the triangle distribution
 triangle_error:

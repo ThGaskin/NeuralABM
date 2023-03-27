@@ -84,7 +84,7 @@ def regression(
     G = torch.reshape(torch.permute(G, (2, 3, 0, 1)), (N, N, -1))
 
     # Create an h5 Group for the regression output
-    regression_group = h5file.create_group("regression_data")
+    regression_group = h5file.require_group("regression_data")
 
     # The predicted matrix, estimated column-wise
     A = torch.zeros(N, N)
@@ -133,3 +133,74 @@ def regression(
     )
     dset_time.attrs["dim_names"] = ["training_time"]
     dset_time[-1] = prediction_time
+
+
+def rank(training_data: torch.Tensor, h5file: h5.File, *, alpha: float):
+    """Estimates the network from first- or second-order dynamics via an OLS-regression, and stores the predictions in
+    an h5.File.
+    :param training_data: the training data from which to estimate the network
+    :param h5file: the h5 file to write the predictions to
+    :param alpha: the coefficient of the second derivative
+    """
+
+    # Extract the number of nodes from the training data
+    N = training_data.shape[2]
+
+    if alpha == 0:
+
+        # Stack the sine-couplings into a matrix for each node
+        G = torch.zeros(
+            training_data.shape[0],
+            training_data.shape[1] - 1,
+            training_data.shape[2],
+            N,
+        )
+
+    else:
+
+        G = torch.zeros(
+            training_data.shape[0],
+            training_data.shape[1] - 2,
+            training_data.shape[2],
+            N,
+        )
+
+    t_0 = 1 if alpha != 0 else 0
+    for dset in range(G.shape[0]):
+        for step in range(0, G.shape[1]):
+            G[dset, step] = torch.sin(
+                -training_data[dset, step + t_0]
+                + torch.flatten(training_data[dset, step + t_0])
+            )
+
+    # Permute node and time series indices
+    G = torch.reshape(torch.permute(G, (2, 3, 0, 1)), (N, N, -1))
+
+    # Create an h5 Group for the regression output
+    regression_group = h5file.require_group("regression_data")
+
+    # Transpose G
+    G_transpose = torch.transpose(G, 1, 2)
+
+    ranks = np.zeros(N)
+
+    # Estimate the coupling vector for each node
+    for n in range(N):
+        t = torch.matmul(G[n], G_transpose[n])
+        subsel = torch.cat((t[:n, :], t[n + 1 :, :]), dim=0)
+        subsel = torch.cat((subsel[:, :n], subsel[:, n + 1 :]), dim=1)
+        ranks[n] = np.linalg.matrix_rank(subsel)
+
+    # Create data group and datasets for the predictions
+    dset_rank = regression_group.create_dataset(
+        "rank",
+        (N,),
+        maxshape=(N,),
+        chunks=True,
+        compression=3,
+    )
+    dset_rank.attrs["dim_names"] = ["vertex_idx"]
+    dset_rank.attrs["coords_mode__vertex_idx"] = "trivial"
+    dset_rank[
+        :,
+    ] = ranks

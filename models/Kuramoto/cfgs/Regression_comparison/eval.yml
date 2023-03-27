@@ -92,8 +92,23 @@ regression_comparison: !pspace
       title: ~
     set_title:
       title: ~
+    set_tick_locators:
+      x:
+        major: { base: 10, name: LogLocator, numticks: 12 }
+        minor:
+          base: 10
+          name: LogLocator
+          numticks: 12
+          subs: [ 0.2, 0.4, 0.6, 0.8 ]
+      y:
+        major: { base: 10, name: LogLocator, numticks: 12 }
+        minor:
+          base: 10
+          name: LogLocator
+          numticks: 12
+          subs: [ 0.2, 0.4, 0.6, 0.8 ]
   style:
-    figure.figsize: [ 2.7403, *third_width ]
+    figure.figsize: [ *third_width, *third_width ]
     axes.prop_cycle: !format
       fstr: "cycler('color', ['black',
                               '{colors[yellow]:}',
