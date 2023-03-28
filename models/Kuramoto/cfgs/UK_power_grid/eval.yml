@@ -440,7 +440,7 @@ accuracy_on_true_edges: !pspace
       tag: error
 
     # Bundle everything into a title string
-    - .format: ["Edge: ({}, {}) \n $p$-value: {} \n rel. $L1$ error: {}", !dag_tag i, !dag_tag j , !dag_tag p_value, !dag_tag error ]
+    - .format: ["Edge: ({}, {}) \n $p$-value: {} \n rel. $L^1$ error: {}", !dag_tag i, !dag_tag j , !dag_tag p_value, !dag_tag error ]
       tag: title
 
   x: x
