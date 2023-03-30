@@ -39,7 +39,7 @@ def time_and_loss(
         color=loss_color,
         lw=0,
     )
-    ax2.set_ylabel(r"avg. $L1$ error after 10 epochs")
+    ax2.set_ylabel(r"avg. $L^1$ error after 10 epochs")
     ax2.set_ylim([0.1, 0.5])
 
     hlpr.select_axis(ax=ax1)
