@@ -129,7 +129,7 @@ rolling_losses:
       tag: second
     - .isel: [!dag_tag loss, {time: !slice [~, -2]}]
     - .isel: [!dag_tag first, {time: !slice [~, -1]}]
-    - pd.Index: [ [ '$\langle J \rangle$', '$\langle \partial_s  J\rangle$', '$ \langle \partial_{ss} J \rangle$' ] ]
+    - pd.Index: [ [ '$\langle J \rangle$', '$\vert \langle \partial_s  J\rangle \vert$', '$ \vert \langle \partial_{ss} J \rangle \vert$' ] ]
       kwargs: {name: 'order'}
     - xr.concat: [[!dag_node -3, !dag_node -2, !dag_tag second], !dag_prev ]
       tag: data
