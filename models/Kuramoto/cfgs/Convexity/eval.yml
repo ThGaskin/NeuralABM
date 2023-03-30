@@ -109,6 +109,6 @@ convexity_error:
   helpers:
     set_labels:
       x: $\mathfrak{c}/(N-1)$
-      y: $d_\mathrm{H} / d_\mathrm{H}(\mathfrak{c}=0.21)$
+      y: $d_\mathrm{H} / d_\mathrm{H}(\mathfrak{c}=0.21(N-1))$
     set_title:
       title: ''
