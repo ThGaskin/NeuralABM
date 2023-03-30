@@ -119,7 +119,7 @@ time_and_loss:
           zorder: 10
         - x: 280
           y: 0.4
-          s: '$L1$ error'
+          s: '$L^1$ error'
           color: *darkblue
     set_title:
       title: ~
