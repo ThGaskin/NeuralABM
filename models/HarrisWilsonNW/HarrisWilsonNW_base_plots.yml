@@ -22,7 +22,20 @@
     grey:           &grey         '#3D4244'
     pink:           &pink         '#F8A6A6'
 
+.latex_off:
+  style:
+    text.usetex: False
+
+.latex_on:
+  style:
+    text.usetex: True
+    mathtext.fontset: cm
+    font.family: serif
+    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
+
 .default_style:
+  based_on:
+    - .latex_off    # Change this to .latex_on to use latex
   style:
     font.size:          &font_size 9
     axes.titlesize:     *font_size
@@ -54,12 +67,6 @@
       dpi: 900
   file_ext: pdf
 
-.use_tex:
-  style:
-    text.usetex: True
-    mathtext.fontset: cm
-    font.family: serif
-    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗

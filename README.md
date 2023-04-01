@@ -94,7 +94,16 @@ For both operating systems, also run the following command from within the virtu
 ```commandline
 pip install latex
 ```
-
+Thereafter, set the plots to use latex by default by basing the `.default_style`
+base plot on `.latex_on` in the `<model_name>/base_plots.yml` file; for instance, in `models/Kuramoto/Kuramoto_base_plots.yml`,
+change the following entry:
+```yaml
+.default_style:
+  based_on:
+    - .latex_on  
+  # Keep everything else unchanged
+```
+Latex will then be used in *all* Kuramoto plots. You can also change this individually for each plot.
 
 #### 5. (Optional) Download the datasets, which are stored using git lfs
 There are a number of datasets available, both real and synthetic, you can use in order to test the model.
