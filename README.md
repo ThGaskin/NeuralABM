@@ -11,6 +11,8 @@ This project combines multi-agent models with a neural core, in order to estimat
 uses the [utopya package](https://docs.utopia-project.org/html/index.html) to handle simulation configuration, data management,
 and plotting.
 
+> **_Warning_**: utopya is currently only supported on Unix systems (macOS and Ubuntu).
+
 > **_Note_**: This README gives a brief introduction to installation and running a model, as well as a basic
 > overview of the Utopia syntax. You can find a complete guide on running models with Utopia/utopya
 > [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial).
@@ -78,10 +80,23 @@ Done! 🎉
 > You will then have to additionally pass the `````--exists-action overwrite````` flag, because a project of that name already exists.
 > See ```utopya projects register --help``` for more information.
 
+#### 4. (Optional, but recommended) Install latex
+To properly display mathematical equations and symbols in the plots, we recommend installing latex. However, latex distributions
+are typically quite large, so ensure you have enough space on your disk.
+
+On Ubuntu, first install latex by running
+```commandline
+sudo apt-get install texlive-latex-extra texlive-fonts-recommended dvipng cm-super
+```
+For macOS, install latex via a package manager, e.g. Homebrew or ports.
+
+For both operating systems, also run the following command from within the virtual environment:
+```commandline
+pip install latex
+```
 
 
-
-#### 4. (Optional) Download the datasets, which are stored using git lfs
+#### 5. (Optional) Download the datasets, which are stored using git lfs
 There are a number of datasets available, both real and synthetic, you can use in order to test the model.
 In order to save space, example datasets have been uploaded using [git lfs](https://git-lfs.github.com) (large file
 storage). To download, first install lfs via

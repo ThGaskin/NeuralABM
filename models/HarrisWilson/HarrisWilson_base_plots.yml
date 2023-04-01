@@ -16,9 +16,6 @@
 
 .default_style:
   style:
-    text.usetex:        True
-    mathtext.fontset:   cm
-    font.family:        serif
     font.size:          &font_size 9
     axes.titlesize:     *font_size
     axes.labelsize:     *font_size
@@ -47,6 +44,13 @@
     save_figure:
       dpi: 900
   file_ext: png
+
+.use_tex:
+  style:
+    text.usetex: True
+    mathtext.fontset: cm
+    font.family: serif
+    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
