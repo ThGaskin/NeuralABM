@@ -11,21 +11,21 @@ This project combines multi-agent models with a neural core, in order to estimat
 uses the [utopya package](https://docs.utopia-project.org/html/index.html) to handle simulation configuration, data management,
 and plotting.
 
-> **_Warning_**: utopya is currently only supported on Unix systems (macOS and Ubuntu).
+This README gives a brief introduction to installation and running a model, as well as a basic
+overview of the Utopia syntax. You can find a complete guide on running models with Utopia/utopya
+[here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial).
 
-> **_Note_**: This README gives a brief introduction to installation and running a model, as well as a basic
-> overview of the Utopia syntax. You can find a complete guide on running models with Utopia/utopya
-> [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial).
+> **_Warning_**: utopya is currently only supported on Unix systems (macOS and Ubuntu).
 
 > **_Note_**: See the section on [configuration sets](#running-a-model-using-configuration-sets) for guidance on how to reproduce the plots from the
 > publications, once you have completed installation.
 > - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
 > https://doi.org/10.1073/pnas.2216415120 (`HarrisWilson` and `SIR` models)
-> - T. Gaskin, M. Girolami, G. Pavliotis. *Inferring networks from time series: a neural approach.* (`Kuramoto` and
-> `HarrisWilsonNW` models)
+> - T. Gaskin, M. Girolami, G. Pavliotis. *Inferring networks from time series: a neural approach.* https://arxiv.org/abs/2303.18059
+> (`Kuramoto` and `HarrisWilsonNW` models)
 
-> **_Hint_**: If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
->
+> **_Note_**: If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
+
 ### Contents of this README
 * [How to install](#how-to-install)
 * [How to run a model](#how-to-run-a-model)
@@ -41,7 +41,7 @@ and plotting.
 #### 1. Clone this repository
 Clone this repository using a link obtained from 'Code' button (for non-developers, use HTTPS):
 
-```console
+```commandline
 git clone <GIT-CLONE-URL>
 ```
 
@@ -50,28 +50,30 @@ We recommend creating a new virtual environment in a location of your choice and
 venv. The following command will install the [utopya package](https://gitlab.com/utopia-project/utopya) and the utopya CLI
 from [PyPI](https://pypi.org/project/utopya/), as well as all other requirements:
 
-```console
+```commandline
 pip install -r requirements.txt
 ```
 
 This assumes your current directory is the project folder.
 You should now be able to invoke the utopya CLI:
-```console
+```commandline
 utopya --help
 ```
 
-> **_Note_**  On Apple Silicon devices running macOS 12.3+, follow [these](https://pytorch.org/blog/introducing-accelerated-pytorch-training-on-mac/)
-> instructions to install pytorch and enable GPU training. Note that pytorch for Apple Silicon with
-> GPU acceleration is still WIP.
+> **_Note_**  Enabling CUDA for PyTorch requires additional packages, e.g. `torchvision` and `torchaudio`.
+> Follow [these](https://pytorch.org/get-started/locally/) instructions to enable GPU training.
+> For Apple Silicon, follow [these](https://PyTorch.org/blog/introducing-accelerated-pytorch-training-on-mac/)
+> installation instructions. Note that GPU acceleration for Apple Silicon is still work in progress and many functions have not
+> yet been implemented.
 
 #### 3. Register the project and all models with utopya
 
 In the project directory (i.e. this one), register the entire project and all its models using the following command:
-```console
+```commandline
 utopya projects register . --with-models
 ```
 You should get a positive response from the utopya CLI and your project should appear in the project list when calling:
-```console
+```commandline
 utopya projects ls
 ```
 Done! 🎉
@@ -109,18 +111,18 @@ Latex will then be used in *all* Kuramoto plots. You can also change this indivi
 There are a number of datasets available, both real and synthetic, you can use in order to test the model.
 In order to save space, example datasets have been uploaded using [git lfs](https://git-lfs.github.com) (large file
 storage). To download, first install lfs via
-```console
+```commandline
 git lfs install
 ```
 This assumes you have the git command line extension installed. Then, from within the repo, do
-```console
+```commandline
 git lfs pull
 ```
 This will pull all the datasets.
 
 ## How to run a model
 Now you have set up the model, run it by invoking
-```console
+```commandline
 utopya run model_name
 ```
 We will be using the `HarrisWilson` model as an example in the following, so simply replace all instances of
@@ -134,7 +136,7 @@ The default configuration settings are provided in the `HarrisWilson_cfg.yml` fi
 `models/HarrisWilson` folder. You can modify the settings here, but we recommend changing the configuration
 settings by instead creating a `run.yml` file somewhere and using it to run the model. You can do so by
 calling
-```console
+```commandline
 utopya run HarrisWilson path/to/run_cfg.yml
 ```
 In this file, you only need to specify those entries from the `<modelname>_cfg.yml` file you wish to change,
@@ -157,7 +159,7 @@ parameter_space:
 ```
 This is generating a synthetic dataset using all the settings from the `HarrisWilson_cfg.yml` file *except* for those
 You can run the model using this file by calling
-```console
+```commandline
 utopya run HarrisWilson path/to/cfg.yml
 ```
 
@@ -181,7 +183,7 @@ parameter_space:
 ```
 Then call your model via
 
-```console
+```commandline
 utopya run <model_name> --run-mode sweep
 ```
 The model will then run ten times, each time using a different seed value. You can also add the following entry to
@@ -201,7 +203,7 @@ The `HarrisWilson` model contains a large number of *configuration sets* compris
 that is, plot configurations. These sets will reproduce the plots from the publication.
 You can run them by executing
 
-```console
+```commandline
 utopya run HarrisWilson --cfg-set <name_of_cfg_set>
 ```
 
@@ -211,14 +213,14 @@ utopya run HarrisWilson --cfg-set <name_of_cfg_set>
 Running the configuration set will produce plots. If you wish to re-evaluate a run (perhaps plotting different figures),
 you do not need to re-run the model, since the data has already been generated. Simply call
 
-```console
+```commandline
 utopya eval HarrisWilson --cfg-set <name_of_cfg_set>
 ```
 
 This will re-evaluate the *last model you ran*. You can re-evaluate any dataset, of course, by
 providing the path to that dataset, like so:
 
-```console
+```commandline
 utopya eval HarrisWilson path/to/output/folder --cfg-set <name_of_cfg_set>
 ```
 ## How to adjust the neural net configuration
@@ -255,10 +257,10 @@ giving the default value, applied to all layers. An optional ``layer_specific`` 
 controls any deviations from the default on specific layers; in the above example,
 all layers have 20 nodes by default, use a sigmoid activation function, and have a bias
 which is initialised uniformly at random on [0, 4]. Layer-specific settings are then provided.
-You can also set the bias initialisation interval to `default`: this will initialise the bias using the [pytorch default](https://github.com/pytorch/pytorch/blob/9a575e77ca8a0be7a3f3625c4dfdc6321d2a0c2d/torch/nn/modules/linear.py#L72)
+You can also set the bias initialisation interval to `default`: this will initialise the bias using the [PyTorch default](https://github.com/pytorch/pytorch/blob/9a575e77ca8a0be7a3f3625c4dfdc6321d2a0c2d/torch/nn/modules/linear.py#L72)
 Xavier uniform distribution.
 
-Any [pytorch activation function](https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity)
+Any [PyTorch activation function](https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity)
 is supported, such as ``relu``, ``linear``, ``tanh``, ``sigmoid``, etc. Some activation functions take arguments and
 keyword arguments; these can be provided like this:
 
@@ -296,9 +298,11 @@ parameter set, you must supply the parameter value to use during training for th
 `true_parameters`.
 
 The `device` entry sets the training device. The default here is the `cpu`; you can set it to any
-supported pytorch training device. Make sure your platform is configured to support the selected device.
+supported PyTorch training device; for instance, set it to `cuda` to use the GPU for training. Make sure your platform
+is configured to support the selected device.
 On Apple Silicon, set the device to `mps` to enable GPU training, provided you have followed the corresponding
-installation instructions (see above).
+installation instructions (see above). Note that PyTorch for Apple Silicon is still work in progress at this stage,
+and some functions have not yet been fully implemented.
 
 `utopya` automatically parallelises multiple runs; the number of CPU cores available to do this
 can be specified under `worker_managers/num_workers` on the root-level configuration (i.e. on the same level as
