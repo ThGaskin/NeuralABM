@@ -21,11 +21,21 @@
     quarter_width:  &quarter_width    !expr 7.516 / 4
     fifth_width:    &fifth_width      !expr 7.516 / 5
 
-.default_style:
+.latex_off:
   style:
-    text.usetex:        True
-    mathtext.fontset:   cm
-    font.family:        serif
+    text.usetex: False
+
+.latex_on:
+  style:
+    text.usetex: True
+    mathtext.fontset: cm
+    font.family: serif
+    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
+
+.default_style:
+  based_on:
+    - .latex_off    # Change this to .latex_on to use latex
+  style:
     font.size:          &fontsize 9
     axes.titlesize:     *fontsize
     axes.labelsize:     *fontsize
