@@ -767,3 +767,15 @@ def largest_entry_indices(
         data_vars=dict(i=("idx", i), j=("idx", j), relative_error=("idx", vals)),
         coords=dict(idx=("idx", np.arange(len(i)))),
     )
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# CSV operations
+# ----------------------------------------------------------------------------------------------------------------------
+@is_operation("save_to_csv")
+def save_to_csv(ds, path, *args, **kwargs):
+
+    df = ds.to_dataframe()
+    df.to_csv(path, *args, **kwargs)
+    print(df)
+    return ds

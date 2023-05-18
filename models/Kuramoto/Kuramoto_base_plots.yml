@@ -26,8 +26,8 @@
     text.usetex:        True
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
     mathtext.fontset:   cm
-    font.family:        serif
-    font.size:          &font_size 10
+    font.family:        sans-serif
+    font.size:          &font_size 8
     axes.titlesize:     *font_size
     axes.labelsize:     *font_size
     legend.fontsize:    *font_size

@@ -306,7 +306,10 @@ perturbation:
         major:
           locs: !range [8000, 15000, 1000]
           labels: !range [-20, 50, 10]
-
+      y:
+        major:
+          locs: &locs [0.98, 1, 1.02]
+          labels: *locs
     call:
       functions:
         - function: [matplotlib.pyplot, axvspan]

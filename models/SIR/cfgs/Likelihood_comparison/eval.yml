@@ -1,0 +1,109 @@
+_:
+  colors: &colors
+    yellow:         &yellow       '#F5DDA9'
+    darkblue:       &darkblue     '#2F7194'
+    red:            &red          '#ec7070'
+    skyblue:        &skyblue      '#97c3d0'
+    green:          &green        '#48675A'
+    lightbrown:     &lightbrown   '#C6BFA2'
+    orange:         &orange       '#EC9F7E'
+    lightgreen:     &lightgreen   '#AFD8BC'
+    grey:           &grey         '#3D4244'
+    pink:           &pink         '#F8A6A6'
+  page_widths:
+    full_width: &full_width       7.00787402
+    half_width: &half_width       !expr 7.00787402 / 2
+    third_width: &third_width      !expr 7.00787402 / 3
+    quarter_width: &quarter_width    !expr 7.00787402 / 4
+    fifth_width: &fifth_width      !expr 7.00787402 / 5
+
+p_infectious_seed: !pspace
+  based_on:
+    - .creator.multiverse
+    - .plot.multiplot
+  dag_options:
+    define:
+      seeds: !sweep
+        default: 0
+        values: [1, 5, 10, 20, 40, 100, 200]
+  select_and_combine:
+    fields:
+      param1:
+        path: predicted_infection_rate
+        transform:
+          - .squeeze_with_drop: [ !dag_prev ]
+      loss:
+        path: loss
+        transform:
+          - np.maximum: [ !dag_prev , 1e-17 ]
+          - log10: [ !dag_prev ]
+          - mul: [ !dag_prev , -1 ]
+          - np.exp: [!dag_prev ]
+  transform:
+    - np.arange: [!dag_tag seeds]
+      tag: range
+    - .isel: [!dag_tag param1, {seed: !dag_tag range}]
+    - .isel: [!dag_tag loss, {seed: !dag_tag range}]
+    - xr.Dataset:
+      - x: !dag_node -2
+        p: !dag_node -1
+    - compute_marginals: [ !dag_prev ]
+      kwargs:
+        bins: 200
+        x: x
+        p: p
+      tag: marginals
+    - getitem: [!dag_prev , 'x']
+      tag: x
+    - getitem: [!dag_tag marginals , 'p']
+    - xr.Dataset:
+        - p: !dag_prev
+    - .assign_coords: [!dag_prev , {bin_idx: !dag_tag x}]
+    - .rename: [!dag_prev , {bin_idx: x}]
+    - .to_array: [!dag_prev ]
+    - .squeeze: [!dag_prev ]
+      kwargs: {drop: true}
+      tag: marginal_data
+
+    # Get the MCMC data
+    - import_and_call: [ pandas, read_csv, 'p_infect_sigma_01' ]
+      kwargs:
+        index_col: 0
+    - .to_xarray: [!dag_prev ]
+    - .rename: [!dag_prev , {p_infect: x, true_counts: p}]
+    - .to_array: [!dag_prev ]
+    - .squeeze: [!dag_prev ]
+      kwargs: {drop: true}
+      tag: true_data_unnormalised
+    - getitem: [!dag_prev , 'x']
+    - np.diff: [!dag_prev ]
+    - getitem: [!dag_prev , 0]
+      tag: dx
+    - .sum: [!dag_tag true_data_unnormalised, 'x']
+    - mul: [!dag_prev , !dag_tag dx]
+    - div: [!dag_tag true_data_unnormalised, !dag_prev ]
+      tag: true_data
+  compute_only: []
+  to_plot:
+    - function: [xarray.plot, line]
+      args:
+        - !dag_result true_data
+      x: x
+      label: 'ABC'
+      linestyle: dotted
+      color: *darkblue
+    - function: [xarray.plot, line]
+      args:
+        - !dag_result marginal_data
+      x: x
+      label: 'Neural'
+      color: *red
+  helpers:
+    set_labels:
+      x: '$\beta$'
+    set_legend:
+      use_legend: True
+    set_limits:
+      x: [0, 0.5]
+  style:
+    figure.figsize: [ *half_width, *quarter_width ]

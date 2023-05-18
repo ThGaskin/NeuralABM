@@ -507,7 +507,7 @@ parameter_space:
   monitor_emit_interval: 2.
 
   # The path to the config file to load
-  # output_path: /abs/path/to/uni<#>/cfg.yml
+  # output_path: /abs/path/to/uni<#>/run.yml
   # NOTE This entry is always added by the frontend. Depending on which
   #      universe is to be simulated, the <#> is set.
 

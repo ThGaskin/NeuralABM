@@ -1,0 +1,40 @@
+paths:
+  model_note: Likelihood_comparison
+perform_sweep: true
+parameter_space:
+  seed: !sweep
+    default: 1
+    range: [200]
+  num_epochs: 100
+  write_start: 1
+  write_every: 1
+  SIR:
+    Data:
+      synthetic_data:
+        type: smooth
+        r_infectious: 0.3
+        p_infect: 0.21
+        t_infectious: &t_infect 14
+        num_steps: 100
+        sigma: &sigma 0.1
+        sigma_s: 0.02
+        sigma_i: 0.01
+        sigma_r: 0.02
+    NeuralNet:
+      num_layers: 1
+      nodes_per_layer:
+        default: 20
+      biases:
+        default: [0, 1]
+      activation_funcs:
+        default: linear
+        layer_specific:
+          -1: abs
+      learning_rate: 0.002
+      optimizer: Adam
+    Training:
+      batch_size: 99
+      to_learn: [p_infect]
+      true_parameters:
+        sigma: 0
+        t_infectious: *t_infect

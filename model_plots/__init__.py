@@ -28,4 +28,5 @@ register_operation(name="np.around", func=np.around)
 register_operation(name="xr.where", func=xr.where)
 register_operation(name=".idxmax", func=lambda d, *a, **k: d.idxmax(*a, **k))
 register_operation(name=".stack", func=lambda d, *a, **k: d.stack(*a, **k))
+register_operation(name=".to_xarray", func=lambda d, *a, **k: d.to_xarray(*a, **k))
 from .data_ops import *
