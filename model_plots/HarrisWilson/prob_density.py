@@ -145,7 +145,7 @@ def plot_prob_density(
             [mlines.Line2D([], [], lw=0)] * len(data),
             [
                 info_box_labels[key] + " = " + str(data[key])
-                for key in list(data.keys())
+                for key in list(info_box_labels.keys())
             ],
             loc="best",
             handlelength=0,
