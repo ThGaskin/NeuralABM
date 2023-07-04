@@ -17,6 +17,7 @@ def generate_data_from_ABM(
     kinds=None,
     counts=None,
     write_init_state: bool = True,
+    **__,
 ):
     """
     Runs the ABM for n iterations and writes out the data, if datasets are passed.
@@ -88,6 +89,7 @@ def generate_smooth_data(
     counts=None,
     write_init_state: bool = True,
     requires_grad: bool = False,
+    **__,
 ):
 
     """
@@ -110,10 +112,11 @@ def generate_smooth_data(
     )
 
     # Write out the initial state if required
-    if write_init_state and counts:
+    if write_init_state:
         data[0] = init_state
-        counts.resize(counts.shape[0] + 1, axis=0)
-        counts[-1, :] = init_state
+        if counts:
+            counts.resize(counts.shape[0] + 1, axis=0)
+            counts[-1, :] = init_state
 
     current_state = init_state.clone()
     current_state.requires_grad = requires_grad
@@ -131,7 +134,6 @@ def generate_smooth_data(
                 torch.tensor([0, tau]),
             ]
         )
-
         current_state = torch.relu(
             current_state
             + torch.matmul(
@@ -172,7 +174,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
                 dtype=float,
             )
 
-            dset_true_counts.attrs["dim_names"] = ["time", "kind", "kinds"]
+            dset_true_counts.attrs["dim_names"] = ["time", "kind", "dim_name__0"]
             dset_true_counts.attrs["coords_mode__time"] = "trivial"
             dset_true_counts.attrs["coords_mode__kind"] = "values"
             dset_true_counts.attrs["coords__kind"] = [
@@ -180,8 +182,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
                 "infected",
                 "recovered",
             ]
-            dset_true_counts.attrs["coords_mode__kinds"] = "values"
-            dset_true_counts.attrs["coords__kinds"] = ["kind"]
+            dset_true_counts.attrs["coords_mode__dim_name__0"] = "trivial"
 
             dset_true_counts[:, :, :] = data
 
@@ -199,7 +200,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
             dtype=float,
         )
 
-        dset_true_counts.attrs["dim_names"] = ["time", "kind", "kinds"]
+        dset_true_counts.attrs["dim_names"] = ["time", "kind", "dim_name__0"]
         dset_true_counts.attrs["coords_mode__time"] = "trivial"
         dset_true_counts.attrs["coords_mode__kind"] = "values"
         dset_true_counts.attrs["coords__kind"] = [
@@ -207,8 +208,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
             "infected",
             "recovered",
         ]
-        dset_true_counts.attrs["coords_mode__kinds"] = "values"
-        dset_true_counts.attrs["coords__kinds"] = ["kind"]
+        dset_true_counts.attrs["coords_mode__dim_name__0"] = "trivial"
 
         # --- Generate the data ----------------------------------------------------------------------------------------
         type = data_cfg["synthetic_data"]["type"]

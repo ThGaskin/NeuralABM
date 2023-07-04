@@ -20,8 +20,27 @@ paths:
   py_tests_dir: tests
 
 metadata:
-  description: Neural agent-based modelling project
+  long_description: Neural agent-based modelling project
   authors:
     - Thomas Gaskin
   license: LGPLv3+
   language: python3
+  version: ~
+  long_name: ~
+  email: ~
+  website: ~
+  utopya_compatibility: ~
+  misc: ~
+  requirements: ~
+  description: ~
+
+cfg_set_abs_search_dirs: ~
+cfg_set_model_source_subdirs: ~
+custom_py_modules: ~
+output_files: ~
+debug_level_updates: ~
+framework_name: ~
+
+settings:
+  preload_project_py_plots: ~
+  preload_framework_py_plots: ~

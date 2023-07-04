@@ -188,17 +188,17 @@ predictions:
     - .plot.facet_grid.line
   select:
     data:
-      path: predicted_infection_rate
+      path: parameters
       transform:
         - .data: [ !dag_prev ]
   x: time
+  col: parameter
+  sharey: False
   style:
     figure.figsize: [ *half_width, *half_width ]
   helpers:
     set_labels:
       x: iteration
-#    set_scales:
-#      x: log
 
 # Two-dimensional density
 loss_density:
@@ -207,10 +207,14 @@ loss_density:
     - .plot.facet_grid.scatter
   style:
     figure.figsize: [ *half_width, *fifth_width ]
+  dag_options:
+    define:
+      parameter_idx: 0
   select:
-    param1:
-      path: predicted_infection_rate
+    parameter:
+      path: parameters
       transform:
+        - .isel: [!dag_prev , {parameter: !dag_tag parameter_idx}]
         - .squeeze_with_drop: [!dag_prev ]
     loss:
       path: loss
@@ -222,10 +226,10 @@ loss_density:
     - xr.Dataset:
       kwargs:
         data_vars:
-          param1: !dag_tag param1
+          parameter: !dag_tag parameter
           loss: !dag_tag loss
       tag: data
-  x: param1
+  x: parameter
   hue: loss
   y: loss
   s: 1
@@ -245,10 +249,14 @@ marginals:
   plot_func: plot_prob_density
   style:
     figure.figsize: [ *half_width, *half_width ]
+  dag_options:
+    define:
+      parameter_idx: 0
   select:
-    param1:
-      path: predicted_infection_rate
+    param:
+      path: parameters
       transform:
+        - .isel: [ !dag_prev , { 'parameter': !dag_tag parameter_idx } ]
         - .squeeze_with_drop: [ !dag_prev ]
     loss:
       path: loss
@@ -257,21 +265,150 @@ marginals:
         - log10: [ !dag_prev ]
         - mul: [ !dag_prev , -1 ]
         - np.exp: [!dag_prev ]
+    true_values:
+      path: ../../cfg
+      transform:
+        - recursive_getitem: [ !dag_prev , ['SIR', 'Data', 'synthetic_data' ] ]
   transform:
+    - .coords: [!dag_tag param, 'parameter']
+    - .item: [!dag_prev ]
+      tag: parameter_name
+    - getitem: [!dag_prev , !slice [2, ~]]
+      tag: compartment
     - xr.Dataset:
-      kwargs:
-        data_vars:
-          param1: !dag_tag param1
-          loss: !dag_tag loss
+      - x: !dag_tag param
+        p: !dag_tag loss
     - compute_marginals: [ !dag_prev ]
       kwargs:
         bins: 200
-        x: param1
-        p: loss
+        x: x
+        p: p
       tag: data
+    - mode: [ !dag_tag data]
+      kwargs:
+        p: p
+    - getitem: [!dag_prev , 'x']
+    - .format: [ '{:.2f}', !dag_prev ]
+      tag: mode
+    - mean: [ !dag_tag data ]
+      kwargs:
+        x: x
+        p: p
+    - getitem: [!dag_prev , 'mean']
+      tag: mean
+    - std: [ !dag_tag data ]
+      kwargs:
+        x: x
+        p: p
+    - getitem: [!dag_prev , 'std']
+    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
+      tag: info_str
+    - getitem: [!dag_tag true_values, !dag_tag parameter_name]
+      allow_failure: silent
+      fallback: -1
+      tag: true_val
   x: x
   y: p
   color: *darkblue
   smooth_kwargs:
     enabled: true
-    sigma: 2.0
+    sigma: 3.0
+  info_box_labels:
+    info_str: '$\mathrm{mean}$'
+    mode: '$\mathrm{mode}$'
+  helpers:
+    set_labels:
+      x: !dag_result parameter_name
+    set_hv_lines:
+      vlines:
+        - pos: !dag_result true_val
+          color: *red
+          linestyle: dotted
+
+# Multiverse marginals, sweeping over seed
+marginals_mv:
+  expected_multiverse_ndim: [1]
+  based_on: .creator.multiverse
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
+  compute_only: [data, info_str, mode, true_val]
+  file_ext: pdf
+  dag_options:
+    define:
+      parameter_idx: 0
+  select_and_combine:
+    fields:
+      true_val_dict:
+        path: ../../cfg
+        transform:
+          - recursive_getitem: [!dag_prev , ['SIR', 'Data', 'synthetic_data']]
+        subspace:
+          seed: [0]
+      param:
+        path: parameters
+        transform:
+          - .isel: [!dag_prev , {'parameter': !dag_tag parameter_idx}]
+          - .squeeze_with_drop: [!dag_prev ]
+      loss:
+        path: loss
+        transform:
+          - np.maximum: [ !dag_prev , *loss_limit ]
+          - log10: [ !dag_prev ]
+          - mul: [ !dag_prev , -1 ]
+          - np.exp: [!dag_prev ]
+  transform:
+    - getitem: [!dag_tag true_val_dict, 0]
+    - .item: [!dag_prev ]
+      tag: true_values
+    - .coords: [!dag_tag param, 'parameter']
+    - .item: [!dag_prev ]
+      tag: parameter_name
+    - xr.Dataset:
+      - x: !dag_tag param
+        p: !dag_tag loss
+    - compute_marginals: [ !dag_prev ]
+      kwargs:
+        bins: 200
+        x: x
+        p: p
+      tag: data
+    - mode: [ !dag_tag data]
+      kwargs:
+        p: p
+    - getitem: [!dag_prev , 'x']
+    - .format: [ '{:.2f}', !dag_prev ]
+      tag: mode
+    - mean: [ !dag_tag data ]
+      kwargs:
+        x: x
+        p: p
+    - getitem: [!dag_prev , 'mean']
+      tag: mean
+    - std: [ !dag_tag data ]
+      kwargs:
+        x: x
+        p: p
+    - getitem: [!dag_prev , 'std']
+    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
+      tag: info_str
+    - getitem: [!dag_tag true_values, !dag_tag parameter_name]
+      allow_failure: silent
+      fallback: -1
+      tag: true_val
+  x: x
+  y: p
+  color: *darkblue
+  smooth_kwargs:
+    enabled: true
+    sigma: 3.0
+  info_box_labels:
+    info_str: '$\mathrm{mean}$'
+    mode: '$\mathrm{mode}$'
+  helpers:
+    set_labels:
+      x: !dag_result parameter_name
+    set_hv_lines:
+      vlines:
+        - pos: !dag_result true_val
+          color: *red
+          linestyle: dotted
