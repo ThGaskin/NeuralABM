@@ -25,8 +25,7 @@ paths:
 metadata:
   description: SIR model with Neural core
   long_description: >
-    This model ...
-
+    This model calibrates an SIR model of infection using a neural network.
   version: "0.1"
   author: Thomas Gaskin
   license: LGPLv3+
