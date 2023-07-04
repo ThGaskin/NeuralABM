@@ -188,17 +188,17 @@ predictions:
     - .plot.facet_grid.line
   select:
     data:
-      path: predicted_infection_rate
+      path: parameters
       transform:
         - .data: [ !dag_prev ]
   x: time
+  col: parameter
+  sharey: False
   style:
     figure.figsize: [ *half_width, *half_width ]
   helpers:
     set_labels:
       x: iteration
-#    set_scales:
-#      x: log
 
 # Two-dimensional density
 loss_density:
@@ -207,10 +207,14 @@ loss_density:
     - .plot.facet_grid.scatter
   style:
     figure.figsize: [ *half_width, *fifth_width ]
+  dag_options:
+    define:
+      parameter_idx: 0
   select:
-    param1:
-      path: predicted_infection_rate
+    parameter:
+      path: parameters
       transform:
+        - .isel: [!dag_prev , {parameter: !dag_tag parameter_idx}]
         - .squeeze_with_drop: [!dag_prev ]
     loss:
       path: loss
@@ -222,10 +226,10 @@ loss_density:
     - xr.Dataset:
       kwargs:
         data_vars:
-          param1: !dag_tag param1
+          parameter: !dag_tag parameter
           loss: !dag_tag loss
       tag: data
-  x: param1
+  x: parameter
   hue: loss
   y: loss
   s: 1
@@ -264,7 +268,7 @@ marginals:
     true_values:
       path: ../../cfg
       transform:
-        - recursive_getitem: [ !dag_prev , [ 'parameter_space', 'SIR', 'Data', 'synthetic_data' ] ]
+        - recursive_getitem: [ !dag_prev , ['SIR', 'Data', 'synthetic_data' ] ]
   transform:
     - .coords: [!dag_tag param, 'parameter']
     - .item: [!dag_prev ]
@@ -299,44 +303,22 @@ marginals:
     - getitem: [!dag_prev , 'std']
     - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
       tag: info_str
-    - replace: [!dag_tag compartment, '_', ',']
-    - add: ['\mathrm{', !dag_prev ]
-    - add: [!dag_prev , '}']
-      tag: latex_name
-    - add: ['E[$\hat{p}_', !dag_prev ]
-    - add: [!dag_prev , ']$']
-      tag: info_str_label
-    - .format: ['$p_{}$', !dag_tag latex_name]
-      tag: x_label
-    - getitem: [!dag_tag compartment, -1]
-    - int: [!dag_prev ]
-      allow_failure: true
-      fallback: 0
-    - getitem: [!dag_tag parameter_name, !slice [~, -2]]
-    - getitem: [!dag_tag true_values, !dag_prev ]
-    - getitem: [!dag_prev , !dag_node -3 ]
-      allow_failure: true
-      fallback: 0
-      tag: true_val_from_array
     - getitem: [!dag_tag true_values, !dag_tag parameter_name]
       allow_failure: silent
-      fallback: !dag_tag true_val_from_array
+      fallback: -1
       tag: true_val
-    - .format: ['$p_{}^0$', !dag_tag latex_name]
-      tag: true_val_label
   x: x
   y: p
   color: *darkblue
   smooth_kwargs:
     enabled: true
-    sigma: 2.0
+    sigma: 3.0
   info_box_labels:
-    info_str: !dag_result info_str_label
+    info_str: '$\mathrm{mean}$'
     mode: '$\mathrm{mode}$'
-    true_val: !dag_result true_val_label
   helpers:
     set_labels:
-      x: !dag_result x_label
+      x: !dag_result parameter_name
     set_hv_lines:
       vlines:
         - pos: !dag_result true_val

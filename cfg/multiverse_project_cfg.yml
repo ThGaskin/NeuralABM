@@ -6,7 +6,7 @@ executable_control:
   run_from_tmpdir: false
 
 parameter_space:
-  num_epochs: 1000
+  num_epochs: 100
   write_start: 1
   write_every: 1
 
