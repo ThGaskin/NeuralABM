@@ -17,7 +17,7 @@ Data:
 
     # Model parameters: infection radius, infection probability, infection time
     r_infectious: !is-positive 1.0
-    p_infect: !is-probability 0.5
+    p_infect: !is-probability 0.2
     t_infectious: !is-positive 30
 
     # Agent diffusivities
@@ -26,7 +26,7 @@ Data:
     sigma_r: !is-positive-or-zero 0.15
 
     # Number of steps to run
-    num_steps: 200
+    num_steps: 100
 
 NeuralNet:
   num_layers: !is-positive-int 1
