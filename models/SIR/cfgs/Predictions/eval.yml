@@ -118,125 +118,124 @@ densities:
       colors: *colors
   file_ext: pdf
 
-# ======================================================================================================================
-#  ╦╔╗╔╔═╗╔═╗╔═╗╔╦╗╦╔═╗╔╗╔  ╔═╗╦═╗╔═╗╔╗
-#  ║║║║╠╣ ║╣ ║   ║ ║║ ║║║║  ╠═╝╠╦╝║ ║╠╩╗
-#  ╩╝╚╝╚  ╚═╝╚═╝ ╩ ╩╚═╝╝╚╝  ╩  ╩╚═╚═╝╚═╝
-# ======================================================================================================================
 
-p_infectious:
-  based_on: .creator.multiverse
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
-  compute_only: [data, info_str, mode]
-  file_ext: pdf
+# Generate densities by drawing from the joint distribution of the parameters
+densities_from_joint:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
   select_and_combine:
     fields:
-      param1:
-        path: predicted_infection_rate
-        transform:
-          - .squeeze_with_drop: [ !dag_prev ]
+      parameters:
+        path: parameters
+        transform: [.data]
       loss:
         path: loss
         transform:
-          - np.maximum: [ !dag_prev , *loss_limit ]
-          - log10: [ !dag_prev ]
           - mul: [ !dag_prev , -1 ]
-          - np.exp: [!dag_prev ]
+          - np.exp: [ !dag_prev ]
+      true_data:
+        path: true_counts
+        transform: [.data]
+      cfg:
+        path: ../../cfg
+        transform:
+          - getitem: [!dag_prev , 'SIR']
+        subspace:
+          seed: [0]
   transform:
-    - xr.Dataset:
-      - x: !dag_tag param1
-        p: !dag_tag loss
-    - compute_marginals: [ !dag_prev ]
+    # Extract the cfg
+    - .data: [!dag_tag cfg]
+    - getitem: [!dag_prev , 0]
+      tag: cfg_flattened
+
+    # Flatten the true counts
+    - .isel: [!dag_tag true_data, {seed: 0}]
+      kwargs: {drop: True}
+      tag: true_data_flattened
+
+    # Flatten the parameters
+    - flatten_dims: [ !dag_tag parameters , [ seed, time ] , sample ]
+    - .sel: [!dag_prev , {'sample': !slice [~, ~, 100]}]
+      tag: parameters_flattened
+
+    # Flatten and normalise the loss
+    - flatten_dims: [ !dag_tag loss , [ seed, time ], sample ]
+    - .sel: [ !dag_prev , { 'sample': !slice [ ~, ~, 100 ] } ]
+    - .sum: [ !dag_prev ]
+    - div: [ !dag_node -2, !dag_prev ]
+
+    # Copy the loss for each parameter
+    - SIR_densities_from_joint: [!dag_tag parameters_flattened, !dag_prev ]
       kwargs:
-        bins: 200
-        x: x
-        p: p
+        true_counts: !dag_tag true_data_flattened
+        cfg: !dag_tag cfg_flattened
+      file_cache:
+        read: True
+        write: True
       tag: data
-    - mode: [ !dag_tag data]
-      kwargs:
-        p: p
-    - getitem: [!dag_prev , 'x']
-    - .format: [ '{:.2f}', !dag_prev ]
-      tag: mode
-    - mean: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'mean']
-      tag: mean
-    - std: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'std']
-    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
-      tag: info_str
-  x: x
-  y: p
-  color: *darkblue
-  smooth_kwargs:
-    enabled: true
-    sigma: 3.0
+  x: time
+  y: mean
+  yerr: std
+  hue: type
+  col: kind
+  col_wrap: 3
+  sharey: False
+  add_legend: False
+  figsize: [ *full_width, *third_width ]
+  helpers:
+    set_labels:
+      y: ' '
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_legend:
+          use_legend: True
+          gather_from_fig: True
+          custom_labels: [mean, mode, true data]
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[darkblue]:}', '{colors[orange]:}', '{colors[lightbrown]:}'])"
+      colors: *colors
+  file_ext: pdf
+# ======================================================================================================================
+#  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
+#  ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
+#  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
+# ======================================================================================================================
+marginals: !pspace
+  based_on: marginals_mv
+  dag_options:
+    define:
+      parameter_idx: !sweep
+        default: 0
+        range: [3]
+  select_and_combine:
+    fields:
+      true_val_dict:
+        transform:
+          - dict:
+              p_infect: 0.2
+              t_infectious: 14
+              sigma: 0
+  style:
+    figure.figsize: [ *third_width, *quarter_width ]
   info_box_labels:
-    info_str: 'E[$\hat{\beta}$]'
+    info_str: !coupled-sweep
+      default: '$\mathrm{mean}$'
+      values: ['$E[\hat{\beta}]$', '$E[\hat{\tau}]$', '$E[\hat{\sigma}]$']
+      target_name: parameter_idx
     mode: '$\mathrm{mode}$'
   helpers:
     set_labels:
-      x: '$\beta$'
-    set_hv_lines:
-      vlines:
-        - pos: *p_infectious
-          color: *red
-          linestyle: dotted
+      x: !coupled-sweep
+        default: '$x$'
+        values: ['$\beta$', '$\tau$', '$\sigma$']
+        target_name: parameter_idx
     set_limits:
-      x: [min, 0.6]
-  style:
-    figure.figsize: [ *third_width, *quarter_width ]
-
-# ======================================================================================================================
-#  ╦╔╗╔╔═╗╔═╗╔═╗╔╦╗╦╔═╗╔╗╔  ╔╦╗╦╔╦╗╔═╗
-#  ║║║║╠╣ ║╣ ║   ║ ║║ ║║║║   ║ ║║║║║╣
-#  ╩╝╚╝╚  ╚═╝╚═╝ ╩ ╩╚═╝╝╚╝   ╩ ╩╩ ╩╚═╝
-# ======================================================================================================================
-
-t_infectious:
-  based_on: p_infectious
-  select_and_combine:
-    fields:
-      param1:
-        path: predicted_infection_time
-  info_box_labels:
-    info_str: 'E[$\hat{\tau}$]'
-  helpers:
-    set_labels:
-      x: '$\tau$'
-    set_hv_lines:
-      vlines:
-        - pos: *t_infectious
-          color: *red
-          linestyle: dotted
-    set_limits:
-      x: [ 5, max ]
-
-# ======================================================================================================================
-#  ╔╗╔╔═╗╦╔═╗╔═╗
-#  ║║║║ ║║╚═╗║╣
-#  ╝╚╝╚═╝╩╚═╝╚═╝
-# ======================================================================================================================
-
-noise:
-  based_on: p_infectious
-  select_and_combine:
-    fields:
-      param1:
-        path: predicted_noise
-  info_box_labels:
-    info_str: 'E[$\hat{\sigma}$]'
-  helpers:
-    set_labels:
-      x: '$\sigma$'
-    set_hv_lines:
-      vlines: ~
-    set_limits:
-      x: [ 0, 0.6 ]
+      x: !coupled-sweep
+        default: [0, ~]
+        values: [[min, 0.6], [5, max], [0, 0.6]]
+        target_name: parameter_idx
+  smooth_kwargs:
+    sigma: 3.0
