@@ -29,3 +29,4 @@ register_operation(name="xr.where", func=xr.where)
 register_operation(name=".idxmax", func=lambda d, *a, **k: d.idxmax(*a, **k))
 register_operation(name=".stack", func=lambda d, *a, **k: d.stack(*a, **k))
 from .data_ops import *
+from .SIR_trajectories_from_densities import *

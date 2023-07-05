@@ -14,8 +14,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  build:
-
+  tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -43,14 +42,15 @@ jobs:
       run: |
         utopya projects register . --with-models --exists-action overwrite
         coverage run -m pytest tests/ && coverage report -m && coverage json -o ./coverage/coverage-summary.json
-        utopya run HarrisWilson --pp num_epochs=100 --no-eval
-        utopya run SIR --pp num_epochs=10 --no-eval
-        utopya run Kuramoto --pp num_epochs=10 --no-eval
-        utopya run HarrisWilsonNW --pp num_epochs=10 --no-eval
+        utopya run HarrisWilson --pp num_epochs=100 --po loss
+        utopya run SIR --pp num_epochs=10 --po loss
+        utopya run Kuramoto --pp num_epochs=10 --po loss
+        utopya run HarrisWilsonNW --pp num_epochs=10 --po loss
 
     # Create a coverage badge
     - name: Coverage Badge
       uses: tj-actions/coverage-badge-py@v2
+
     # Check if changed and if so, update coverage badge
     - name: Verify Changed files
       uses: tj-actions/verify-changed-files@v9
