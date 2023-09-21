@@ -37,7 +37,6 @@ class SIR_NN:
         write_every: int = 1,
         write_start: int = 1,
         num_steps: int = 3,
-        write_time: bool = False,
         **__,
     ):
         """Initialize the model instance with a previously constructed RNG and
@@ -54,7 +53,6 @@ class SIR_NN:
             write_every: write every iteration
             write_start: iteration at which to start writing
             num_steps: number of iterations of the ABM
-            write_time: whether to write out the training time into a dataset
         """
         self._name = name
         self._time = 0
@@ -86,7 +84,7 @@ class SIR_NN:
             compression=3,
             dtype=float,
         )
-        self._dset_pred_counts.attrs["dim_names"] = ["time", "kind", "kinds"]
+        self._dset_pred_counts.attrs["dim_names"] = ["time", "kind", "dim_name__0"]
         self._dset_pred_counts.attrs["coords_mode__time"] = "trivial"
         self._dset_pred_counts.attrs["coords_mode__kind"] = "values"
         self._dset_pred_counts.attrs["coords__kind"] = [
@@ -94,8 +92,7 @@ class SIR_NN:
             "infected",
             "recovered",
         ]
-        self._dset_pred_counts.attrs["coords_mode__kinds"] = "values"
-        self._dset_pred_counts.attrs["coords__kinds"] = ["kind"]
+        self._dset_pred_counts.attrs["coords_mode__dim_name__0"] = "trivial"
 
         # Setup chunked dataset to store the state data in
         self._dset_loss = self._h5group.create_dataset(
@@ -109,58 +106,30 @@ class SIR_NN:
         self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
         self._dset_loss.attrs["coords__time"] = [write_start, write_every]
 
-        if write_time:
-            self.dset_time = self._h5group.create_dataset(
-                "computation_time",
-                (0, 1),
-                maxshape=(None, 1),
-                chunks=True,
-                compression=3,
-            )
-            self.dset_time.attrs["dim_names"] = ["epoch", "training_time"]
-            self.dset_time.attrs["coords_mode__epoch"] = "trivial"
-            self.dset_time.attrs["coords_mode__training_time"] = "trivial"
+        self.dset_time = self._h5group.create_dataset(
+            "computation_time",
+            (0, 1),
+            maxshape=(None, 1),
+            chunks=True,
+            compression=3,
+        )
+        self.dset_time.attrs["dim_names"] = ["epoch", "training_time"]
+        self.dset_time.attrs["coords_mode__epoch"] = "trivial"
+        self.dset_time.attrs["coords_mode__training_time"] = "trivial"
 
-        # Predicted infection rate
-        dsets = []
-        if "p_infect" in self.to_learn.keys():
-            self._dset_p_infect = self._h5group.create_dataset(
-                "predicted_infection_rate",
-                (0, 1),
-                maxshape=(None, 1),
-                chunks=True,
-                compression=3,
-            )
-            self._dset_p_infect.attrs["dim_names"] = ["time", "p_infect"]
-            dsets.append(self._dset_p_infect)
-
-        if "t_infectious" in self.to_learn.keys():
-            self._dset_t_infect = self._h5group.create_dataset(
-                "predicted_infection_time",
-                (0, 1),
-                maxshape=(None, 1),
-                chunks=True,
-                compression=3,
-            )
-            self._dset_t_infect.attrs["dim_names"] = ["time", "t_infectious"]
-            dsets.append(self._dset_t_infect)
-
-        if "sigma" in self.to_learn.keys():
-            self._dset_noise = self._h5group.create_dataset(
-                "predicted_noise",
-                (0, 1),
-                maxshape=(None, 1),
-                chunks=True,
-                compression=3,
-            )
-            self._dset_noise.attrs["dim_names"] = ["time", "noise"]
-            dsets.append(self._dset_noise)
-
-        for dset in dsets:
-            dset.attrs["coords_mode__time"] = "start_and_step"
-            dset.attrs["coords__time"] = [write_start, write_every]
-
-        self.dsets = dsets
+        # Parameter predictions
+        self.dset_parameters = self._h5group.create_dataset(
+            "parameters",
+            (0, len(self.to_learn.keys())),
+            maxshape=(None, len(self.to_learn.keys())),
+            chunks=True,
+            compression=3,
+        )
+        self.dset_parameters.attrs["dim_names"] = ["time", "parameter"]
+        self.dset_parameters.attrs["coords_mode__time"] = "start_and_step"
+        self.dset_parameters.attrs["coords__time"] = [write_start, write_every]
+        self.dset_parameters.attrs["coords_mode__parameter"] = "values"
+        self.dset_parameters.attrs["coords__parameter"] = to_learn
 
         self._write_every = write_every
         self._write_start = write_start
@@ -244,10 +213,10 @@ class SIR_NN:
         if self._time >= self._write_start and (self._time % self._write_every == 0):
             self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
             self._dset_loss[-1, :] = self.current_loss
-
-            for idx, dset in enumerate(self.dsets):
-                dset.resize(dset.shape[0] + 1, axis=0)
-                dset[-1] = self.current_predictions[idx]
+            self.dset_parameters.resize(self.dset_parameters.shape[0] + 1, axis=0)
+            self.dset_parameters[-1, :] = [
+                self.current_predictions[self.to_learn[p]] for p in self.to_learn.keys()
+            ]
 
 
 # -----------------------------------------------------------------------------
