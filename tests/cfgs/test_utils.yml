@@ -31,3 +31,37 @@ normal:
   parameters:
     mean: 0.5
     std: 3.1
+
+# Multi-dimensional with different initialisations
+multi1:
+  cfg:
+    - distribution: uniform
+      parameters:
+        lower: 0
+        upper: 1
+    - distribution: normal
+      parameters:
+        mean: 0.5
+        std: 0.1
+    - distribution: uniform
+      parameters:
+        lower: -1
+        upper: 2
+
+# This should fail
+multi2:
+  cfg:
+    - distribution: uniform
+      parameters:
+        lower: 0
+        upper: 1
+    - distribution: normal
+      parameters:
+        mean: 0.5
+        std: 0.1
+    - distribution: uniform
+      parameters:
+        lower: 4
+        upper: 2
+  _raises: ValueError
+  _match: Upper bound must be greater or equal to lower bound
