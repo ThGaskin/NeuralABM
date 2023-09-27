@@ -79,7 +79,7 @@ def get_data(
 
             origin_sizes[idx, 0, :, :] = torch.abs(
                 base.random_tensor(
-                    **data_cfg.get("init_origin_sizes"), size=(1, N_origin, 1)
+                    data_cfg.get("init_origin_sizes"), size=(1, N_origin, 1)
                 )
             )
 
@@ -97,7 +97,7 @@ def get_data(
             -1
             * torch.abs(
                 base.random_tensor(
-                    **data_cfg.get("init_network_weights"),
+                    data_cfg.get("init_network_weights"),
                     size=(N_origin, N_destination),
                 )
             )
@@ -137,7 +137,7 @@ def get_data(
             # Generate the initial destination zone sizes
             destination_sizes[idx, 0, :, :] = torch.abs(
                 base.random_tensor(
-                    **data_cfg.get("init_dest_sizes"),
+                    data_cfg.get("init_dest_sizes"),
                     size=(data_cfg["N_destination"], 1),
                 )
             )

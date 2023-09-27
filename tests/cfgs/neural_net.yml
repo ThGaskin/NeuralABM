@@ -166,3 +166,20 @@ Default_bias2:
       -1: default
   optimiser: SGD
   learning_rate: 0.1
+
+# Initialise the NN to a prior
+Prior1:
+  num_layers: 2
+  nodes_per_layer:
+    default: 10
+  activation_funcs:
+    default: sigmoid
+  biases:
+    default: [0, 1]
+  prior:
+    distribution: uniform
+    parameters:
+      lower: 0
+      upper: 2
+  prior_tol: 1e-10
+  prior_max_iter: 5000
