@@ -44,7 +44,7 @@ def random_tensor(
     """
 
     def _random_tensor_1d(
-        *, distribution: str, parameters: dict, s: tuple = (1,)
+        *, distribution: str, parameters: dict, s: tuple = (1,), **__
     ) -> torch.Tensor:
 
         """Generates a random tensor according to a distribution.

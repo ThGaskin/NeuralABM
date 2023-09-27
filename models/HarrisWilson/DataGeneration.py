@@ -89,7 +89,7 @@ def generate_synthetic_data(
     # Generate the initial origin sizes
     or_sizes = torch.abs(
         base.random_tensor(
-            **data_cfg.get("origin_sizes"), size=(N_origin, 1), device=device
+            data_cfg.get("origin_sizes"), size=(N_origin, 1), device=device
         )
     )
 
@@ -98,9 +98,9 @@ def generate_synthetic_data(
         -1
         * torch.abs(
             base.random_tensor(
-                **data_cfg.get("init_weights"),
+                data_cfg.get("init_weights"),
                 size=(N_origin, N_destination),
-                device=device
+                device=device,
             )
         )
     )
@@ -108,7 +108,7 @@ def generate_synthetic_data(
     # Generate the initial destination zone sizes
     init_dest_sizes = torch.abs(
         base.random_tensor(
-            **data_cfg.get("init_dest_sizes"), size=(N_destination, 1), device=device
+            data_cfg.get("init_dest_sizes"), size=(N_destination, 1), device=device
         )
     )
 
