@@ -3,6 +3,8 @@ from typing import Any, List, Sequence, Union
 import torch
 from torch import nn
 
+from .utils import random_tensor
+
 # ----------------------------------------------------------------------------------------------------------------------
 # -- NN utility functions ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
@@ -177,6 +179,9 @@ class NeuralNet(nn.Module):
         nodes_per_layer: dict,
         activation_funcs: dict,
         biases: dict,
+        prior: Union[list, dict] = None,
+        prior_max_iter: int = 500,
+        prior_tol: float = 1e-5,
         optimizer: str = "Adam",
         learning_rate: float = 0.001,
         **__,
@@ -189,6 +194,10 @@ class NeuralNet(nn.Module):
         :param nodes_per_layer: a dictionary specifying the number of nodes per layer
         :param activation_funcs: a dictionary specifying the activation functions to use
         :param biases: a dictionary containing the initialisation parameters for the bias
+        :param prior (optional): initial prior distribution of the parameters. If given, the neural net will
+            initially output a random value within that distribution.
+        :param prior_tol (optional): the tolerance with which the prior distribution should be met
+        :param prior_max_iter (optional): maximum number of training iterations to hit the prior target
         :param optimizer: the name of the optimizer to use. Default is the torch.optim.Adam optimizer.
         :param learning_rate: the learning rate of the optimizer. Default is 1e-3.
         :param __: Additional model parameters (ignored)
@@ -230,6 +239,38 @@ class NeuralNet(nn.Module):
 
         # Get the optimizer
         self.optimizer = self.OPTIMIZERS[optimizer](self.parameters(), lr=learning_rate)
+
+        # Get the initial distribution and initialise
+        self.prior_distribution = prior
+        self.initialise_to_prior(tol=prior_tol, max_iter=prior_max_iter)
+
+    def initialise_to_prior(self, *, tol: float = 1e-5, max_iter: int = 500) -> None:
+        """Initialises the neural net to output values following a prior distribution. The random tensor is drawn
+        following a prior distribution and the neural network trained to output that value. Training is performed
+        until the neural network output matches the drawn value (which typically only takes a few seconds), or until
+        a maximum iteration count is reached.
+
+        :param tol: the target error on the neural net initial output and drawn value.
+        :param max_iter: maximum number of training steps to perform in the while loop
+        """
+
+        # If not initial distribution is given, nothing happens
+        if self.prior_distribution is None:
+            return
+
+        # Draw a target tensor following the given prior distribution
+        target = random_tensor(self.prior_distribution, size=(self.output_dim,))
+
+        # Generate a prediction and train the net to output the given target
+        prediction = self.forward(torch.rand(target.shape))
+        iter = 0
+        while torch.norm(prediction - target) > tol and iter < max_iter:
+            prediction = self.forward(torch.rand(target.shape))
+            loss = torch.nn.functional.mse_loss(target, prediction, reduction="sum")
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            iter += 1
 
     # ... Evaluation functions .........................................................................................
 

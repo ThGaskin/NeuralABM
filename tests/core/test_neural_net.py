@@ -162,3 +162,32 @@ def test_training():
                     .numpy()
                 )
                 assert current_loss != previous_loss
+
+
+# Test the model outputs values according to the prior
+def test_prior():
+    def _test_entry(cfg, tensor):
+
+        if cfg["distribution"] == "uniform":
+            assert cfg["parameters"]["lower"] <= tensor <= cfg["parameters"]["upper"]
+
+    tested = False
+    for _, config in test_cfg.items():
+
+        net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
+
+        if net.prior_distribution is not None:
+            tested = True
+
+            t = net(
+                torch.rand(
+                    input_size,
+                )
+            )
+
+            for _ in range(len(t)):
+                if isinstance(net.prior_distribution, dict):
+                    _test_entry(net.prior_distribution, t[_])
+                else:
+                    _test_entry(net.prior_distribution[_], t[_])
+    assert tested
