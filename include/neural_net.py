@@ -262,10 +262,10 @@ class NeuralNet(nn.Module):
         target = random_tensor(self.prior_distribution, size=(self.output_dim,))
 
         # Generate a prediction and train the net to output the given target
-        prediction = self.forward(torch.rand(target.shape))
+        prediction = self.forward(torch.rand(self.input_dim))
         iter = 0
         while torch.norm(prediction - target) > tol and iter < max_iter:
-            prediction = self.forward(torch.rand(target.shape))
+            prediction = self.forward(torch.rand(self.input_dim))
             loss = torch.nn.functional.mse_loss(target, prediction, reduction="sum")
             loss.backward()
             self.optimizer.step()
