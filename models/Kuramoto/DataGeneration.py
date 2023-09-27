@@ -127,7 +127,7 @@ def get_data(
 
         # Generate a time series of i.i.d distributed eigenfrequencies
         eigen_frequencies = base.random_tensor(
-            **data_cfg.get("eigen_frequencies"),
+            data_cfg.get("eigen_frequencies"),
             size=(training_set_size, 1, N, 1),
             device=device,
         )
@@ -161,7 +161,7 @@ def get_data(
         for idx in range(training_set_size):
 
             training_data[idx, 0, :, :] = base.random_tensor(
-                **data_cfg.get("init_phases"), size=(N, 1), device=device
+                data_cfg.get("init_phases"), size=(N, 1), device=device
             )
 
             # For the second-order dynamics, the initial velocities must also be given

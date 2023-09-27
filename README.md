@@ -224,6 +224,7 @@ providing the path to that dataset, like so:
 utopya eval HarrisWilson path/to/output/folder --cfg-set <name_of_cfg_set>
 ```
 ## How to adjust the neural net configuration
+### General architecture
 You can vary the size of the neural net and the activation functions
 right from the config. The size of the input layer is inferred from
 the data passed to it, and the size of the output layer is
@@ -260,6 +261,7 @@ which is initialised uniformly at random on [0, 4]. Layer-specific settings are 
 You can also set the bias initialisation interval to `default`: this will initialise the bias using the [PyTorch default](https://github.com/pytorch/pytorch/blob/9a575e77ca8a0be7a3f3625c4dfdc6321d2a0c2d/torch/nn/modules/linear.py#L72)
 Xavier uniform distribution.
 
+### Activation functions
 Any [PyTorch activation function](https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity)
 is supported, such as ``relu``, ``linear``, ``tanh``, ``sigmoid``, etc. Some activation functions take arguments and
 keyword arguments; these can be provided like this:
@@ -278,6 +280,34 @@ NeuralNet:
         # any kwargs here ...
 ```
 
+### Specifying the prior on the output
+For many applications, you will want control over the prior distribution of the parameters. To this
+end, you can add a `prior` entry that gives a distribution over the parameters you wish to learn:
+```yaml
+NeuralNet:
+  prior:
+    distribution: uniform
+    parameters:
+      lower: 0
+      upper: 2
+```
+This will train the neural network to initially output values uniformly within [0, 2], for all
+parameters you wish to learn. If you want individual parameters to have their own priors, you can do so by passing a
+list as the argument to `prior`. For instance, assume you wish to learn 2 parameters; the configuration entry then could
+be:
+```yaml
+NeuralNet:
+  prior:
+    - distribution: normal
+      parameters:
+        mean: 0.5
+        std: 0.1
+    - distribution: uniform
+      parameters:
+        lower: 0
+        upper: 5
+```
+This will initialise each parameter with a separate prior.
 ## Training settings
 You can modify the training settings, such as the batch size or the training device, from the
 `Training` entry of the config:
