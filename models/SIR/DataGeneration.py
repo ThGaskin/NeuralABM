@@ -134,12 +134,14 @@ def generate_smooth_data(
                 torch.tensor([0, tau]),
             ]
         )
-        current_state = torch.relu(
+        current_state = torch.clip(
             current_state
             + torch.matmul(
                 matrix,
                 torch.vstack([current_state[0] * current_state[1], current_state[1]]),
-            )
+            ),
+            0.0,
+            1.0,
         )
 
         if write_init_state:

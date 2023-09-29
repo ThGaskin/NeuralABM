@@ -1,25 +1,11 @@
 ---
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
 .variables:
   base_path:        &base_path    data/SIR
-  loss_limit:       &loss_limit   1e-15
-
-  colors: &colors
-    yellow:         &yellow           '#F5DDA9'
-    darkblue:       &darkblue         '#2F7194'
-    red:            &red              '#ec7070'
-    skyblue:        &skyblue          '#97c3d0'
-    darkgreen:      &darkgreen        '#48675A'
-    lightbrown:     &lightbrown       '#C6BFA2'
-    orange:         &orange           '#EC9F7E'
-    lightgreen:     &lightgreen       '#AFD8BC'
-    grey:           &grey             '#3D4244'
-
-  page_widths:
-    full_width:     &full_width       7.516
-    half_width:     &half_width       !expr 7.516 / 2
-    third_width:    &third_width      !expr 7.516 / 3
-    quarter_width:  &quarter_width    !expr 7.516 / 4
-    fifth_width:    &fifth_width      !expr 7.516 / 5
 
 .latex_off:
   style:
@@ -34,9 +20,30 @@
 
 .default_style:
   based_on:
-    - .latex_off    # Change this to .latex_on to use latex
+    - .latex_on    # Change this to .latex_on to use latex
+
+  # Make colors and page widths accessible across all plots using the dag_options
+  dag_options:
+    define: &colors
+      c_yellow:         &yellow           '#F5DDA9'
+      c_darkblue:       &darkblue         '#2F7194'
+      c_red:            &red              '#ec7070'
+      c_skyblue:        &skyblue          '#97c3d0'
+      c_darkgreen:      &darkgreen        '#48675A'
+      c_lightbrown:     &lightbrown       '#C6BFA2'
+      c_orange:         &orange           '#EC9F7E'
+      c_lightgreen:     &lightgreen       '#AFD8BC'
+      c_grey:           &grey             '#3D4244'
+      c_pink:           &pink             '#F8A6A6'
+
+      full_width:       &full_width       7.5
+      half_width:       &half_width       !expr 7.5/2
+      third_width:      &third_width      !expr 7.5/3
+      quarter_width:    &quarter_width    !expr 7.5/4
+      fifth_width:      &fifth_width      !expr 7.5/5
+
   style:
-    font.size:          &fontsize 9
+    font.size:          &fontsize 8
     axes.titlesize:     *fontsize
     axes.labelsize:     *fontsize
     xtick.labelsize:    *fontsize
@@ -44,16 +51,18 @@
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[lightgreen]:}', '{colors[red]:}', '{colors[darkgreen]:}'])"
-      colors: *colors
+      fstr: "cycler('color', ['{colors[c_lightgreen]:}', '{colors[c_red]:}', '{colors[c_darkgreen]:}'])"
+      colors:
+        <<: *colors
     axes.grid:          True
     axes.spines.top:    False
     axes.spines.right:  False
-    legend.fontsize: 9
+    legend.fontsize:    8
+
   helpers:
     save_figure:
       dpi: 900
-  file_ext: png
+  file_ext: pdf
 
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
@@ -78,6 +87,11 @@
   select_and_combine:
     base_path: *base_path
 
+# Base function for probability densities
+.plot.prob_density:
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
+
 # ======================================================================================================================
 #  ╔═╗╦  ╔═╗╔╦╗╔═╗
 #  ╠═╝║  ║ ║ ║ ╚═╗
@@ -94,7 +108,7 @@ loss:
   color: black
   helpers:
     set_labels:
-      x: iteration
+      x: Batch
       y: Training loss
     set_scales:
       y: log
@@ -160,29 +174,8 @@ state:
     axes.spines.right: True
   # Animation control
 
-
-# -- Comparison of predicted and true densities ------------------------------------------------------------------------
-densities_comparison:
-  based_on:
-    - .creator.universe
-    - .plot.facet_grid.line
-  select:
-    pred_counts:
-      path: true_counts
-      transform:
-        - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
-    true_counts:
-      path: true_counts
-      transform:
-        - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
-  transform:
-    - concat_along: [ [ !dag_tag true_counts, !dag_tag pred_counts ], 'type', [ 'true', 'predicted' ] ]
-      tag: data
-  x: time
-  col: type
-
 # -- Plot of the parameter predictions  --------------------------------------------------------------------------------
-predictions:
+predictions_uni:
   based_on:
     - .creator.universe
     - .plot.facet_grid.line
@@ -191,224 +184,122 @@ predictions:
       path: parameters
       transform:
         - .data: [ !dag_prev ]
-  x: time
   col: parameter
   sharey: False
   style:
     figure.figsize: [ *half_width, *half_width ]
-  helpers:
-    set_labels:
-      x: iteration
 
-# Two-dimensional density
-loss_density:
+predictions_mv:
   based_on:
-    - .creator.universe
-    - .plot.facet_grid.scatter
-  style:
-    figure.figsize: [ *half_width, *fifth_width ]
-  dag_options:
-    define:
-      parameter_idx: 0
-  select:
-    parameter:
-      path: parameters
-      transform:
-        - .isel: [!dag_prev , {parameter: !dag_tag parameter_idx}]
-        - .squeeze_with_drop: [!dag_prev ]
-    loss:
-      path: loss
-      transform:
-        - np.maximum: [!dag_prev , *loss_limit]
-        - log10: [!dag_prev ]
-        - mul: [!dag_prev , -1]
-  transform:
-    - xr.Dataset:
-      kwargs:
-        data_vars:
-          parameter: !dag_tag parameter
-          loss: !dag_tag loss
-      tag: data
-  x: parameter
-  hue: loss
-  y: loss
-  s: 1
-  add_colorbar: False
-  cmap:
-    continuous: true
-    from_values:
-      0: *yellow
-      1: *darkblue
-  helpers:
-    set_labels:
-      y: &loss_label '$-\log_{10}(J)$'
-
-marginals:
-  based_on: .creator.universe
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
-  style:
-    figure.figsize: [ *half_width, *half_width ]
-  dag_options:
-    define:
-      parameter_idx: 0
-  select:
-    param:
-      path: parameters
-      transform:
-        - .isel: [ !dag_prev , { 'parameter': !dag_tag parameter_idx } ]
-        - .squeeze_with_drop: [ !dag_prev ]
-    loss:
-      path: loss
-      transform:
-        - np.maximum: [ !dag_prev , *loss_limit ]
-        - log10: [ !dag_prev ]
-        - mul: [ !dag_prev , -1 ]
-        - np.exp: [!dag_prev ]
-    true_values:
-      path: ../../cfg
-      transform:
-        - recursive_getitem: [ !dag_prev , ['SIR', 'Data', 'synthetic_data' ] ]
-  transform:
-    - .coords: [!dag_tag param, 'parameter']
-    - .item: [!dag_prev ]
-      tag: parameter_name
-    - getitem: [!dag_prev , !slice [2, ~]]
-      tag: compartment
-    - xr.Dataset:
-      - x: !dag_tag param
-        p: !dag_tag loss
-    - compute_marginals: [ !dag_prev ]
-      kwargs:
-        bins: 200
-        x: x
-        p: p
-      tag: data
-    - mode: [ !dag_tag data]
-      kwargs:
-        p: p
-    - getitem: [!dag_prev , 'x']
-    - .format: [ '{:.2f}', !dag_prev ]
-      tag: mode
-    - mean: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'mean']
-      tag: mean
-    - std: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'std']
-    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
-      tag: info_str
-    - getitem: [!dag_tag true_values, !dag_tag parameter_name]
-      allow_failure: silent
-      fallback: -1
-      tag: true_val
-  x: x
-  y: p
-  color: *darkblue
-  smooth_kwargs:
-    enabled: true
-    sigma: 3.0
-  info_box_labels:
-    info_str: '$\mathrm{mean}$'
-    mode: '$\mathrm{mode}$'
-  helpers:
-    set_labels:
-      x: !dag_result parameter_name
-    set_hv_lines:
-      vlines:
-        - pos: !dag_result true_val
-          color: *red
-          linestyle: dotted
-
-# Multiverse marginals, sweeping over seed
-marginals_mv:
-  expected_multiverse_ndim: [1]
-  based_on: .creator.multiverse
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
-  compute_only: [data, info_str, mode, true_val]
-  file_ext: pdf
-  dag_options:
-    define:
-      parameter_idx: 0
+    - .creator.multiverse
+    - .plot.facet_grid.line
   select_and_combine:
     fields:
-      true_val_dict:
-        path: ../../cfg
-        transform:
-          - recursive_getitem: [!dag_prev , ['SIR', 'Data', 'synthetic_data']]
-        subspace:
-          seed: [0]
-      param:
+      data:
         path: parameters
         transform:
-          - .isel: [!dag_prev , {'parameter': !dag_tag parameter_idx}]
-          - .squeeze_with_drop: [!dag_prev ]
-      loss:
+          - .data: [ !dag_prev ]
+  col: parameter
+  x: batch
+  add_legend: False
+  sharey: False
+  style:
+    figure.figsize: [ *half_width, *half_width ]
+
+# -- Distribution plots  -----------------------------------------------------------------------------------------------
+# Base operations for computing the joint (universe case)
+.joint_uni:
+  based_on:
+    - .creator.universe
+  dag_options:
+    meta_operations:
+      get_joint:
+          - compute_joint: [!arg 0 , !arg 1 ]
+            kwargs:
+              bins: !kwarg bins
+              range: !kwarg range
+              normalize: !kwarg normalize
+              differential: !kwarg differential
+  select:
+    parameters:
+      path: parameters
+      transform: [.data]
+    probabilities:
+      path: loss
+      transform:
+        - mul: [!dag_prev , -1]
+        - np.exp: [!dag_prev ]
+
+# Base operations for computing the joint (multiverse case)
+.joint_mv:
+  expected_multiverse_ndim: [ 1 ]
+  based_on:
+    - .creator.multiverse
+  dag_options:
+    meta_operations:
+      get_joint:
+        - flatten_dims: [!arg 0, ['seed', 'batch'], 'sample']
+        - .transpose: [!dag_prev ]
+        - flatten_dims: [!arg 1, ['seed', 'batch'], 'sample']
+        - .transpose: [!dag_prev ]
+        - compute_joint: [!dag_node -3 , !dag_prev ]
+          kwargs:
+            bins: !kwarg bins
+            range: !kwarg range
+            normalize: !kwarg normalize
+            differential: !kwarg differential
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform: [.data]
+      probabilities:
         path: loss
         transform:
-          - np.maximum: [ !dag_prev , *loss_limit ]
-          - log10: [ !dag_prev ]
-          - mul: [ !dag_prev , -1 ]
+          - mul: [!dag_prev , -1]
           - np.exp: [!dag_prev ]
-  transform:
-    - getitem: [!dag_tag true_val_dict, 0]
-    - .item: [!dag_prev ]
-      tag: true_values
-    - .coords: [!dag_tag param, 'parameter']
-    - .item: [!dag_prev ]
-      tag: parameter_name
-    - xr.Dataset:
-      - x: !dag_tag param
-        p: !dag_tag loss
-    - compute_marginals: [ !dag_prev ]
-      kwargs:
-        bins: 200
-        x: x
-        p: p
-      tag: data
-    - mode: [ !dag_tag data]
-      kwargs:
-        p: p
-    - getitem: [!dag_prev , 'x']
-    - .format: [ '{:.2f}', !dag_prev ]
-      tag: mode
-    - mean: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'mean']
-      tag: mean
-    - std: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'std']
-    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
-      tag: info_str
-    - getitem: [!dag_tag true_values, !dag_tag parameter_name]
-      allow_failure: silent
-      fallback: -1
-      tag: true_val
-  x: x
-  y: p
-  color: *darkblue
-  smooth_kwargs:
-    enabled: true
-    sigma: 3.0
-  info_box_labels:
-    info_str: '$\mathrm{mean}$'
-    mode: '$\mathrm{mode}$'
-  helpers:
-    set_labels:
-      x: !dag_result parameter_name
-    set_hv_lines:
-      vlines:
-        - pos: !dag_result true_val
-          color: *red
-          linestyle: dotted
+
+# Base operations for computing the marginal (universe case)
+.marginal_uni:
+  based_on: .joint_uni
+  dag_options:
+    meta_operations:
+      get_marginal:
+        - compute_joint: [!arg 0 , !arg 1 ]
+          kwargs:
+            bins: !kwarg bins
+            range: !kwarg range
+            normalize: False
+            differential: ~
+        - compute_marginal: [!dag_prev , !kwarg parameter]
+          kwargs:
+            normalize: !kwarg normalize
+  select:
+    parameters:
+      path: parameters
+      transform: [.data]
+    probabilities:
+      path: loss
+      transform:
+        - mul: [!dag_prev , -1]
+        - np.exp: [!dag_prev ]
+
+# Base operations for computing the marginal (multiverse case)
+.marginal_mv:
+  based_on: .joint_mv
+  dag_options:
+    meta_operations:
+      get_marginal:
+        - flatten_dims: [!arg 0, ['seed', 'batch'], 'sample']
+        - .transpose: [!dag_prev ]
+        - flatten_dims: [!arg 1, ['seed', 'batch'], 'sample']
+        - .transpose: [!dag_prev ]
+        - compute_joint: [!dag_node -3 , !dag_prev ]
+          kwargs:
+            bins: !kwarg bins
+            range: !kwarg range
+            normalize: False
+            differential: ~
+        - compute_marginal: [!dag_prev , !kwarg parameter]
+          kwargs:
+            normalize: !kwarg normalize

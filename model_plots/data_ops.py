@@ -289,8 +289,9 @@ def mode(data: xr.Dataset, *, p: str, **kwargs) -> xr.Dataset:
     coord = list(data.dims.keys())[0]
 
     # Get the value of the mode and select it
-    x_max = data[p].idxmax(**kwargs).item()
-    return data.sel({coord: x_max}).drop_vars(coord)
+    x_max = data[p].argmax(**kwargs).item()
+
+    return data.isel({coord: x_max})
 
 
 @is_operation("average_peak_widths")
@@ -424,6 +425,89 @@ def hist_ndim(
 # ----------------------------------------------------------------------------------------------------------------------
 # DENSITY OPERATIONS
 # ----------------------------------------------------------------------------------------------------------------------
+
+
+@is_operation("compute_joint")
+@apply_along_dim
+def compute_joint(
+    data: xr.Dataset,
+    p: xr.DataArray,
+    normalize: bool = False,
+    differential: float = None,
+    **kwargs,
+) -> xr.Dataset:
+
+    """Computes the joint distribution of a dataset of parameters by calling the scipy.stats.binned_statistic_dd
+    function. This function can at most handle 32 dimensional-data, and is thus not applicable to high dimensional
+    situations. The function returns the mean probability for each bin, as well as a standard deviation.
+
+    :param data: dataset of parameter estimates
+    :param p: dataset of associated likelihoods
+    :param normalize: whether to normalize the joint (False by default)
+    :param differential: the spacial differential dx to use for normalisation. Defaults to the grid spacing
+    :return: an xr.Dataset of the joint distribution
+    """
+
+    mean, bin_edges, _ = scipy.stats.binned_statistic_dd(
+        data, p, statistic="mean", **kwargs
+    )
+    std, _, _ = scipy.stats.binned_statistic_dd(data, p, statistic="std", **kwargs)
+
+    if normalize:
+        differential = (
+            np.prod([a[1] - a[0] for a in bin_edges])
+            if differential is None
+            else differential
+        )
+        norm = np.nansum(mean) * differential
+    else:
+        norm = 1
+
+    parameter_coords = data.coords["parameter"].data
+
+    # Combine into a xr.DataArray
+    return xr.Dataset(
+        data_vars={
+            "mean": (parameter_coords, mean / norm),
+            "std": (parameter_coords, std / norm),
+        },
+        coords=dict(
+            (parameter_coords[_], 0.5 * (bin_edges[_][1:] + bin_edges[_][:-1]))
+            for _ in range(len(parameter_coords))
+        ),
+    )
+
+
+@is_operation("compute_marginal")
+@apply_along_dim
+def compute_marginal(
+    joint: xr.Dataset,
+    parameter: str,
+    *,
+    normalize: bool = True,
+) -> xr.Dataset:
+
+    """Computes the marginal of a parameter by summing over the joint distribution of several parameters.
+    If specified, normalises the marginal to 1.
+
+    :param joint: joint distribution of parameter estimates
+    :param parameter: parameter over which to marginalise
+    :param normalize: whether to normalise the marginal (True by default)
+    :return: an xr.Dataset of the marginal distribution
+    """
+
+    parameters = joint.coords
+    for p in list(parameters):
+        if p != parameter:
+            joint = joint.sum(p)
+    if normalize:
+        dx = (
+            joint["mean"].coords[parameter].data[1]
+            - joint["mean"].coords[parameter].data[0]
+        )
+        joint /= joint["mean"].sum(skipna=True) * dx
+
+    return joint
 
 
 @is_operation("compute_marginals")
