@@ -59,6 +59,8 @@ def _densities_from_joint(
     # Remove parameters with probability 0
     joint = joint.where(joint > 0, drop=True)
 
+    sample_cfg = cfg["Data"]["synthetic_data"]
+
     for s in range(len(joint.coords["sample"])):
 
         # Get the sample
@@ -67,7 +69,7 @@ def _densities_from_joint(
         # Construct the configuration, taking time-dependent parameters into account
         sample = sample.unstack("sample")
 
-        sample_cfg = dict((key, val.item()) for key, val in sample.coords.items())
+        sample_cfg.update(dict((key, val.item()) for key, val in sample.coords.items()))
         param_cfg = _adjust_for_time_dependency(sample_cfg, cfg, true_counts)
 
         # Generate smooth data
@@ -101,10 +103,10 @@ def _densities_from_joint(
 
     # Get the index of the most likely parameter
     mode = joint.isel({"sample": joint.argmax(dim="sample")})
-    mode_cfg = dict((key, val.item()) for key, val in mode.coords.items())
+    sample_cfg.update(dict((key, val.item()) for key, val in mode.coords.items()))
 
     # Perform a run using the mode
-    mode_params = _adjust_for_time_dependency(mode_cfg, cfg, true_counts)
+    mode_params = _adjust_for_time_dependency(sample_cfg, cfg, true_counts)
     mode_data = generating_func(
         cfg=mode_params,
         num_steps=len(true_counts.coords["time"]) - 1,

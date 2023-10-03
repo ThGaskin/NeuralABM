@@ -81,7 +81,10 @@ def plot_prob_density(
 
     # Get the dataset and parameter name
     dset = ds
-    pname = ds.coords["parameter"].values.item()
+    if "parameter" in list(ds.coords.keys()):
+        pname = ds.coords["parameter"].values.item()
+    else:
+        pname = list(ds.coords.keys())[0]
 
     # Track the legend handles and labels
     _handles, _labels = [], []
@@ -100,7 +103,7 @@ def plot_prob_density(
                 _x=x_vals,
                 _y=y_vals,
                 _yerr=yerr_vals,
-                _smooth_kwargs=copy.deepcopy(smooth_kwargs.get(pname, smooth_kwargs)),
+                _smooth_kwargs=copy.deepcopy(smooth_kwargs).get(pname, smooth_kwargs),
                 _ax=hlpr.ax,
                 _label=f"{coord}",
                 **plot_kwargs,
@@ -127,7 +130,7 @@ def plot_prob_density(
             _y=y_vals,
             _yerr=yerr_vals,
             _ax=hlpr.ax,
-            _smooth_kwargs=copy.deepcopy(smooth_kwargs),
+            _smooth_kwargs=copy.deepcopy(smooth_kwargs).get(pname, smooth_kwargs),
             _label=label,
             **plot_kwargs,
         )
