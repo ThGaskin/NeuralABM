@@ -74,6 +74,8 @@ def test_apply_along_dim():
     m1 = ops.mean(ds_s, x="alpha", p="p", along_dim=["y"])
     assert m1
 
+    # TODO test multi-dimensional case
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 # BASIC STATISTICS FUNCTIONS
@@ -102,6 +104,9 @@ def test_mean_std():
 def test_mode():
     # Calculate the mode for the trivial dataset
     m1 = ops.mode(ds_0, p="p")
+    assert m1
+
+    m1 = ops.mode(ds_0, p="p", get="value")
     assert m1
 
     # Calculate the mode for the one-dimensional dataset
@@ -164,7 +169,7 @@ def test_hist():
 # ----------------------------------------------------------------------------------------------------------------------
 def test_marginal_density():
     # Calculate the marginals along all dimensions
-    m1 = ops.marginals(ds_2, x="alpha", p="p")
+    m1 = ops.compute_marginal(ds_2, x="alpha", p="p")
     assert m1
     assert len(m1.dims) == 1
 
@@ -174,12 +179,17 @@ def test_marginal_density():
     ) == pytest.approx(1, 1e-5)
 
     # Calculate the marginals along one dimension
-    m1 = ops.marginals(ds_2, x="alpha", p="p", along_dim=["x"])
+    m1 = ops.compute_marginal(ds_2, x="alpha", p="p", along_dim=["x"])
     assert m1
     assert len(m1.dims) == 3
 
     # Calculate the marginals along two dimensions
-    m1 = ops.marginals(ds_2, x="alpha", p="p", along_dim=["x", "y"])
+    m1 = ops.compute_marginal(ds_2, x="alpha", p="p", along_dim=["x", "y"])
+    assert m1
+    assert len(m1.dims) == 2
+
+    # Calculate the marginals along two dimensions with different bins
+    m1 = ops.compute_marginal(ds_2, x="alpha", p="p", along_dim=["x", "y"])
     assert m1
     assert len(m1.dims) == 2
 
@@ -270,7 +280,7 @@ def test_marginal_of_densities():
 # DATA RESHAPING
 # ----------------------------------------------------------------------------------------------------------------------
 def test_flatten_dims():
-    m1 = ops.flatten_dims(ds_2, ["x", "y"], new_dim="t")
+    m1 = ops.flatten_dims(ds_2, dims={"t": ["x", "y"]})
     assert len(m1.dims) == 2
     assert list(m1.dims) == ["z", "t"]
     assert len(m1.coords["t"]) == len(ds_2.coords["x"]) * len(ds_2.coords["y"])

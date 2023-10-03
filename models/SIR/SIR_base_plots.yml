@@ -7,57 +7,72 @@
 .variables:
   base_path:        &base_path    data/SIR
 
-.latex_off:
-  style:
-    text.usetex: False
-
-.latex_on:
-  style:
-    text.usetex: True
-    mathtext.fontset: cm
-    font.family: serif
-    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
-
 .default_style:
-  based_on:
-    - .latex_on    # Change this to .latex_on to use latex
-
-  # Make colors and page widths accessible across all plots using the dag_options
   dag_options:
     define: &colors
-      c_yellow:         &yellow           '#F5DDA9'
-      c_darkblue:       &darkblue         '#2F7194'
-      c_red:            &red              '#ec7070'
-      c_skyblue:        &skyblue          '#97c3d0'
-      c_darkgreen:      &darkgreen        '#48675A'
-      c_lightbrown:     &lightbrown       '#C6BFA2'
-      c_orange:         &orange           '#EC9F7E'
-      c_lightgreen:     &lightgreen       '#AFD8BC'
-      c_grey:           &grey             '#3D4244'
-      c_pink:           &pink             '#F8A6A6'
 
-      full_width:       &full_width       7.5
-      half_width:       &half_width       !expr 7.5/2
-      third_width:      &third_width      !expr 7.5/3
-      quarter_width:    &quarter_width    !expr 7.5/4
-      fifth_width:      &fifth_width      !expr 7.5/5
+      # Make colors and page widths accessible across all plots
+      c_yellow: '#F5DDA9'
+      c_orange: '#EC9F7E'
+      c_red: '#ec7070'
+      c_pink: '#F8A6A6'
+      c_purple: '#A07CB0'
+      c_lightblue: '#97c3d0'
+      c_darkblue: '#2F7194'
+      c_lightgreen: '#AFD8BC'
+      c_darkgreen: '#48675A'
+      c_lightbrown: '#C6BFA2'
+      c_lightgrey: '#AFC1B9'
+      c_darkgrey: '#3D4244'
+
+      # Set the page width of the document to allow for easy integration
+      _page_width: 7.5
+
+      # These are available for all plots and can be used to adjust the figure size or generate new sizes as needed
+      full_width: !dag_tag _page_width
+      half_width:
+        - div: [!dag_tag _page_width, 2]
+      third_width:
+        - div: [!dag_tag _page_width, 3]
+      quarter_width:
+        - div: [!dag_tag _page_width, 4]
+      fifth_width:
+        - div: [!dag_tag _page_width, 5]
 
   style:
+    text.usetex:        True   # Set to 'True' to use latex
+    mathtext.fontset:   cm
+    font.family:        serif
+    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
+
+    # Set the label fontsize
     font.size:          &fontsize 8
     axes.titlesize:     *fontsize
     axes.labelsize:     *fontsize
     xtick.labelsize:    *fontsize
     ytick.labelsize:    *fontsize
+    legend.fontsize:    *fontsize
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_lightgreen]:}', '{colors[c_red]:}', '{colors[c_darkgreen]:}'])"
+      fstr: "cycler('color', ['{colors[c_lightgreen]:}',
+                              '{colors[c_red]:}',
+                              '{colors[c_darkgreen]:}',
+                              '{colors[c_lightblue]:}',
+                              '{colors[c_darkblue]:}',
+                              '{colors[c_lightbrown]:}',
+                              '{colors[c_orange]:}',
+                              '{colors[c_yellow]:}',
+                              '{colors[c_darkgrey]:}',
+                              '{colors[c_pink]:}',
+                              '{colors[c_purple]:}',
+                              '{colors[c_lightgrey]:}'
+                              ])"
       colors:
         <<: *colors
     axes.grid:          True
     axes.spines.top:    False
     axes.spines.right:  False
-    legend.fontsize:    8
 
   helpers:
     save_figure:
@@ -88,7 +103,7 @@
     base_path: *base_path
 
 # Base function for probability densities
-.plot.prob_density:
+.plot.facet_grid.density:
   module: model_plots.HarrisWilson
   plot_func: plot_prob_density
 
@@ -150,9 +165,9 @@ state:
   to_plot:
     data:
       cmap:
-        susceptible: *lightgreen
-        infected: *red
-        recovered: *darkgreen
+        susceptible: !dag_result c_lightgreen
+        infected: !dag_result c_red
+        recovered: !dag_result c_darkgreen
       vmin: 0
       vmax: 2
       size_scale: 0.0005
@@ -162,9 +177,9 @@ state:
   frames: time
   # Colorbar settings
   cmap:
-    susceptible: *lightgreen
-    infected: *red
-    recovered: *darkgreen
+    susceptible: !dag_result c_lightgreen
+    infected: !dag_result c_red
+    recovered: !dag_result c_darkgreen
   cbar_kwargs:
     shrink: 0.8
   style:
@@ -187,7 +202,7 @@ predictions_uni:
   col: parameter
   sharey: False
   style:
-    figure.figsize: [ *half_width, *half_width ]
+    figure.figsize: [ !dag_result half_width, !dag_result half_width ]
 
 predictions_mv:
   based_on:
@@ -204,7 +219,7 @@ predictions_mv:
   add_legend: False
   sharey: False
   style:
-    figure.figsize: [ *half_width, *half_width ]
+    figure.figsize: [ !dag_result half_width, !dag_result half_width ]
 
 # -- Distribution plots  -----------------------------------------------------------------------------------------------
 # Base operations for computing the joint (universe case)
@@ -220,6 +235,7 @@ predictions_mv:
               range: !kwarg range
               normalize: !kwarg normalize
               differential: !kwarg differential
+              statistic: mean
   select:
     parameters:
       path: parameters
@@ -238,9 +254,13 @@ predictions_mv:
   dag_options:
     meta_operations:
       get_joint:
-        - flatten_dims: [!arg 0, ['seed', 'batch'], 'sample']
+        - flatten_dims: [!arg 0 ]
+          kwargs:
+            dims: {'sample' :['seed', 'batch']}
         - .transpose: [!dag_prev ]
-        - flatten_dims: [!arg 1, ['seed', 'batch'], 'sample']
+        - flatten_dims: [!arg 1 ]
+          kwargs:
+            dims: {'sample' :['seed', 'batch']}
         - .transpose: [!dag_prev ]
         - compute_joint: [!dag_node -3 , !dag_prev ]
           kwargs:
@@ -248,6 +268,7 @@ predictions_mv:
             range: !kwarg range
             normalize: !kwarg normalize
             differential: !kwarg differential
+            statistic: mean
   select_and_combine:
     fields:
       parameters:
@@ -261,19 +282,7 @@ predictions_mv:
 
 # Base operations for computing the marginal (universe case)
 .marginal_uni:
-  based_on: .joint_uni
-  dag_options:
-    meta_operations:
-      get_marginal:
-        - compute_joint: [!arg 0 , !arg 1 ]
-          kwargs:
-            bins: !kwarg bins
-            range: !kwarg range
-            normalize: False
-            differential: ~
-        - compute_marginal: [!dag_prev , !kwarg parameter]
-          kwargs:
-            normalize: !kwarg normalize
+  based_on: .creator.universe
   select:
     parameters:
       path: parameters
@@ -283,23 +292,59 @@ predictions_mv:
       transform:
         - mul: [!dag_prev , -1]
         - np.exp: [!dag_prev ]
+  dag_options:
+    meta_operations:
+      get_marginals:
+        # Broadcast loss and parameters into a common dataset
+        - broadcast: [ !arg 0 , !arg 1 ]
+        # Compute the marginals on a very fine grid
+        - compute_marginal: [ !dag_prev , !arg 2 ]
+          kwargs:
+            x: x
+            p: loss
+            statistic: !kwarg statistic
+            exclude_dim: !kwarg exclude_dim
+          file_cache:
+            write: True
+            read: True
+  sharey: False
+  sharex: False
+  color: !dag_result c_darkblue
 
 # Base operations for computing the marginal (multiverse case)
 .marginal_mv:
-  based_on: .joint_mv
+  based_on: .creator.multiverse
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform: [.data]
+      probabilities:
+        path: loss
+        transform:
+          - mul: [!dag_prev , -1]
+          - np.exp: [!dag_prev ]
   dag_options:
     meta_operations:
-      get_marginal:
-        - flatten_dims: [!arg 0, ['seed', 'batch'], 'sample']
-        - .transpose: [!dag_prev ]
-        - flatten_dims: [!arg 1, ['seed', 'batch'], 'sample']
-        - .transpose: [!dag_prev ]
-        - compute_joint: [!dag_node -3 , !dag_prev ]
+      get_marginals:
+        # Broadcast loss and parameters into a common dataset
+        - flatten_dims: [ !arg 1 ]
           kwargs:
-            bins: !kwarg bins
-            range: !kwarg range
-            normalize: False
-            differential: ~
-        - compute_marginal: [!dag_prev , !kwarg parameter]
+            dims: !kwarg flatten_dims
+        - flatten_dims: [ !arg 0 ]
           kwargs:
-            normalize: !kwarg normalize
+            dims: !kwarg flatten_dims
+        - broadcast: [ !dag_prev , !dag_node -2 ]
+        # Compute the marginals on a very fine grid
+        - compute_marginal: [ !dag_prev , !arg 2 ]
+          kwargs:
+            x: x
+            p: loss
+            statistic: !kwarg statistic
+            exclude_dim: !kwarg exclude_dim
+          file_cache:
+            write: True
+            read: True
+  sharey: False
+  sharex: False
+  color: !dag_result c_darkblue

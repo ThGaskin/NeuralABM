@@ -26,7 +26,6 @@ coloredlogs.install(fmt="%(levelname)s %(message)s", level="INFO", logger=log)
 class SIR_NN:
     def __init__(
         self,
-        name: str,
         *,
         rng: np.random.Generator,
         h5group: h5.Group,
@@ -44,7 +43,6 @@ class SIR_NN:
         HDF5 group to write the output data to.
 
         Args:
-            name (str): The name of this model instance
             rng (np.random.Generator): The shared RNG
             h5group (h5.Group): The output file group to write data to
             neural_net: The neural network
@@ -55,8 +53,6 @@ class SIR_NN:
             write_start: iteration at which to start writing
             num_steps: number of iterations of the ABM
         """
-        self._name = name
-        self._time = 0
         self._h5group = h5group
         self._rng = rng
 
@@ -114,9 +110,7 @@ class SIR_NN:
         self.dset_parameters.attrs["coords_mode__parameter"] = "values"
         self.dset_parameters.attrs["coords__parameter"] = to_learn
 
-        self._write_every = write_every
-        self._write_start = write_start
-
+        # The training data and batch ids
         self.training_data = training_data
 
         batches = np.arange(0, training_data.shape[0], batch_size)
@@ -126,6 +120,11 @@ class SIR_NN:
             if batches[-1] != training_data.shape[0] - 1:
                 batches = np.append(batches, training_data.shape[0] - 1)
         self.batches = batches
+
+        # Batches processed
+        self._time = 0
+        self._write_every = write_every
+        self._write_start = write_start
 
     def epoch(self):
 
@@ -269,7 +268,6 @@ if __name__ == "__main__":
 
     # Initialise the model
     model = SIR_NN(
-        model_name,
         rng=rng,
         h5group=h5group,
         neural_net=net,

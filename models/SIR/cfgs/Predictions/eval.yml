@@ -53,6 +53,9 @@ densities_from_joint:
       file_cache:
         read: True
         write: True
+    # No point plotting the mode, as sampling from sigma will produce a single stochastic process, rather than an
+    # average
+    - .sel: [!dag_prev , {type: [true_counts, prediction_mean]}]
       tag: data
   x: time
   y: mean
@@ -71,85 +74,45 @@ densities_from_joint:
         set_legend:
           use_legend: True
           gather_from_fig: True
-          custom_labels: [mean prediction, mode prediction, true data]
   style:
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[darkblue]:}', '{colors[orange]:}', '{colors[lightbrown]:}'])"
+      fstr: "cycler('color', ['{colors[darkblue]:}', '{colors[orange]:}'])"
       colors:
         darkblue: '#2F7194'
         orange: '#EC9F7E'
-        lightbrown: '#C6BFA2'
   file_ext: pdf
 
-# ======================================================================================================================
-#  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
-#  ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
-#  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
-# ======================================================================================================================
-
-# Plot the marginals of the parameters
-marginals: !pspace
+# Plot the marginals on the parameters
+marginals:
   based_on:
     - .marginal_mv
-    - .plot.prob_density
-  dag_options:
-    define:
-      parameter: !sweep
-        default: 'p_infect'
-        values: ['p_infect', 't_infectious', 'sigma']
-      label: !coupled-sweep
-        default: '$\beta$'
-        values: ['$\beta$', '$\tau$', '$\sigma$']
-        target_name: parameter
+    - .plot.facet_grid.density
   transform:
-    - get_marginal: [!dag_tag parameters, !dag_tag probabilities]
+    # Get the bin edges and ranges for each parameter:
+    # the intervals given by the prior, and a high bin count to ensure points that are not equal are not
+    # averaged together
+    - xr.DataArray:
+        data: [[0, 1, 1000], [1, 30, 1000], [0, 1, 1000]]
+        dims: ['parameter', 'idx']
+        coords: {parameter: [p_infect, t_infectious, sigma]}
+      tag: bins
+    - get_marginals: [!dag_tag parameters, !dag_tag probabilities, !dag_tag bins]
       kwargs:
-        parameter: !dag_tag parameter
-        bins: 100
-        range: [[0, 1], [1, 30], [0, 1]]
-        normalize: True
+        statistic: mean
+        exclude_dim: [ parameter ]
+        flatten_dims: {sample: [ seed, batch ] }
       tag: data
-    - mode: [ !dag_tag data]
-      kwargs:
-        p: mean
-    - .coords: [!dag_prev , !dag_tag parameter]
-    - .item: [!dag_prev ]
-    - .format: [ '{:.2f}', !dag_prev ]
-      tag: mode
-    - mean: [ !dag_tag data ]
-      kwargs:
-        x: !dag_tag parameter
-        p: mean
-    - getitem: [!dag_prev , 'mean']
-      tag: mean
-    - std: [ !dag_tag data ]
-      kwargs:
-        x: !dag_tag parameter
-        p: mean
-    - getitem: [!dag_prev , 'std']
-    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
-      tag: info_str
-  compute_only: [data, info_str, mode]
-  info_box_labels:
-    info_str: !coupled-sweep
-      default: '$\mathrm{mean}$'
-      values: ['${\rm E}[\hat{\beta}]$', '${\rm E}[\hat{\tau}]$', '${\rm E}[\hat{\sigma}]$']
-      target_name: parameter
-    mode: '$\mathrm{mode}$'
-  x: !dag_result parameter
-  y: mean
-  yerr: std
-  color: !dag_result c_darkblue
+  x: x
+  y: p
+  col: parameter
   helpers:
     set_labels:
-      x: !dag_result label
+      y: ' '
   smooth_kwargs:
     enabled: True
-    sigma: 2
+    sigma: 20
   style:
     figure.figsize: [!dag_result half_width, !dag_result quarter_width]
-
-
 
 # Plot the joint distribution over p_infect and t_infectious
 joint:
@@ -168,7 +131,7 @@ joint:
     set_labels:
       x: $\beta$
       y: $\tau$
-  cmap:
+  cmap: &cmap
     continuous: true
     from_values:
       0: !dag_result c_darkblue
@@ -229,28 +192,60 @@ priors:
   style:
     figure.figsize: [!dag_result full_width, !dag_result quarter_width]
 
-
-# Plot the evolution of the losses for all the runs
-loss:
+# Plot the predictions over time, colour-coded by loss
+predictions:
   based_on:
     - .creator.multiverse
-    - .plot.facet_grid.line
+    - .plot.facet_grid.scatter
   select_and_combine:
     fields:
-      data: loss
-  hue: seed
+      parameters:
+        path: parameters
+        transform: [.data]
+      loss:
+        path: loss
+        transform: [.data]
+  transform:
+    - broadcast: [!dag_tag parameters, !dag_tag loss]
+      kwargs:
+        exclude_dim: [seed]
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {batch: [batch, seed]}
+      tag: data
+  x: batch
+  y: x
+  hue: loss
+  col: parameter
+  s: 2
+  sharey: False # Seems to have no effect?
+  sharex: False
   helpers:
-    set_legend:
-      use_legend: False
-    set_scales:
-      y: log
-  color: !dag_result c_grey
-  alpha: 0.5
-  style:
-    figure.figsize: [ !dag_result full_width, !dag_result half_width ]
+    set_limits:
+      x: [min, max]
+      y: [0, max] # Why is this necessary?
+  add_legend: False
+  norm:
+    name: LogNorm
+  vmax: 100
+  cmap:
+    <<: *cmap
 
-# Plot the evolution of the predictions
-predictions:
-  based_on: predictions_mv
-  alpha: 0.5
-  c: !dag_result c_grey
+# Plot the loss landscape of the parameters, colour-coded by loss
+probability_landscape:
+  based_on: predictions
+  add_legend: False
+  select_and_combine:
+    fields:
+      loss:
+        transform:
+          - mul: [!dag_prev , -1]
+          - np.exp: [!dag_prev ]
+  x: x
+  y: loss
+  hue: loss
+  s: 2
+  norm: ~
+  vmax: ~
+  cbar_kwargs:
+    label: Unnormalised probability

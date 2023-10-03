@@ -1,1 +1,1 @@
-from .prob_density import plot_prob_density
+from .prob_density import add_entry_to_figlegend, plot_prob_density

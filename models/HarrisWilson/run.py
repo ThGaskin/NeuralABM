@@ -10,6 +10,8 @@ import ruamel.yaml as yaml
 import torch
 from dantro import logging
 from dantro._import_tools import import_module_from_path
+from tqdm import trange
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 sys.path.append(up(up(__file__)))
 sys.path.append(up(up(up(__file__))))
@@ -37,6 +39,7 @@ class HarrisWilson_NN:
         to_learn: list,
         write_every: int = 1,
         write_start: int = 1,
+        training_data: torch.Tensor,
         **__,
     ):
         """Initialize the model instance with a previously constructed RNG and
@@ -51,7 +54,8 @@ class HarrisWilson_NN:
             to_learn: the list of parameter names to learn
             write_every: write every iteration
             write_start: iteration at which to start writing
-            num_steps: number of iterations of the ABM
+            training_data: training data used to train the neural net
+
         """
         self._h5group = h5group
         self._rng = rng
@@ -78,9 +82,9 @@ class HarrisWilson_NN:
             chunks=True,
             compression=3,
         )
-        self._dset_loss.attrs["dim_names"] = ["time"]
-        self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_loss.attrs["coords__time"] = [write_start, write_every]
+        self._dset_loss.attrs["dim_names"] = ["epoch"]
+        self._dset_loss.attrs["coords_mode__epoch"] = "start_and_step"
+        self._dset_loss.attrs["coords__epoch"] = [write_start, write_every]
 
         self.dset_time = self._h5group.create_dataset(
             "computation_time",
@@ -92,19 +96,24 @@ class HarrisWilson_NN:
         self.dset_time.attrs["dim_names"] = ["epoch"]
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
 
-        dset_predictions = []
-        for p_name in to_learn:
-            dset = self._h5group.create_dataset(
-                p_name, (0,), maxshape=(None,), chunks=True, compression=3
-            )
-            dset.attrs["dim_names"] = ["time"]
-            dset.attrs["coords_mode__time"] = "start_and_step"
-            dset.attrs["coords__time"] = [write_start, write_every]
+        # Write the parameter predictions after every epoch
+        self.dset_parameters = self._h5group.create_dataset(
+            "parameters",
+            (0, len(to_learn)),
+            maxshape=(None, len(to_learn)),
+            chunks=True,
+            compression=3,
+        )
+        self.dset_parameters.attrs["dim_names"] = ["epoch", "parameter"]
+        self.dset_parameters.attrs["coords_mode__epoch"] = "start_and_step"
+        self.dset_parameters.attrs["coords__epoch"] = [write_start, write_every]
+        self.dset_parameters.attrs["coords_mode__parameter"] = "values"
+        self.dset_parameters.attrs["coords__parameter"] = to_learn
 
-            dset_predictions.append(dset)
-        self._dset_predictions = dset_predictions
+        # The training data
+        self.training_data = training_data
 
-        # Count the number of gradient descent steps
+        # Epochs processed
         self._time = 0
         self._write_every = write_every
         self._write_start = write_start
@@ -112,8 +121,6 @@ class HarrisWilson_NN:
     def epoch(
         self,
         *,
-        training_data: torch.tensor,
-        batch_size: int,
         epsilon: float = None,
         dt: float = None,
         **__,
@@ -121,9 +128,6 @@ class HarrisWilson_NN:
 
         """Trains the model for a single epoch.
 
-        :param training_data: the training data
-        :param batch_size: the number of time series elements to process before conducting a gradient descent
-                step
         :param epsilon: (optional) the epsilon value to use during training
         :param dt: (optional) the time differential to use during training
         :param __: other parameters (ignored)
@@ -132,42 +136,27 @@ class HarrisWilson_NN:
         # Track the epoch training time
         start_time = time.time()
 
-        # Track the training loss
-        loss = torch.tensor(0.0, requires_grad=True)
+        predicted_parameters = self._neural_net(torch.flatten(self.training_data[0]))
+        predicted_data = ABM.run(
+            input_data=predicted_parameters,
+            init_data=self.training_data[0],
+            epsilon=epsilon,
+            dt=dt,
+            n_iterations=self.training_data.shape[0],
+            generate_time_series=False,
+        )
 
-        # Count the number of batch items processed
-        n_processed_steps = 0
+        loss = self.loss_function(predicted_data, self.training_data)
 
-        # Process the training set elementwise, updating the loss after batch_size steps
-        for t, sample in enumerate(training_data):
-
-            predicted_parameters = self._neural_net(torch.flatten(sample))
-            predicted_data = ABM.run_single(
-                input_data=predicted_parameters,
-                curr_vals=sample,
-                epsilon=epsilon,
-                dt=dt,
-                requires_grad=True,
-            )
-
-            loss = loss + self.loss_function(predicted_data, sample)
-
-            n_processed_steps += 1
-
-            # Update the model parameters after every batch and clear the loss
-            if t % batch_size == 0 or t == len(training_data) - 1:
-                loss.backward()
-                self._neural_net.optimizer.step()
-                self._neural_net.optimizer.zero_grad()
-                self._time += 1
-                self._current_loss = (
-                    loss.clone().detach().cpu().numpy().item() / n_processed_steps
-                )
-                self._current_predictions = predicted_parameters.clone().detach().cpu()
-                self.write_data()
-                del loss
-                loss = torch.tensor(0.0, requires_grad=True)
-                n_processed_steps = 0
+        loss.backward()
+        self._neural_net.optimizer.step()
+        self._neural_net.optimizer.zero_grad()
+        self._time += 1
+        self._current_loss = (
+            loss.clone().detach().cpu().numpy().item() / self.training_data.shape[0]
+        )
+        self._current_predictions = predicted_parameters.clone().detach().cpu()
+        self.write_data()
 
         # Write the epoch training time (wall clock time)
         self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
@@ -185,9 +174,8 @@ class HarrisWilson_NN:
             self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
             self._dset_loss[-1] = self._current_loss
 
-            for idx, dset in enumerate(self._dset_predictions):
-                dset.resize(dset.shape[0] + 1, axis=0)
-                dset[-1] = self._current_predictions[idx]
+            self.dset_parameters.resize(self.dset_parameters.shape[0] + 1, axis=0)
+            self.dset_parameters[-1, :] = self._current_predictions
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -261,11 +249,11 @@ if __name__ == "__main__":
         rng=rng,
         h5group=h5group,
         neural_net=net,
-        loss_function=model_cfg["Training"].pop("loss_function"),
         ABM=ABM,
-        to_learn=model_cfg["Training"].pop("to_learn"),
         write_every=cfg["write_every"],
         write_start=cfg["write_start"],
+        training_data=dest_sizes,
+        **model_cfg["Training"],
     )
     log.info(f"   Initialized model '{model_name}'.")
 
@@ -273,11 +261,9 @@ if __name__ == "__main__":
     num_epochs = cfg["num_epochs"]
     log.info(f"   Now commencing training for {num_epochs} epochs ...")
 
-    for _ in range(num_epochs):
-
-        model.epoch(training_data=dest_sizes, **model_cfg["Training"])
-
-        log.progress(f"   Completed epoch {_+1} / {num_epochs}.")
+    with logging_redirect_tqdm():
+        for _ in trange(num_epochs):
+            model.epoch(**model_cfg["Training"])
 
     log.info("   Simulation run finished.")
     log.note("   Wrapping up ...")

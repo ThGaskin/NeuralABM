@@ -62,6 +62,9 @@ Data:
     sigma_i: 0.03
     sigma_r: 0.15
 
+    # Noise parameter for the smooth model
+    sigma: 0.1
+
     # Number of steps to run
     num_steps: 200
 ```

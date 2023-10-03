@@ -137,7 +137,6 @@ def generate_synthetic_data(
         input_data=None,
         n_iterations=num_steps,
         generate_time_series=True,
-        requires_grad=False,
     )
 
     # Return all three
@@ -177,7 +176,11 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
 
     # If time series has a single frame, double it to enable visualisation.
     # This does not affect the training data
-    training_data_size = cfg.get("training_data_size", time_series.shape[0])
+    training_data_size = cfg.get("training_data_size", None)
+    training_data_size = (
+        time_series.shape[0] if training_data_size is None else training_data_size
+    )
+
     if time_series.shape[0] == 1:
         time_series = torch.concat((time_series, time_series), axis=0)
 
