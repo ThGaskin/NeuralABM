@@ -636,6 +636,74 @@ def joint_DD(
     )
 
 
+@is_operation("compute_marginals")
+@apply_along_dim
+def marginals_old(
+    data: xr.Dataset,
+    *,
+    x: str,
+    p: str,
+    bins: int = 100,
+    clip: tuple = [-np.inf, +np.inf],
+) -> xr.Dataset:
+    """
+    Previous version of the marginal calculation: will be deprecated in a future release
+    Sorts a dataset containing pairs of estimated parameters and associated probabilities (a, p(a)) into
+    bins and calculates the marginal density by summing over each bin entry. All dimensions in the dataset are
+    flattened and a one-dimensional dataset returned (with the bin index as the coordinate dimension); for example,
+    if the dataset contains estimates from many different seeds, these are all flattened into a single long array
+    before marginalising.
+
+    :param data: the dataset, containing parameter estimates
+    :param x: the name of the parameter variable
+    :param p: the name of the probability variable
+    :param bins: number of bins
+    :param clip: clip the data to a certain range
+    :return: an xr.Dataset of the marginal densities
+    """
+    import logging
+
+    log = logging.getLogger(__name__)
+    log.warning(
+        "This function will soon be deprecated. Use the 'marginal', 'marginal_from_joint', or 'marginal_ds' "
+        "functions instead!"
+    )
+
+    # Collect all points into a list of tuples and sort by their x value
+    zipped_pairs = sorted(
+        np.array(
+            [
+                z
+                for z in list(zip(data[x].values.flatten(), data[p].values.flatten()))
+                if not (
+                    np.isnan(z[0]) or np.isnan(z[1]) or z[0] < clip[0] or z[0] > clip[1]
+                )
+            ]
+        ),
+        key=itemgetter(0),
+    )
+
+    # Create bins
+    x, y = np.linspace(zipped_pairs[0][0], zipped_pairs[-1][0], bins), np.zeros(bins)
+    dx = x[1] - x[0]
+    bin_no = 1
+
+    # Sort x into bins; cumulatively gather y-values
+    for point in zipped_pairs:
+        while point[0] > x[bin_no]:
+            bin_no += 1
+        y[bin_no - 1] += point[1]
+
+    # Normalise y to 1
+    y /= np.sum(y) * dx
+
+    # Combine into a xr.Dataset
+    return xr.Dataset(
+        data_vars=dict(p=("bin_idx", y), x=("bin_idx", x)),
+        coords={"bin_idx": np.arange(0, bins, 1)},
+    )
+
+
 @is_operation("Hellinger_distance")
 @apply_along_dim
 def Hellinger_distance(
