@@ -49,11 +49,9 @@ def plot_prob_density(
     def _plot_1d(*, _x, _y, _yerr, _smooth_kwargs, _ax, _label=None, **_plot_kwargs):
 
         """Plots a single parameter density and smooths the marginal. Returns the artists for the legend."""
-
         smooth, sigma = _smooth_kwargs.pop("enabled", False), _smooth_kwargs.pop(
             "sigma", None
         )
-
         # Smooth the y values, if given
         if smooth:
             _y = scipy.ndimage.gaussian_filter1d(_y, sigma, **_smooth_kwargs)
@@ -81,7 +79,7 @@ def plot_prob_density(
 
     # Get the dataset and parameter name
     dset = ds
-    if "parameter" in list(ds.coords.keys()):
+    if "parameter" in list(ds.coords):
         pname = ds.coords["parameter"].values.item()
     else:
         pname = list(ds.coords.keys())[0]
@@ -103,7 +101,7 @@ def plot_prob_density(
                 _x=x_vals,
                 _y=y_vals,
                 _yerr=yerr_vals,
-                _smooth_kwargs=copy.deepcopy(smooth_kwargs).get(pname, smooth_kwargs),
+                _smooth_kwargs=copy.deepcopy(smooth_kwargs.get(pname, smooth_kwargs)),
                 _ax=hlpr.ax,
                 _label=f"{coord}",
                 **plot_kwargs,
@@ -130,7 +128,7 @@ def plot_prob_density(
             _y=y_vals,
             _yerr=yerr_vals,
             _ax=hlpr.ax,
-            _smooth_kwargs=copy.deepcopy(smooth_kwargs).get(pname, smooth_kwargs),
+            _smooth_kwargs=copy.deepcopy(smooth_kwargs.get(pname, smooth_kwargs)),
             _label=label,
             **plot_kwargs,
         )

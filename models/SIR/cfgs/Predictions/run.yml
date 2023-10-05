@@ -41,5 +41,5 @@ parameter_space:
             upper: 0.8
 
     Training:
-      batch_size: 100 # Use the entire length of the training time series
+      batch_size: 100
       to_learn: [p_infect, t_infectious, sigma]

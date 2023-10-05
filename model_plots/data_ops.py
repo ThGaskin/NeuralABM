@@ -1,6 +1,6 @@
 import itertools
 from operator import itemgetter
-from typing import Any, Union
+from typing import Any, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -77,7 +77,6 @@ def apply_along_dim(func):
                         }
                     )
                 )
-
             # Merge the datasets into one and return
             return xr.merge(dsets)
 
@@ -382,39 +381,240 @@ def hist_ndim(
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-@is_operation("compute_joint")
+@is_operation("joint_2D")
 @apply_along_dim
-def compute_joint(
-    data: xr.Dataset,
-    p: xr.DataArray,
+def joint_2D(
+    x: xr.DataArray,
+    y: xr.DataArray,
+    values: xr.DataArray,
+    bins: Union[int, xr.DataArray] = 100,
+    ranges: xr.DataArray = None,
     *,
-    normalize: bool = False,
+    statistic: Union[str, callable] = "mean",
+    normalize: Union[bool, float] = False,
     differential: float = None,
-    statistic: str,
+    dim_names: Sequence = ("x", "p"),
     **kwargs,
-) -> xr.Dataset:
-    """Computes the joint distribution of a dataset of parameters by calling the scipy.stats.binned_statistic_dd
-    function. This function is computationally expensive. It can at most handle 32 dimensional-data,
-    and is thus not applicable to high dimensional models (e.g. network learning). In addition, bin counts higher than
-    200-300 typically lead to memory overflow, and so fine meshes cannot be achieved. If marginals are
-    required it is recommended to use the `compute_marginal` function directly.
+) -> xr.DataArray:
+    """
+    Computes the two-dimensional joint distribution of a dataset of parameters by calling the scipy.stats.binned_statistic_2d
+    function.
 
-    The function returns a statistic for each bin (typically the mean), as well as a standard deviation.
+    The function returns a statistic for each bin (typically the mean).
 
-    :param data: dataset of parameter estimates
-    :param p: dataset of associated likelihoods
-    :param normalize: whether to normalize the joint (False by default)
+    :param x: DataArray of values in the first dimension
+    :param y: DataArray of values in the second dimension
+    :param values: DataArray of values to be binned
+    :param bins: bins argument to `scipy.binned_statistic_2d`
+    :param ranges: range arguent to `scipy.binned_statistic_2d`
+    :param normalize: whether to normalize the joint (False by default), and the normalisation value (1 by default)
     :param differential: the spacial differential dx to use for normalisation. Defaults to the grid spacing
+    :param dim_names (optional): names of the two dimensions
     :return: an xr.Dataset of the joint distribution
     """
 
-    # Get the statisics and bin edges
-    stat, bin_edges, _ = scipy.stats.binned_statistic_dd(
-        data, p, statistic=statistic, **kwargs
-    )
-    # Also calculate the standard deviation from the mean for each bin, for convenient plotting
-    std, _, _ = scipy.stats.binned_statistic_dd(data, p, statistic="std", **kwargs)
+    # Get the number of bins
+    if isinstance(bins, xr.DataArray):
+        bins = bins.data
 
+    # Allow passing 'None' arguments in the plot config for certain entries of the range arg
+    # This allows clipping only on some dimensions without having to specify every limit
+    if ranges is not None:
+        ranges = np.array(ranges.data)
+        for idx in range(len(ranges)):
+            if None in ranges[idx]:
+                ranges[idx] = (
+                    [np.min(x), np.max(x)] if idx == 0 else [np.min(y), np.max(y)]
+                )
+
+    # Get the statistics and bin edges
+    stat, x_edge, y_edge, _ = scipy.stats.binned_statistic_2d(
+        x, y, values, statistic=statistic, bins=bins, range=ranges, **kwargs
+    )
+    # Normalise the joint distribution, if given
+    if normalize:
+        dxdy = (
+            np.prod([a[1] - a[0] for a in [x_edge, y_edge]])
+            if differential is None
+            else differential
+        )
+        norm = np.nansum(stat) * dxdy
+        stat /= norm if isinstance(normalize, bool) else norm / normalize
+
+    return xr.DataArray(
+        data=stat,
+        dims=dim_names,
+        coords={
+            dim_names[0]: 0.5 * (x_edge[1:] + x_edge[:-1]),
+            dim_names[1]: 0.5 * (y_edge[1:] + y_edge[:-1]),
+        },
+        name="joint",
+    )
+
+
+@is_operation("joint_2D_ds")
+@apply_along_dim
+def joint_2D_ds(
+    ds: Union[xr.DataArray, xr.Dataset],
+    values: xr.DataArray,
+    bins: xr.DataArray = 100,
+    ranges: xr.DataArray = None,
+    *,
+    x: str,
+    y: str,
+    **kwargs,
+) -> xr.DataArray:
+    """Computes a two-dimensional joint from a single dataset with x and y given as variables, or from
+    a DataArray with x and y given as coordinate dimensions."""
+
+    if isinstance(ds, xr.Dataset):
+        return joint_2D(ds[x], ds[y], values, bins, ranges, dim_names=(x, y), **kwargs)
+    elif isinstance(ds, xr.DataArray):
+        return joint_2D(
+            ds.sel(dict(parameter=x)),
+            ds.sel(dict(parameter=y)),
+            values,
+            bins,
+            ranges,
+            dim_names=(x, y),
+            **kwargs,
+        )
+
+
+@is_operation("marginal_from_joint")
+@apply_along_dim
+def marginal_from_joint(
+    joint: Union[xr.DataArray, xr.Dataset],
+    *,
+    parameter: str,
+    normalize: Union[bool, float] = True,
+) -> xr.Dataset:
+    """
+    Computes a marginal from a two-dimensional joint distribution by summing over one parameter. Normalizes
+    the marginal, if specified. NaN values in the joint are skipped when normalising: they are not zero, just unknown.
+    Since x-values may differ for different parameters, the x-values are variables in a dataset, not coordinates.
+    The coordinates are given by the bin index, thereby allowing marginals across multiple parameters to be combined
+    into a single xr.Dataset.
+    """
+
+    # Get the integration coordinate
+    integration_coord = list(joint.coords)
+    integration_coord.remove(parameter)
+    integration_coord = integration_coord[0]
+
+    marginal = []
+    for i in range(len(joint.coords[parameter])):
+        _y, _x = joint.isel({parameter: i}).data, joint.coords[integration_coord]
+        marginal.append(scipy.integrate.trapezoid(_y[~np.isnan(_y)], _x[~np.isnan(_y)]))
+
+    # Normalise, if given
+    if normalize:
+        norm = scipy.integrate.trapezoid(marginal, joint.coords[parameter])
+        marginal /= norm if isinstance(normalize, bool) else norm / normalize
+
+    # Return a dataset with x- and y-values as variables, and coordinates given by the bin index
+    return xr.Dataset(
+        data_vars=dict(
+            x=(["bin_idx"], joint.coords[parameter].data),
+            marginal=(["bin_idx"], marginal),
+        ),
+        coords=dict(bin_idx=(["bin_idx"], np.arange(len(joint.data)))),
+    )
+
+
+@is_operation("marginal")
+@apply_along_dim
+def marginal(
+    x: xr.DataArray,
+    prob: xr.DataArray,
+    bins: xr.DataArray,
+    ranges: xr.DataArray,
+    *,
+    parameter: str = "x",
+    normalize: Union[bool, float] = True,
+    **kwargs,
+) -> xr.Dataset:
+    """
+    Computes a marginal directly from a xr.DataArray of x-values and a xr.DataArray of probabilities by first
+    computing the joint distribution and then marginalising over the probability. This way, points that are sampled
+    multiple times only contribute once to the marginal, which is not a representation of the frequency with which
+    each point is sampled, but of the calculated likelihood function.
+
+    :param x: array of samples in the first dimension (the parameter estimates)
+    :param prob: array of samples in the second dimension (the unnormalised probability value)
+    :param bins: bins to use for both dimensions
+    :param range: range to use for both dimensions. Defaults to the minimum and maximum along each dimension
+    :param parameter: the parameter over which to marginalise. Defaults to the first dimension.
+    :param normalize: whether to normalize the marginal
+    :param kwargs: other kwargs, passed to the joint_2D function
+    :return: an xr.Dataset of the marginal densities
+    """
+    joint = joint_2D(x, prob, prob, bins, ranges, normalize=normalize, **kwargs)
+    return marginal_from_joint(joint, parameter=parameter, normalize=normalize)
+
+
+@is_operation("marginal_from_ds")
+@apply_along_dim
+def marginal_from_ds(
+    ds: xr.Dataset,
+    bins: xr.DataArray = 100,
+    ranges: xr.DataArray = None,
+    *,
+    x: str,
+    y: str,
+    **kwargs,
+) -> xr.Dataset:
+
+    """Computes the marginal from a single dataset with x and y given as variables."""
+    return marginal(ds[x], ds[y], bins, ranges, **kwargs)
+
+
+@is_operation("joint_DD")
+@apply_along_dim
+def joint_DD(
+    sample: xr.DataArray,
+    values: xr.DataArray,
+    bins: Union[int, xr.DataArray] = 100,
+    ranges: xr.DataArray = None,
+    *,
+    statistic: Union[str, callable] = "mean",
+    normalize: Union[bool, float] = False,
+    differential: float = None,
+    dim_names: Sequence,
+    **kwargs,
+) -> xr.DataArray:
+    """
+    Computes the d-dimensional joint distribution of a dataset of parameters by calling the scipy.stats.binned_statistic_dd
+    function. This function can handle at most 32 parameters.
+
+    The function returns a statistic for each bin (typically the mean).
+
+    :param sample: DataArray of values in the first dimension
+    :param values: DataArray of values to be binned
+    :param bins: bins argument to `scipy.binned_statistic_2d`
+    :param ranges: range arguent to `scipy.binned_statistic_2d`
+    :param normalize: whether to normalize the joint (False by default), and the normalisation value (1 by default)
+    :param differential: the spacial differential dx to use for normalisation. Defaults to the grid spacing
+    :param dim_names (optional): names of the two dimensions
+    :return: an xr.Dataset of the joint distribution
+    """
+
+    # Get the number of bins
+    if isinstance(bins, xr.DataArray):
+        bins = bins.data
+
+    # Allow passing 'None' arguments in the plot config for certain entries of the range arg
+    # This allows clipping only on some dimensions without having to specify every limit
+    if ranges is not None:
+        ranges = ranges.data
+        for idx in range(len(ranges)):
+            if None in ranges[idx]:
+                ranges[idx] = [np.min(sample.coords[idx]), np.max(sample.coords[idx])]
+
+    # Get the statistics and bin edges
+    stat, bin_edges, _ = scipy.stats.binned_statistic_dd(
+        sample, values, statistic=statistic, bins=bins, range=ranges, **kwargs
+    )
     # Normalise the joint distribution, if given
     if normalize:
         differential = (
@@ -423,186 +623,16 @@ def compute_joint(
             else differential
         )
         norm = np.nansum(stat) * differential
-    else:
-        norm = 1
+        stat /= norm if isinstance(normalize, bool) else norm / normalize
 
-    # Combine into a xr.Dataset
-    parameter_coords = data.coords["parameter"].data
-    return xr.Dataset(
-        data_vars={
-            statistic: (parameter_coords, stat / norm),
-            "std": (parameter_coords, std / norm),
+    return xr.DataArray(
+        data=stat,
+        dims=dim_names,
+        coords={
+            dim_names[i]: 0.5 * bin_edges[i][1:] + bin_edges[i][:-1]
+            for i in range(len(bin_edges))
         },
-        coords=dict(
-            (parameter_coords[_], 0.5 * (bin_edges[_][1:] + bin_edges[_][:-1]))
-            for _ in range(len(parameter_coords))
-        ),
-    )
-
-
-@is_operation("marginal_from_joint")
-@apply_along_dim
-def marginal_from_joint(
-    joint: xr.Dataset,
-    *,
-    parameter: Union[str, list],
-    normalize: bool = True,
-) -> xr.Dataset:
-    """Computes the marginal of a parameter or several parameters from a given joint distribution by summing
-    over a joint distribution. If specified, normalises the marginal to 1. This requires first calculating a potentially
-    high-dimensional joint distribution, typically using the scripy.stats.binned_statistic_dd function, which is
-    computationally expensive and not recommended. Instead, calculate marginals from the parameter estimates directly
-    using the "compute_marginal" function
-
-    :param joint: joint distribution of parameter estimates
-    :param parameter: parameter over which to marginalise; can be a parameter name or 'all'
-    :param normalize: whether to normalise the marginal (True by default)
-    :return: an xr.Dataset of the marginal distribution
-    """
-
-    def _marginal_1d(_joint: xr.Dataset, _parameter: str) -> xr.Dataset:
-        """Computes the marginal of a single parameter"""
-        _parameters = _joint.coords
-        for _p in list(_parameters):
-            if _p != _parameter:
-                _joint = _joint.sum(_p)
-        if normalize:
-            _dx = (
-                _joint["mean"].coords[_parameter].data[1]
-                - _joint["mean"].coords[_parameter].data[0]
-            )
-            _joint /= _joint["mean"].sum(skipna=True) * _dx
-        _x_vals = joint.coords[_parameter].values
-        _joint = (
-            _joint.assign_coords({_parameter: np.arange(len(_x_vals))})
-            .rename({_parameter: "bin_idx"})
-            .assign(x=("bin_idx", _x_vals))
-        )
-        return _joint
-
-    if isinstance(parameter, str):
-        if parameter == "all":
-            parameter = list(joint.coords)
-        else:
-            parameter = [parameter]
-
-    # Multiple marginals can only be merged into a single Dataset if all parameter lengths are equal
-    if not all(
-        [len(joint.coords[p]) == len(joint.coords[parameter[0]]) for p in parameter]
-    ):
-        raise ValueError(
-            "The different parameters have different bin sizes and cannot be merged into a single "
-            "xr.Dataset!"
-        )
-
-    return xr.concat(
-        [_marginal_1d(joint, p).expand_dims({"parameter": [p]}) for p in parameter],
-        dim="parameter",
-    )
-
-
-@is_operation("compute_marginal")
-@apply_along_dim
-def compute_marginal(
-    data: xr.Dataset,
-    bins: Any = 100,
-    *,
-    x: str,
-    p: str,
-    statistic: Union[str, callable] = "mean",
-    normalize: bool = True,
-    aggregate: int = None,
-) -> xr.Dataset:
-    """Calculates the marginal density of a single parameter. This function avoids having to first calculate a high-
-    dimensional joint density function, which can become computationally prohibitively expensive. Instead, in order to
-    estimate the probability exp(-J) of each bin, the parameter is first binned into a very fine grid, ensuring that
-    any two points in the same bin are very likely to be the same point. The probability of each bin is then estimated
-    using a statistic function -- typically the mean -- and the grid can then be aggregated into a coarser grid by
-    summing over adjacenct bins (using the 'aggregate' keyword) or by smoothing over the fine grid.
-    (done by the plot function).
-
-    :param data: the dataset, containing parameter estimates
-    :param x: the name of the parameter variable
-    :param p: the name of the probability variable
-    :param bins: number and range of bins of the output. Can either be a single int, in which case it is interpreted as
-        the number of bins; can be a 2-tuple of ints, in which case it is interpreted as a range; or it can be a
-        three-tuple, in which case it is interpreted as a range and the number of bins.
-    :param statistic: how to process identical points in the same mean
-    :param normalize: whether to normalise the marginal to 1
-
-    :return: an xr.Dataset of the marginal densities
-    """
-
-    # Dictionary of available statistics functions
-    _STAT_FUNCS: dict = {
-        "sum": np.nansum,
-        "mean": np.nanmean,
-        "max": np.max,
-        "min": np.min,
-        "count": len,
-    }
-
-    # Get the range of the bins and number of bins (100 by default)
-    if isinstance(bins, int):
-        bins = [bins]
-    if isinstance(bins, (xr.Dataset, xr.DataArray)):
-        bins = bins.to_numpy()
-
-    if len(bins) == 1:
-        bins = bins[0]
-        clip = [-np.inf, +np.inf]
-    elif len(bins) == 2:
-        clip = bins
-        bins = int(100)
-    else:
-        clip, bins = bins[0:2], int(bins[-1])
-
-    # Collect all points into a list of tuples and sort by their x value
-    zipped_pairs = sorted(
-        np.array(
-            [
-                z
-                for z in list(zip(data[x].values.flatten(), data[p].values.flatten()))
-                if not (
-                    np.isnan(z[0]) or np.isnan(z[1]) or z[0] < clip[0] or z[0] > clip[1]
-                )
-            ]
-        ),
-        key=itemgetter(0),
-    )
-
-    # Create bins
-    x, y = np.linspace(zipped_pairs[0][0], zipped_pairs[-1][0], bins), dict(
-        (_, []) for _ in range(bins)
-    )
-    bin_no = 1
-
-    for point in zipped_pairs:
-        while point[0] > x[bin_no]:
-            bin_no += 1
-        y[bin_no - 1].append(point[1])
-
-    # Aggregate points in the same bin using the given statistic (mean by default)
-    _stat_func = _STAT_FUNCS[statistic] if isinstance(statistic, str) else statistic
-    y = np.array([_stat_func(_) if _ else 0 for _ in y.values()])
-
-    # If given, coarsen the bins
-    if aggregate:
-        x = x[int(aggregate / 2) :: aggregate]
-        y = [
-            np.sum(y[i : i + aggregate])
-            for i in range(0, len(y) - aggregate + 1, aggregate)
-        ]
-
-    # Calculate the differential and normalise to 1
-    if normalize:
-        dx = x[1] - x[0]
-        y /= np.nansum(y) * dx
-
-    # Combine into a xr.Dataset
-    return xr.Dataset(
-        data_vars=dict(p=("bin_idx", y), x=("bin_idx", x)),
-        coords={"bin_idx": np.arange(0, len(x), 1)},
+        name="joint",
     )
 
 
@@ -843,3 +873,106 @@ def triangles_ndim(
         return res.rename("triangles")
     else:
         return res
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# MATRIX SELECTION POWERGRID OPERATIONS
+# ----------------------------------------------------------------------------------------------------------------------
+@is_operation("sel_matrix_indices")
+@apply_along_dim
+def matrix_indices_sel(ds: xr.DataArray, indices: xr.Dataset) -> xr.DataArray:
+    """Returns the predictions on the weights of the entries given by indices"""
+    return ds.isel(
+        i=(indices["i"]),
+        j=xr.DataArray(indices["j"]),
+    )
+
+
+@is_operation("largest_entry_indices")
+@apply_along_dim
+def largest_entry_indices(
+    ds: xr.DataArray, n: int, *, symmetric: bool = True
+) -> xr.Dataset:
+    """Returns the 2d-indices of the n largest entries in an adjacency matrix, as well as the corresponding values.
+    If the matrix is symmetric, only the upper triangle is considered. Sorted from highest to lowest."""
+
+    if symmetric:
+        indices_i, indices_j = np.unravel_index(
+            np.argsort(np.triu(ds.data).ravel()), np.shape(ds)
+        )
+    else:
+        indices_i, indices_j = np.unravel_index(
+            np.argsort(ds.data.ravel()), np.shape(ds)
+        )
+
+    i, j = indices_i[-n:][::-1], indices_j[-n:][::-1]
+    vals = ds.data[i, j]
+
+    return xr.Dataset(
+        data_vars=dict(i=("idx", i), j=("idx", j), relative_error=("idx", vals)),
+        coords=dict(idx=("idx", np.arange(len(i)))),
+    )
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# MCMC operations
+# ----------------------------------------------------------------------------------------------------------------------
+@is_operation("batch_mean")
+@apply_along_dim
+def batch_mean(da: xr.DataArray, *, batch_size: int = None) -> xr.Dataset:
+    """Computes the mean of a single sampling chain over batches of length B. Default batch length is
+    int(sqrt(N)), where N is the length of the chain.
+
+    :param da: dataarray of samples
+    :param batch_size: batch length over which to compute averages
+    :return: res: averages of the batches
+    """
+    vals = da.data
+    means = np.array([])
+    windows = np.arange(0, len(vals), batch_size)
+    if len(windows) == 1:
+        windows = np.append(windows, len(vals) - 1)
+    else:
+        if windows[-1] != len(vals) - 1:
+            windows = np.append(windows, len(vals) - 1)
+    for idx, start_idx in enumerate(windows[:-1]):
+        means = np.append(means, np.mean(vals[start_idx : windows[idx + 1]]))
+
+    return xr.Dataset(
+        data_vars=dict(means=("batch_idx", means)),
+        coords=dict(batch_idx=("batch_idx", np.arange(len(means)))),
+    )
+
+
+@is_operation("gelman_rubin")
+@apply_along_dim
+def gelman_rubin(da: xr.Dataset, *, step_size: int = 1) -> xr.Dataset:
+    R = []
+    for i in range(step_size, len(da.coords["sample"]), step_size):
+        da_sub = da.isel({"sample": slice(0, i)})
+        L = len(da_sub.coords["sample"])
+
+        chain_mean = da_sub.mean("sample")
+        between_chain_variance = L * chain_mean.std("seed", ddof=1) ** 2
+        within_chain_variance = da_sub.std("sample", ddof=1) ** 2
+        W = within_chain_variance.mean("seed")
+        R.append(((L - 1) * W / L + 1 / L * between_chain_variance) / W)
+
+    return xr.Dataset(
+        data_vars=dict(gelman_rubin=("sample", R)),
+        coords=dict(
+            sample=("sample", np.arange(step_size, len(da.coords["sample"]), step_size))
+        ),
+    )
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# CSV operations
+# ----------------------------------------------------------------------------------------------------------------------
+@is_operation("to_csv")
+def to_csv(
+    data: Union[xr.Dataset, xr.DataArray], name: str = "data"
+) -> Union[xr.Dataset, xr.DataArray]:
+    df = data.to_dataframe()
+    df.to_csv(f"{name}.csv")
+    return data

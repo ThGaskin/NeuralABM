@@ -7,7 +7,16 @@
 .variables:
   base_path:        &base_path    data/SIR
 
+.meta_ops:
+  dag_options:
+    meta_operations:
+      neg_exp:
+        - mul: [!arg 0 , -1]
+        - np.exp: [!dag_prev ]
+
 .default_style:
+  dag_visualization:
+    enabled: False
   dag_options:
     define: &colors
 
@@ -90,6 +99,7 @@
   based_on:
     - .creator.universe
     - .default_style
+    - .meta_ops
 
   dag_options:
     select_path_prefix: *base_path
@@ -98,6 +108,7 @@
   based_on:
     - .creator.multiverse
     - .default_style
+    - .meta_ops
 
   select_and_combine:
     base_path: *base_path
@@ -220,131 +231,3 @@ predictions_mv:
   sharey: False
   style:
     figure.figsize: [ !dag_result half_width, !dag_result half_width ]
-
-# -- Distribution plots  -----------------------------------------------------------------------------------------------
-# Base operations for computing the joint (universe case)
-.joint_uni:
-  based_on:
-    - .creator.universe
-  dag_options:
-    meta_operations:
-      get_joint:
-          - compute_joint: [!arg 0 , !arg 1 ]
-            kwargs:
-              bins: !kwarg bins
-              range: !kwarg range
-              normalize: !kwarg normalize
-              differential: !kwarg differential
-              statistic: mean
-  select:
-    parameters:
-      path: parameters
-      transform: [.data]
-    probabilities:
-      path: loss
-      transform:
-        - mul: [!dag_prev , -1]
-        - np.exp: [!dag_prev ]
-
-# Base operations for computing the joint (multiverse case)
-.joint_mv:
-  expected_multiverse_ndim: [ 1 ]
-  based_on:
-    - .creator.multiverse
-  dag_options:
-    meta_operations:
-      get_joint:
-        - flatten_dims: [!arg 0 ]
-          kwargs:
-            dims: {'sample' :['seed', 'batch']}
-        - .transpose: [!dag_prev ]
-        - flatten_dims: [!arg 1 ]
-          kwargs:
-            dims: {'sample' :['seed', 'batch']}
-        - .transpose: [!dag_prev ]
-        - compute_joint: [!dag_node -3 , !dag_prev ]
-          kwargs:
-            bins: !kwarg bins
-            range: !kwarg range
-            normalize: !kwarg normalize
-            differential: !kwarg differential
-            statistic: mean
-  select_and_combine:
-    fields:
-      parameters:
-        path: parameters
-        transform: [.data]
-      probabilities:
-        path: loss
-        transform:
-          - mul: [!dag_prev , -1]
-          - np.exp: [!dag_prev ]
-
-# Base operations for computing the marginal (universe case)
-.marginal_uni:
-  based_on: .creator.universe
-  select:
-    parameters:
-      path: parameters
-      transform: [.data]
-    probabilities:
-      path: loss
-      transform:
-        - mul: [!dag_prev , -1]
-        - np.exp: [!dag_prev ]
-  dag_options:
-    meta_operations:
-      get_marginals:
-        # Broadcast loss and parameters into a common dataset
-        - broadcast: [ !arg 0 , !arg 1 ]
-        # Compute the marginals on a very fine grid
-        - compute_marginal: [ !dag_prev , !arg 2 ]
-          kwargs:
-            x: x
-            p: loss
-            statistic: !kwarg statistic
-            exclude_dim: !kwarg exclude_dim
-          file_cache:
-            write: True
-            read: True
-  sharey: False
-  sharex: False
-  color: !dag_result c_darkblue
-
-# Base operations for computing the marginal (multiverse case)
-.marginal_mv:
-  based_on: .creator.multiverse
-  select_and_combine:
-    fields:
-      parameters:
-        path: parameters
-        transform: [.data]
-      probabilities:
-        path: loss
-        transform:
-          - mul: [!dag_prev , -1]
-          - np.exp: [!dag_prev ]
-  dag_options:
-    meta_operations:
-      get_marginals:
-        # Broadcast loss and parameters into a common dataset
-        - flatten_dims: [ !arg 1 ]
-          kwargs:
-            dims: !kwarg flatten_dims
-        - flatten_dims: [ !arg 0 ]
-          kwargs:
-            dims: !kwarg flatten_dims
-        - broadcast: [ !dag_prev , !dag_node -2 ]
-        # Compute the marginals on a very fine grid
-        - compute_marginal: [ !dag_prev , !arg 2 ]
-          kwargs:
-            x: x
-            p: loss
-            statistic: !kwarg statistic
-            exclude_dim: !kwarg exclude_dim
-          file_cache:
-            write: True
-            read: True
-  sharey: False
-  sharex: False
-  color: !dag_result c_darkblue

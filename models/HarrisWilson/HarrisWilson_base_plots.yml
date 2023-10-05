@@ -7,7 +7,16 @@
 .variables:
   base_path:        &base_path    data/HarrisWilson
 
+.meta_ops:
+  dag_options:
+    meta_operations:
+      neg_exp:
+        - mul: [!arg 0 , -1]
+        - np.exp: [!dag_prev ]
+
 .default_style:
+  dag_visualization:
+    enabled: False
   dag_options:
     define: &colors
 
@@ -90,6 +99,7 @@
   based_on:
     - .creator.universe
     - .default_style
+    - .meta_ops
 
   dag_options:
     select_path_prefix: *base_path
@@ -98,6 +108,7 @@
   based_on:
     - .creator.multiverse
     - .default_style
+    - .meta_ops
 
   select_and_combine:
     base_path: *base_path

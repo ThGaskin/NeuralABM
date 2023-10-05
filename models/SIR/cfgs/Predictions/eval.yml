@@ -8,9 +8,14 @@ densities_from_joint:
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.errorbands
-    - .joint_mv
   select_and_combine:
     fields:
+      parameters:
+        path: parameters
+        transform: [ .data ]
+      probabilities:
+        path: loss
+        transform: [ neg_exp ]
       true_data:
         path: true_counts
         transform: [.data]
@@ -23,6 +28,7 @@ densities_from_joint:
         subspace:
           seed: [0]
   transform:
+
     # Flatten the cfg
     - .data: [!dag_tag cfg]
     - getitem: [!dag_prev , 0]
@@ -33,18 +39,32 @@ densities_from_joint:
       kwargs: {drop: True}
       tag: true_data_flattened
 
-    # Get the normalized joint distribution
-    - get_joint: [!dag_tag parameters, !dag_tag probabilities]
+    # Flatten the probabilities and parameters
+    - flatten_dims: [!dag_tag probabilities ]
       kwargs:
-        bins: 100
-        range: [[0, 1], [1, 30], [0, 0.5]]
+        dims: {sample: [batch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+    - .transpose: [!dag_prev ]
+      tag: params
+
+    # Get the bins for each parameter
+    - xr.DataArray:
+        data: [ 100, 100, 100 ]
+        dims: [ 'idx' ]
+
+    # Get the joint over the parameters
+    - joint_DD: [!dag_tag params, !dag_tag prob, !dag_prev ]
+      kwargs:
         normalize: True
         differential: 1
+        dim_names: [p_infect, t_infectious, sigma]
       file_cache:
         read: True
         write: True
       tag: joint
-    - getitem: [!dag_prev , 'mean']
     - .fillna: [!dag_prev , 0]
     - SIR_densities_from_joint: [!dag_prev ]
       kwargs:
@@ -82,62 +102,49 @@ densities_from_joint:
         orange: '#EC9F7E'
   file_ext: pdf
 
-# Plot the marginals on the parameters
+# Plot the marginals together
 marginals:
   based_on:
-    - .marginal_mv
+    - .creator.multiverse
     - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: parameters
+      probabilities:
+        path: loss
+        transform: [neg_exp]
   transform:
-    # Get the bin edges and ranges for each parameter:
-    # the intervals given by the prior, and a high bin count to ensure points that are not equal are not
-    # averaged together
-    - xr.DataArray:
-        data: [[0, 1, 1000], [1, 30, 1000], [0, 1, 1000]]
-        dims: ['parameter', 'idx']
-        coords: {parameter: [p_infect, t_infectious, sigma]}
-      tag: bins
-    - get_marginals: [!dag_tag parameters, !dag_tag probabilities, !dag_tag bins]
-      kwargs:
-        statistic: mean
-        exclude_dim: [ parameter ]
-        flatten_dims: {sample: [ seed, batch ] }
-      tag: data
-  x: x
-  y: p
-  col: parameter
-  helpers:
-    set_labels:
-      y: ' '
-  smooth_kwargs:
-    enabled: True
-    sigma: 20
-  style:
-    figure.figsize: [!dag_result half_width, !dag_result quarter_width]
 
-# Plot the joint distribution over p_infect and t_infectious
-joint:
-  based_on:
-    - .joint_mv
-    - .plot.facet_grid.pcolormesh
-  transform:
-    - get_joint: [!dag_tag parameters , !dag_tag probabilities ]
-      kwargs: {bins: 100, range: ~, normalize: False, differential: ~}
-    - getitem: [!dag_prev , 'mean']
-    - .sum: [!dag_prev , 'sigma']
+    - xr.DataArray:
+        data: [[100, 1000], [100, 1000], [100, 1000]]
+        dims: ['parameter', 'idx']
+        coords: {parameter: ['p_infect', 't_infectious', 'sigma']}
+      tag: bins
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [!dag_tag probabilities ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: params
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev , !dag_tag bins]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter]
       tag: data
-  x: p_infect
-  y: t_infectious
-  helpers:
-    set_labels:
-      x: $\beta$
-      y: $\tau$
-  cmap: &cmap
-    continuous: true
-    from_values:
-      0: !dag_result c_darkblue
-      1: !dag_result c_yellow
-  cbar_kwargs:
-    label: ~
+  c: !dag_result c_darkblue
+  x: x
+  y: marginal
+  col: parameter
+  sharex: False
+  sharey: False
 
 # Plot the prior densities on the parameters
 priors:
@@ -229,7 +236,10 @@ predictions:
     name: LogNorm
   vmax: 100
   cmap:
-    <<: *cmap
+    continuous: true
+    from_values:
+      0: !dag_result c_darkblue
+      1: !dag_result c_yellow
 
 # Plot the loss landscape of the parameters, colour-coded by loss
 probability_landscape:
