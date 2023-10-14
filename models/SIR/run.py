@@ -288,6 +288,36 @@ if __name__ == "__main__":
             f"   current loss: {model.current_loss}"
         )
 
+    if model_cfg.get("MCMC", {}).pop("perform_sampling", False):
+        log.info("   Performing MCMC sampling ... ")
+
+        n_samples = model_cfg["MCMC"].pop("n_samples")
+
+        # Initialise the sampler
+        sampler = SIR.Langevin_sampler(
+            h5File=h5file,
+            true_data=training_data[
+                model_cfg["Data"].get("training_data_size", slice(None, None)), :, :
+            ],
+            to_learn=model_cfg["Training"]["to_learn"],
+            true_parameters=model_cfg["Training"].get("true_parameters", {}),
+            **model_cfg["MCMC"],
+        )
+
+        import time
+
+        start_time = time.time()
+
+        # Collect n_samples
+        for i in range(n_samples):
+            sampler.sample()
+            sampler.write_loss()
+            sampler.write_parameters()
+            log.info(f"Collected {i} of {n_samples}.")
+
+        # Write out the total sampling time
+        sampler.write_time(time.time() - start_time)
+
     log.info("   Simulation run finished.")
     log.info("   Wrapping up ...")
     h5file.close()

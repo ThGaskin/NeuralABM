@@ -35,7 +35,7 @@ metadata:
   description: ~
 
 cfg_set_abs_search_dirs: ~
-cfg_set_model_source_subdirs: ~
+cfg_set_model_source_subdirs: ['cfgs', 'cfgs/Theoretical_analysis']
 custom_py_modules: ~
 output_files: ~
 debug_level_updates: ~
