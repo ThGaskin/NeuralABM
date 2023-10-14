@@ -110,17 +110,21 @@ def plot_prob_density(
             _handles.append(handle)
             _labels.append(f"{coord}")
 
-            if not _is_facetgrid:
-                if add_legend:
-                    hlpr.ax.legend(_handles, _labels, title=hue)
-            else:
-                hlpr.track_handles_labels(_handles, _labels)
-                if add_legend:
-                    hlpr.provide_defaults("set_figlegend", title=hue)
+        if not _is_facetgrid:
+            if add_legend:
+                hlpr.ax.legend(_handles, _labels, title=hue)
+        else:
+            hlpr.track_handles_labels(_handles, _labels)
+            if add_legend:
+                hlpr.provide_defaults("set_figlegend", title=hue)
 
     else:
 
-        x_vals, y_vals = dset[x], dset[y]
+        if x in dset.coords:
+            x_vals = dset.coords[x]
+        else:
+            x_vals = dset[x]
+        y_vals = dset[y]
         yerr_vals = dset[yerr] if yerr is not None else None
 
         _plot_1d(
@@ -135,7 +139,7 @@ def plot_prob_density(
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# PLOT HELPER OPERATION
+# HACKY STUFF
 # ----------------------------------------------------------------------------------------------------------------------
 from utopya.eval import PlotHelper
 
