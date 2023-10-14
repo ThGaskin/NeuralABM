@@ -215,80 +215,48 @@ priors:
   style:
     figure.figsize: [!dag_result full_width, !dag_result quarter_width]
 
-# Plot the joint distribution over the parameters
-joints: !pspace
-  based_on:
-    - .joint_mv
-    - .plot.facet_grid.pcolormesh
-  dag_options:
-    define:
-      marginalise_over: !sweep
-        default: 'kappa'
-        values: ['alpha', 'beta', 'kappa']
-  transform:
-    - .median: [!dag_tag loss , ['seed', 'epoch']]
-    - div: [!dag_tag loss, !dag_prev ]
-    - mul: [!dag_prev , -1]
-    - np.exp: [!dag_prev ]
-      tag: probabilities
-    - get_joint: [!dag_tag parameters , !dag_tag probabilities ]
-      kwargs: {bins: 100, range: ~, normalize: False, differential: ~, statistic: mean}
-    - getitem: [!dag_prev , 'mean']
-    - .sum: [!dag_prev , !dag_tag marginalise_over]
-      tag: data
-  cmap:
-    continuous: true
-    from_values:
-      0: !dag_result c_darkblue
-      1: !dag_result c_yellow
-  cbar_kwargs:
-    label: ~
-
-# Plot the marginal distributions over the parameters
+# Plot the marginals in a single facet_grid plot
 marginals:
   based_on:
-    - .marginal_mv
+    - .creator.multiverse
     - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss: loss
   transform:
 
-    # Scale the loss values by the median; this is necessary to prevent
-    # numerical underflow arising from the exponentiation of very small values
-    # Broadcast loss and parameters into a common dataset
-    - .median: [!dag_tag loss , ['seed', 'epoch']]
-    - div: [!dag_tag loss, !dag_prev ]
-    - mul: [!dag_prev , -1]
-    - np.exp: [!dag_prev ]
-    - broadcast: [!dag_tag parameters, !dag_prev ]
+    # Divide the loss by the median value: this is necessary to prevent numerical underflow
+    # arising from very small values of J
+    - .median: [ !dag_tag loss , [ 'epoch', 'seed'] ]
+    - div: [ !dag_tag loss, !dag_prev ]
+    - mul: [ !dag_prev , -1 ]
+    - np.exp: [ !dag_prev ]
 
-    # Get the bin edges and ranges for each parameter:
-    # the intervals given by the prior, and a high bin count to ensure points that are not equal are not
-    # averaged together
-    - xr.DataArray:
-        data: [[0, 2, 100000], [0, 8, 100000], [1, 3, 100000]]
-        dims: ['parameter', 'idx']
-        coords: {parameter: [alpha, beta, kappa]}
+    # Flatten the prob and parameter samples into a single dimension
+    # Reassign metric coordinates for easier selection
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+      tag: params
 
-    # Compute the marginals on a very fine grid
-    - compute_marginal: [!dag_node -2 , !dag_prev ]
+    # Broadcast the parameter and probabilities into a common dataset
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev ]
       kwargs:
         x: x
-        p: loss
+        y: loss
         exclude_dim: [parameter]
-        statistic: mean
-      file_cache:
-        write: True
-        read: True
       tag: data
-
+  x: x
+  y: marginal
+  col: parameter
   sharex: False
   sharey: False
   c: !dag_result c_darkblue
-
-  # Smooth back to a resolution of 100 bins
-  smooth_kwargs:
-    enabled: True
-    sigma: 1000
-  x: x
-  y: p
-  col: parameter
-  figsize: [!dag_result full_width, !dag_result third_width]
