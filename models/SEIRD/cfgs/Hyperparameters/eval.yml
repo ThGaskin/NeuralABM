@@ -1,0 +1,41 @@
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
+
+.variables:
+  colors: &colors
+    yellow:         &yellow           '#F5DDA9'
+    darkblue:       &darkblue         '#2F7194'
+    red:            &red              '#ec7070'
+    skyblue:        &skyblue          '#97c3d0'
+    darkgreen:      &darkgreen        '#48675A'
+    lightbrown:     &lightbrown       '#C6BFA2'
+    orange:         &orange           '#EC9F7E'
+    lightgreen:     &lightgreen       '#AFD8BC'
+    grey:           &grey             '#3D4244'
+    pink:           &pink             '#F8A6A6'
+    purple:         &purple           'purple'
+
+  page_widths:
+    full_width:     &full_width       7.00787402
+    half_width:     &half_width       !expr 7.00787402 / 2
+    third_width:    &third_width      !expr 7.00787402 / 3
+    quarter_width:  &quarter_width    !expr 7.00787402 / 4
+    fifth_width:    &fifth_width      !expr 7.00787402 / 5
+
+loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      data:
+        path: loss
+  x: time
+  hue: bias
+  helpers:
+    set_scales:
+      y: log
+#  hue: default

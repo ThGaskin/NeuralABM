@@ -1,0 +1,45 @@
+paths:
+  model_note: Berlin
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 30
+    range: [10]
+  num_epochs: 2000
+  write_start: 1
+  write_every: 10
+  SEIRD+:
+    Data:
+      load_from_dir: data/SEIRD_Berlin_data/data_Berlin_with_deceased.h5
+      time_dependent_params:
+        k_E:
+          - [ 0, 26 ]
+          - [ 26, 35]
+          - [ 35, 80 ]
+          - [ 80, 120 ]
+          - [ 120, ~ ]
+      synthetic_data:
+        dt: 0.1
+      training_data_size: !slice [0, 200]
+    NeuralNet:
+      num_layers: 3
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: sigmoid
+        layer_specific:
+          -1: abs
+      learning_rate: 0.002
+      optimizer: Adam
+#      prior:
+#        distribution: uniform
+#        parameters:
+#          lower: 0
+#          upper: 1
+    Training:
+      batch_size: 200
+      BERLIN_data_loss: True
+      loss_function:
+        name: MSELoss
+        kwargs:
+          reduction: none # Do not sum over k

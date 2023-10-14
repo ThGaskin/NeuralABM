@@ -1,0 +1,58 @@
+Data:
+  synthetic_data:
+
+    # How to generate synthetic data. Smooth densities can be generated directly using the SDE model,
+    # or from an agent-based model
+    type: !param
+      default: from_ABM
+      is_any_of: [from_ABM, smooth]
+      dtype: str
+
+    # ODE model parameters
+    k_S: 0.4
+    k_E:  0.8
+    k_I:  0.5
+    k_R: 0.8
+    k_SY:  0.5
+    k_H:  0.01
+    k_C:  0.5
+    k_D:  0.3
+    k_CT:  0.01
+    k_q:  10.25
+    k_Q: 1.2
+
+    # ABM parameters
+    N: !is-positive-int 150
+    space: [ 20, 20 ]
+    is_periodic: !is-bool true
+    r_infectious:  5.0
+    sigma_s:  0.7
+    sigma_i:  0.03
+    sigma_r:  0.7
+
+    # Number of steps to run
+    num_steps: 200
+
+    # Time differential to use for the solver
+    dt: 0.1
+
+NeuralNet:
+  num_layers: !is-positive-int 2
+  nodes_per_layer:
+    default: !is-positive-int 20
+  biases:
+    default: ~
+  activation_funcs:
+    default: sigmoid
+    layer_specific:
+      -1: abs
+  learning_rate: !is-positive 0.002
+
+Training:
+  batch_size: !is-positive-int 1
+  loss_function:
+    name: MSELoss
+    reduction: sum
+  to_learn: [ k_S, k_E, k_I, k_R, k_SY, k_H, k_C, k_D, k_CT]
+  device: cpu
+  num_threads: ~
