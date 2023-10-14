@@ -185,14 +185,9 @@ def mean(
     :return: the mean of the dataset
     """
 
-    # Get the x differential
-    dx = abs(data[x].values[1] - data[x].values[0]) if len(data[x].values) > 1 else 1
-
-    # Calculate the mean
-    mean = (data[x].values * data[p].values * dx).sum()
-
-    # Return
-    return xr.Dataset(data_vars=dict(mean=mean))
+    return xr.Dataset(
+        data_vars=dict(mean=scipy.integrate.trapezoid(data[p] * data[x], data[x]))
+    )
 
 
 @is_operation("std")
@@ -212,12 +207,9 @@ def std(
     :return: the standard deviation of the dataset
     """
 
-    # Get the x differential
-    dx = abs(data[x].values[1] - data[x].values[0]) if len(data[x].values) > 1 else 1
-
     # Calculate the mean
     m = mean(data, x=x, p=p).to_array().data
-    std = np.sqrt((dx * data[p].values * (data[x].values - m) ** 2).sum())
+    std = np.sqrt(scipy.integrate.trapezoid(data[p] * (data[x] - m) ** 2, data[x]))
 
     # Return
     return xr.Dataset(data_vars=dict(std=std))
@@ -345,7 +337,13 @@ def hist(ds: xr.DataArray, *args, bins, along_dim: list = None, **kwargs) -> xr.
 @is_operation("hist_ndim")
 @apply_along_dim
 def hist_ndim(
-    ds: Union[xr.DataArray, xr.Dataset], bins, axis: int = -1, **kwargs
+    ds: Union[xr.DataArray, xr.Dataset],
+    bins: Any = 100,
+    ranges: Any = None,
+    *,
+    axis: int = -1,
+    normalize: Union[int, bool] = None,
+    **kwargs,
 ) -> xr.Dataset:
     """Same as the 'hist' function but using the apply_along_dim decorator to allow histogramming along multiple
     dimensions. Is significantly slower than 'hist' due to the splitting and merging operations.
@@ -353,26 +351,44 @@ def hist_ndim(
     :param ds: the DataArray on which to apply the histogram function
     :param axis: the axis along which to apply np.histogram. By default this happens on the innermost axis.
     :param bins: the bins to use
+    :param ranges: the range of the bins to use
     :param args, kwargs: passed to np.histogram
     """
 
-    # Numpy operations only work on xr.Datasets
+    # Get the bins and range objects
     if isinstance(ds, xr.Dataset):
         ds = ds.to_array().squeeze()
+    if isinstance(bins, xr.DataArray):
+        bins = bins.data
+    if ranges is not None:
+        ranges = np.array(ranges.data)
+        for idx in range(len(ranges)):
+            if ranges[idx] is None:
+                ranges[idx] = (
+                    np.min(ds.data[axis]) if idx == 0 else np.max(ds.data[axis])
+                )
 
     def _hist(obj, **_kwargs):
-        # Applies numpy histogram along an axis and returns only the counts
-        return np.histogram(obj, **_kwargs)[0].astype(float)
+        # Applies numpy histogram along an axis and returns the counts and bin centres
+        _counts, _edges = np.histogram(obj, **_kwargs)
+        return _counts.astype(float), np.add(_edges[1:], _edges[:-1]) / 2
 
     # Get the name of the dimension
-    dim = ds.name if not None else "_variable"
+    dim = ds.name if ds.name is not None else "_variable"
 
     # Apply the histogram function along the axis
-    data = np.apply_along_axis(_hist, axis, ds, bins, **kwargs)
+    counts, bin_centres = np.apply_along_axis(
+        _hist, axis, ds, bins=bins, range=ranges, **kwargs
+    )
+
+    # Normalize the counts, f given
+    if normalize:
+        norm = scipy.integrate.trapezoid(counts, bin_centres)
+        counts /= norm if isinstance(normalize, bool) else normalize / norm
 
     return xr.Dataset(
-        data_vars={dim: ("bin_center", data)},
-        coords={"bin_center": np.add(bins[1:], bins[:-1]) / 2},
+        data_vars={dim: ("bin_idx", counts), "x": ("bin_idx", bin_centres)},
+        coords={"bin_idx": np.arange(len(bin_centres))},
     )
 
 
@@ -636,74 +652,6 @@ def joint_DD(
     )
 
 
-@is_operation("compute_marginals")
-@apply_along_dim
-def marginals_old(
-    data: xr.Dataset,
-    *,
-    x: str,
-    p: str,
-    bins: int = 100,
-    clip: tuple = [-np.inf, +np.inf],
-) -> xr.Dataset:
-    """
-    Previous version of the marginal calculation: will be deprecated in a future release
-    Sorts a dataset containing pairs of estimated parameters and associated probabilities (a, p(a)) into
-    bins and calculates the marginal density by summing over each bin entry. All dimensions in the dataset are
-    flattened and a one-dimensional dataset returned (with the bin index as the coordinate dimension); for example,
-    if the dataset contains estimates from many different seeds, these are all flattened into a single long array
-    before marginalising.
-
-    :param data: the dataset, containing parameter estimates
-    :param x: the name of the parameter variable
-    :param p: the name of the probability variable
-    :param bins: number of bins
-    :param clip: clip the data to a certain range
-    :return: an xr.Dataset of the marginal densities
-    """
-    import logging
-
-    log = logging.getLogger(__name__)
-    log.warning(
-        "This function will soon be deprecated. Use the 'marginal', 'marginal_from_joint', or 'marginal_ds' "
-        "functions instead!"
-    )
-
-    # Collect all points into a list of tuples and sort by their x value
-    zipped_pairs = sorted(
-        np.array(
-            [
-                z
-                for z in list(zip(data[x].values.flatten(), data[p].values.flatten()))
-                if not (
-                    np.isnan(z[0]) or np.isnan(z[1]) or z[0] < clip[0] or z[0] > clip[1]
-                )
-            ]
-        ),
-        key=itemgetter(0),
-    )
-
-    # Create bins
-    x, y = np.linspace(zipped_pairs[0][0], zipped_pairs[-1][0], bins), np.zeros(bins)
-    dx = x[1] - x[0]
-    bin_no = 1
-
-    # Sort x into bins; cumulatively gather y-values
-    for point in zipped_pairs:
-        while point[0] > x[bin_no]:
-            bin_no += 1
-        y[bin_no - 1] += point[1]
-
-    # Normalise y to 1
-    y /= np.sum(y) * dx
-
-    # Combine into a xr.Dataset
-    return xr.Dataset(
-        data_vars=dict(p=("bin_idx", y), x=("bin_idx", x)),
-        coords={"bin_idx": np.arange(0, bins, 1)},
-    )
-
-
 @is_operation("Hellinger_distance")
 @apply_along_dim
 def Hellinger_distance(
@@ -948,12 +896,13 @@ def triangles_ndim(
 # ----------------------------------------------------------------------------------------------------------------------
 @is_operation("sel_matrix_indices")
 @apply_along_dim
-def matrix_indices_sel(ds: xr.DataArray, indices: xr.Dataset) -> xr.DataArray:
+def matrix_indices_sel(
+    ds: xr.DataArray, indices: xr.Dataset, drop: bool = False
+) -> xr.DataArray:
     """Returns the predictions on the weights of the entries given by indices"""
-    return ds.isel(
-        i=(indices["i"]),
-        j=xr.DataArray(indices["j"]),
-    )
+
+    ds = ds.isel(i=(indices["i"]), j=(indices["j"]))
+    return ds.drop_vars(["i", "j"]) if drop else ds
 
 
 @is_operation("largest_entry_indices")
@@ -1039,8 +988,8 @@ def gelman_rubin(da: xr.Dataset, *, step_size: int = 1) -> xr.Dataset:
 # ----------------------------------------------------------------------------------------------------------------------
 @is_operation("to_csv")
 def to_csv(
-    data: Union[xr.Dataset, xr.DataArray], name: str = "data"
+    data: Union[xr.Dataset, xr.DataArray], path: str
 ) -> Union[xr.Dataset, xr.DataArray]:
     df = data.to_dataframe()
-    df.to_csv(f"{name}.csv")
+    df.to_csv(path)
     return data
