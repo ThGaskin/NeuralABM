@@ -1,0 +1,187 @@
+# Plot the marginals together
+marginals_all:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: parameters
+      probabilities:
+        path: loss
+        transform: [neg_exp]
+  transform:
+
+    - xr.DataArray:
+        data: [[100, 1000], [100, 1000], [100, 1000]]
+        dims: ['parameter', 'idx']
+        coords: {parameter: ['p_infect', 't_infectious', 'alpha']}
+      tag: bins
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [!dag_tag probabilities ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: params
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev , !dag_tag bins]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter]
+      tag: data
+  c: !dag_result c_darkblue
+  x: x
+  y: marginal
+  col: parameter
+  sharex: False
+  sharey: False
+
+# Marginal on the alpha parameter
+marginal_alpha:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  dag_options:
+    meta_operations:
+      load_csv:
+        - import_and_call: [ pandas, read_csv, !arg 0 ]
+          kwargs: { index_col: !kwarg index_col }
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .sel: [ !dag_prev , { parameter: 'alpha' } ]
+      probabilities:
+        path: loss
+        transform: [ neg_exp ]
+  transform:
+    - xr.DataArray:
+        data: [ 100, 1000 ]
+        dims: [ 'idx' ]
+      tag: bins
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [ !dag_tag probabilities ]
+      kwargs:
+        dims: { sample: [ batch, seed ] }
+      tag: prob
+    - flatten_dims: [ !dag_tag parameters ]
+      kwargs:
+        dims: { sample: [ batch, seed ] }
+      tag: params
+    - broadcast: [ !dag_tag params, !dag_tag prob ]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [ !dag_prev , !dag_tag bins ]
+      kwargs:
+        x: x
+        y: loss
+      tag: data
+    - load_csv: [ 'data/SIR/MCMC_estimates_3D/alpha.csv' ]
+      kwargs: {index_col: 0}
+      tag: mcmc_estimate
+  x: x
+  y: marginal
+  helpers:
+    call:
+      functions:
+        - function: [matplotlib, pyplot.hlines]
+          y: 1
+          xmin: 0
+          xmax: 1
+          linestyle: 'dotted'
+          color: !dag_result c_darkgrey
+        - function: [ matplotlib, pyplot.vlines ]
+          x: 0
+          ymin: 0
+          ymax: 1
+          linestyle: 'dotted'
+          color: !dag_result c_darkgrey
+        - function: [ matplotlib, pyplot.vlines ]
+          x: 1
+          ymin: 0
+          ymax: 1
+          linestyle: 'dotted'
+          color: !dag_result c_darkgrey
+        - function: [ seaborn, kdeplot ]
+          args: [ !dag_result mcmc_estimate ]
+          label: ~
+          fill: False
+          color: !dag_result c_lightbrown
+          clip: [0, 10]
+        - function: [model_plots.HarrisWilson, calculate_Hellingers]
+          pass_helper: True
+    set_limits:
+      x: [0, 2]
+    set_labels:
+      x: $\alpha$
+      y: ' '
+    set_legend:
+      use_legend: False
+  color: !dag_result c_darkblue
+  style:
+    figure.figsize: [ !dag_result half_width, !dag_result quarter_width ]
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[lightbrown]:}'])"
+      colors:
+        lightbrown: '#C6BFA2' # Don't know why this is necessary ...
+
+# Plot the prior densities on the parameters
+priors:
+  based_on:
+    - .creator.multiverse
+    - .plot.multiplot
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .isel: [!dag_prev , {batch: 0}]
+  transform:
+    - .isel: [!dag_tag parameters, {parameter: 0}]
+      tag: p
+    - .isel: [!dag_tag parameters, {parameter: 1}]
+      tag: t
+    - .isel: [!dag_tag parameters, {parameter: 2}]
+      tag: a
+  to_plot:
+    [0, 0]:
+      - function: sns.histplot
+        data: !dag_result p
+    [1, 0]:
+      - function: sns.histplot
+        data: !dag_result t
+    [ 2, 0 ]:
+    - function: sns.histplot
+      data: !dag_result a
+  color: !dag_result c_darkblue
+  linewidth: 0.5
+  helpers:
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_labels:
+          x: $\beta$
+      1:
+        axis: [ 1, 0 ]
+        set_labels:
+          x: $\tau$
+      2:
+        axis: [ 2, 0 ]
+        set_labels:
+          x: $\alpha$
+    setup_figure:
+      nrows: 1
+      ncols: 3 #2
+    set_labels:
+      y: ' '
+  compute_only: []
+  style:
+    figure.figsize: [!dag_result full_width, !dag_result quarter_width]

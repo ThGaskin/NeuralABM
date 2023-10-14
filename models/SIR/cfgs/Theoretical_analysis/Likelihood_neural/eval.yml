@@ -1,0 +1,437 @@
+# Generate densities by drawing from the joint distribution of the parameters
+densities_from_joint:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform: [.data]
+      probabilities:
+        path: loss
+        transform: [neg_exp]
+      true_data:
+        path: true_counts
+        transform: [.data]
+        subspace:
+          seed: [ 0 ]
+      cfg:
+        path: ../../cfg
+        transform:
+          - getitem: [!dag_prev , 'SIR']
+        subspace:
+          seed: [0]
+  transform:
+
+    # Flatten the cfg
+    - .data: [!dag_tag cfg]
+    - getitem: [!dag_prev , 0]
+      tag: cfg_flattened
+
+    # Flatten the true counts
+    - .isel: [!dag_tag true_data, {seed: 0}]
+      kwargs: {drop: True}
+      tag: true_data_flattened
+
+    # Flatten the probabilities and parameters
+    - flatten_dims: [!dag_tag probabilities ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: params
+
+    # Get the bins for each parameter
+    - xr.DataArray:
+        data: [100, 100]
+        dims: [ 'idx' ]
+
+    # Get the normalized joint distribution
+    - joint_2D_ds: [!dag_tag params, !dag_tag prob, !dag_prev ]
+      kwargs:
+        normalize: True
+        differential: 1
+        x: p_infect
+        y: t_infectious
+      tag: joint
+    - .fillna: [!dag_prev , 0]
+    - SIR_densities_from_joint: [!dag_prev ]
+      kwargs:
+        true_counts: !dag_tag true_data_flattened
+        cfg: !dag_tag cfg_flattened
+      file_cache:
+        read: True
+        write: True
+      tag: densities
+
+    # No point plotting the mode, as sampling from sigma will produce a single stochastic process, rather than an
+    # average
+    - .sel: [!dag_prev , {type: prediction_mean}]
+      tag: data
+
+    # Get the true data
+    - .sel: [!dag_node -2 , {type: true_counts}]
+      kwargs: {drop: True}
+    - getitem: [!dag_prev , mean]
+#    - .sel: [!dag_prev , {kind: ['infected', 'susceptible', 'recovered']}]
+      tag: true_counts
+  x: time
+  y: mean
+  yerr: std
+  hue: kind
+  sharey: False
+  add_legend: False
+  helpers:
+    set_legend:
+      use_legend: False
+    set_labels:
+      x: ' '
+      y: ' '
+    call:
+      functions:
+        - function: [xarray.plot, line]
+          args: [!dag_result true_counts]
+          x: time
+          hue: kind
+          lw: 0
+          add_legend: False
+          marker: 'o'
+          markeredgecolor: !dag_result c_darkgrey
+          markeredgewidth: 0.1
+          markersize: 1.5
+          zorder: 20
+          _labels: False
+  style:
+    figure.figsize: [ !dag_result half_width, !dag_result quarter_width ]
+    # Why God why
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[red]:}','{colors[darkgreen]:}','{colors[lightgreen]:}', '{colors[lightgreen]:}'])"
+      colors:
+        lightgreen: '#AFD8BC'
+        darkgreen: '#48675A'
+        red: '#ec7070'
+  file_ext: pdf
+
+# Plot the marginals together
+marginals_all:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: parameters
+      probabilities:
+        path: loss
+        transform: [neg_exp]
+  transform:
+
+    - xr.DataArray:
+        data: [[100, 1000], [100, 1000]]
+        dims: ['parameter', 'idx']
+        coords: {parameter: ['p_infect', 't_infectious']}
+      tag: bins
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [!dag_tag probabilities ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: params
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev , !dag_tag bins]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter]
+      tag: data
+  c: !dag_result c_darkblue
+  x: x
+  y: marginal
+  col: parameter
+  sharex: False
+  sharey: False
+
+# Plot the marginals as individual frames
+marginals: !pspace
+  dag_options:
+    meta_operations:
+      load_csv:
+        - import_and_call: [ pandas, read_csv, !arg 0 ]
+          kwargs: { index_col: !kwarg index_col }
+    define:
+      parameter: !sweep
+        default: 'p_infect'
+        values: ['p_infect', 't_infectious']
+      ground_truth_path: !coupled-sweep
+        default: 'data/SIR/true_data_grid_search/p_infect.csv'
+        values: ['data/SIR/true_data_grid_search/p_infect.csv',
+                 'data/SIR/true_data_grid_search/t_infectious.csv']
+        target_name: parameter
+      mcmc_path: !coupled-sweep
+        default: 'data/SIR/MCMC_estimates/p_infect.csv'
+        values: ['data/SIR/MCMC_estimates/p_infect.csv',
+                 'data/SIR/MCMC_estimates/t_infectious.csv']
+        target_name: parameter
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
+      probabilities:
+        path: loss
+        transform: [neg_exp]
+  transform:
+    - xr.DataArray:
+        data: [100, 1000]
+        dims: ['idx']
+      tag: bins
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [!dag_tag probabilities ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: params
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev , !dag_tag bins]
+      kwargs:
+        x: x
+        y: loss
+      tag: data
+
+    # Load the ground truth and MCMC estimates
+    - load_csv: [!dag_tag ground_truth_path]
+      kwargs: {index_col: 1}
+    - getitem: [!dag_prev , 'marginal']
+      tag: ground_truth
+
+    - load_csv: [ !dag_tag mcmc_path ]
+      kwargs: { index_col: 0 }
+      tag: mcmc_estimate
+  x: x
+  y: marginal
+  label: Neural
+  helpers:
+    set_labels:
+      y: ' '
+    set_legend:
+      use_legend: !coupled-sweep
+        default: true
+        target_name: parameter
+        values: [true, false]
+    call:
+      functions:
+      - function: [matplotlib, pyplot.plot]
+        args: [!dag_result ground_truth]
+        color: !dag_result c_darkgrey
+        label: Ground truth
+        linestyle: dotted
+      - function: [seaborn, kdeplot]
+        args: [!dag_result mcmc_estimate]
+        fill: false
+        label: MALA
+      - function: [model_plots.HarrisWilson, calculate_Hellingers]
+        pass_helper: True
+  c: !dag_result c_darkblue
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result quarter_width]
+    axes.prop_cycle: cycler('color', ['#C6BFA2'])
+
+# Plot the prior densities on the parameters
+priors:
+  based_on:
+    - .creator.multiverse
+    - .plot.multiplot
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .isel: [!dag_prev , {batch: 0}]
+  transform:
+    - .isel: [!dag_tag parameters, {parameter: 0}]
+      tag: p
+    - .isel: [!dag_tag parameters, {parameter: 1}]
+      tag: t
+  to_plot:
+    [0, 0]:
+      - function: sns.histplot
+        data: !dag_result p
+    [1, 0]:
+      - function: sns.histplot
+        data: !dag_result t
+  color: !dag_result c_darkblue
+  linewidth: 0.5
+  helpers:
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_labels:
+          x: $\beta$
+      1:
+        axis: [ 1, 0 ]
+        set_labels:
+          x: $\tau$
+    setup_figure:
+      nrows: 1
+      ncols: 2
+    set_labels:
+      y: ' '
+  compute_only: []
+  style:
+    figure.figsize: [!dag_result full_width, !dag_result quarter_width]
+
+# Plot the predictions over time, colour-coded by loss
+predictions:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.scatter
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform: [.data]
+      loss:
+        path: loss
+        transform: [.data]
+  transform:
+    - broadcast: [!dag_tag parameters, !dag_tag loss]
+      kwargs:
+        exclude_dim: [seed]
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {batch: [batch, seed]}
+      tag: data
+  x: batch
+  y: x
+  hue: loss
+  col: parameter
+  s: 2
+  sharey: False # Seems to have no effect?
+  sharex: False
+  helpers:
+    set_limits:
+      x: [min, max]
+      y: [0, max] # Why is this necessary?
+  add_legend: False
+  norm:
+    name: LogNorm
+  vmax: 100
+  cmap: &cmap
+    continuous: true
+    from_values:
+      0: !dag_result c_darkblue
+      1: !dag_result c_yellow
+
+# Plot the loss landscape of the parameters, colour-coded by loss
+probability_landscape:
+  based_on: predictions
+  add_legend: False
+  select_and_combine:
+    fields:
+      loss:
+        transform:
+          - mul: [!dag_prev , -1]
+          - np.exp: [!dag_prev ]
+  x: x
+  y: loss
+  hue: loss
+  s: 2
+  norm: ~
+  vmax: ~
+  cbar_kwargs:
+    label: Unnormalised probability
+
+# Plot the joint
+joint:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.pcolormesh
+  select_and_combine:
+    fields:
+      parameters: parameters
+      probabilities:
+        path: loss
+        transform: [neg_exp]
+  transform:
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [!dag_tag probabilities ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: params
+
+    # Compute the joint
+    - joint_2D_ds: [!dag_tag params, !dag_tag prob]
+      kwargs:
+        x: p_infect
+        y: t_infectious
+      tag: data
+  x: p_infect
+  y: t_infectious
+  cmap:
+    <<: *cmap
+  cbar_kwargs:
+    label: ~
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]
+
+# Plot the density of samples in 2D
+point_density:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.pcolormesh
+    - joint
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss:
+        path: loss
+  transform:
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [!dag_tag probabilities ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [batch, seed]}
+      tag: params
+
+    - joint_2D_ds: [!dag_tag params, !dag_tag prob]
+      kwargs:
+        statistic: count
+        x: p_infect
+        y: t_infectious
+      tag: data
+  x: p_infect
+  y: t_infectious
+  vmin: 1
+  norm:
+    name: LogNorm
+  cmap:
+    <<: *cmap
+  cbar_kwargs:
+    label: ~
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]
