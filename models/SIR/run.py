@@ -175,6 +175,12 @@ class SIR_NN:
                 else self.true_parameters["sigma"]
             )
 
+            # alpha = (
+            #     predicted_parameters[self.to_learn["alpha"]]
+            #     if "alpha" in self.to_learn.keys()
+            #     else self.true_parameters["alpha"]
+            # )
+
             current_densities = self.training_data[batch_idx].clone()
             current_densities.requires_grad_(True)
 
@@ -200,6 +206,9 @@ class SIR_NN:
                             tau * current_densities[1],
                         ]
                     )
+                    # + torch.tensor(
+                    #     [1 / (10000 + alpha), 1 / (10000 + alpha), 1 / (10000 + alpha)]
+                    # )
                 )
 
                 # Calculate loss
