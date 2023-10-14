@@ -1,0 +1,24 @@
+paths:
+  model_note: Ground_truth
+perform_sweep: true
+parameter_space:
+  seed: 2
+  num_epochs: 0
+  write_start: 1
+  write_every: 1
+  SIR:
+    Data:
+      synthetic_data:
+        type: smooth
+        r_infectious: 0.3
+        p_infect: !sweep
+          default: 0.2
+          linspace: [0, 1, 101]
+        t_infectious: !sweep
+          default: 14
+          linspace: [1, 31, 101]
+        num_steps: 100
+        sigma: 0.0
+        sigma_s: 0.02
+        sigma_i: 0.01
+        sigma_r: 0.02
