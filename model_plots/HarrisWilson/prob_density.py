@@ -163,3 +163,45 @@ def add_entry_to_figlegend(color: str, label: str, *, hlpr: PlotHelper):
 
     # Get the title and position of current legend
     hlpr.fig.legend(h, l, title=title, loc="center right")
+
+
+def calculate_Hellingers(*, hlpr: PlotHelper):
+
+    import matplotlib
+    import numpy as np
+    import scipy
+
+    log = logging.getLogger(__name__)
+
+    objs = dict()
+    plots = [
+        obj
+        for obj in (hlpr.ax.get_children())
+        if isinstance(obj, matplotlib.lines.Line2D)
+    ]
+
+    # Get the data
+    for line in plots:
+        if line.get_color() == "#2F7194":
+            objs["Neural"] = line.get_data()
+        elif line.get_color() == "#3D4244":
+            objs["True"] = line.get_data()
+        else:
+            objs["MCMC"] = line.get_data()
+
+    if "True" not in objs.keys():
+        objs["True"] = [np.linspace(0, 1, 1000), np.ones(1000)]
+    Hellingers = dict()
+    # Interpolate: get the highest common lower bound, and lowest common upper bound
+    for val in ["Neural", "MCMC"]:
+        x_min, x_max = np.max([np.min(objs["True"][0]), np.min(objs[val][0])]), np.min(
+            [np.max(objs["True"][0]), np.max(objs[val][0])]
+        )
+        grid = np.linspace(x_min, x_max, 1000)
+        true_interp = np.interp(grid, objs["True"][0], objs["True"][1])
+        val_interp = np.interp(grid, objs[val][0], objs[val][1])
+        Hellinger = 0.5 * scipy.integrate.trapezoid(
+            pow(np.sqrt(val_interp) - np.sqrt(true_interp), 2), grid
+        )
+        Hellingers[val] = Hellinger
+    log.remark(f"Hellinger distances: {Hellingers}")
