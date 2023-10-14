@@ -1,0 +1,43 @@
+paths:
+  model_note: Likelihood_MCMC_alpha
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 1
+    range: [10]
+  num_epochs: 0
+  write_start: 1
+  write_every: 1
+  SIR:
+    Data:
+      load_from_dir: data/SIR/true_data_grid_search/data.h5
+      synthetic_data:
+        type: smooth
+        num_steps: 100
+        t_infectious: 14
+        p_infect: 0.2
+        sigma: 0.0
+    Training:
+      to_learn: [ p_infect, t_infectious, alpha ]
+      true_parameters:
+        sigma: 0
+    MCMC:
+      perform_sampling: True
+      write_start: 1
+      n_samples: 30000
+      write_every: 1
+      batch_size: 99
+      lr: 0.02
+      init_guess:
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 1
+        - distribution: uniform
+          parameters:
+            lower: 0.033
+            upper: 1.033
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 1
