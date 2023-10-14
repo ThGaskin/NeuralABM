@@ -48,10 +48,13 @@ class SIR_NN:
             neural_net: The neural network
             loss_function (dict): the loss function to use
             to_learn: the list of parameter names to learn
+            training_data: the training data to use
+            batch_size: epoch batch size: instead of calculating the entire time series,
+                only a subsample of length batch_size can be used. The likelihood is then
+                scaled up accordingly.
             true_parameters: the dictionary of true parameters
             write_every: write every iteration
             write_start: iteration at which to start writing
-            num_steps: number of iterations of the ABM
         """
         self._h5group = h5group
         self._rng = rng
@@ -71,6 +74,18 @@ class SIR_NN:
         }
         self.current_predictions = torch.tensor([0.0, 0.0, 0.0])
 
+        self.training_data = training_data
+
+        # Generate the batch ids
+        batches = np.arange(0, self.training_data.shape[0], batch_size)
+        if len(batches) == 1:
+            batches = np.append(batches, training_data.shape[0] - 1)
+        else:
+            if batches[-1] != training_data.shape[0] - 1:
+                batches = np.append(batches, training_data.shape[0] - 1)
+
+        self.batches = batches
+
         # --- Set up chunked dataset to store the state data in --------------------------------------------------------
         # Write the loss after every batch
         self._dset_loss = self._h5group.create_dataset(
@@ -87,14 +102,13 @@ class SIR_NN:
         # Write the computation time of every epoch
         self.dset_time = self._h5group.create_dataset(
             "computation_time",
-            (0, 1),
-            maxshape=(None, 1),
+            (0,),
+            maxshape=(None,),
             chunks=True,
             compression=3,
         )
-        self.dset_time.attrs["dim_names"] = ["epoch", "training_time"]
+        self.dset_time.attrs["dim_names"] = ["epoch"]
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
-        self.dset_time.attrs["coords_mode__training_time"] = "trivial"
 
         # Write the parameter predictions after every batch
         self.dset_parameters = self._h5group.create_dataset(
@@ -128,15 +142,23 @@ class SIR_NN:
 
     def epoch(self):
 
-        """Trains the model for a single epoch"""
-        for batch_no, start_idx in enumerate(self.batches[:-1]):
+        """
+        An epoch is a pass over the entire dataset. The dataset is processed in batches, where B < L is the batch
+        number. After each batch, the parameters of the neural network are updated. For example, if L = 100 and
+        B = 50, two passes are made over the dataset -- one over the first 50 steps, and one
+        over the second 50. The entire time series is processed, even if L is not divisible into equal segments of
+        length B. For instance, is B is 30, the time series is processed in 3 steps of 30 and one of 10.
+
+        """
+
+        # Process the training data in batches
+        for batch_no, batch_idx in enumerate(self.batches[:-1]):
 
             predicted_parameters = self.neural_net(
-                torch.flatten(self.training_data[start_idx])
+                torch.flatten(self.training_data[batch_idx])
             )
 
             # Get the parameters: infection rate, recovery time, noise variance
-            # Recovery time is scaled by a factor of 10
             p = (
                 predicted_parameters[self.to_learn["p_infect"]]
                 if "p_infect" in self.to_learn.keys()
@@ -153,12 +175,12 @@ class SIR_NN:
                 else self.true_parameters["sigma"]
             )
 
-            current_densities = training_data[start_idx].clone()
+            current_densities = self.training_data[batch_idx].clone()
             current_densities.requires_grad_(True)
 
             loss = torch.tensor(0.0, requires_grad=True)
 
-            for ele in range(start_idx + 1, self.batches[batch_no + 1] + 1):
+            for ele in range(batch_idx + 1, self.batches[batch_no + 1] + 1):
 
                 # Recovery rate
                 tau = 1 / t * torch.sigmoid(1000 * (ele / t - 1))
@@ -181,7 +203,12 @@ class SIR_NN:
                 )
 
                 # Calculate loss
-                loss = loss + self.loss_function(current_densities, training_data[ele])
+                loss = loss + self.loss_function(
+                    current_densities, self.training_data[ele]
+                ) * (
+                    self.training_data.shape[0]
+                    / (self.batches[batch_no + 1] - batch_idx)
+                )
 
             loss.backward()
             self.neural_net.optimizer.step()
