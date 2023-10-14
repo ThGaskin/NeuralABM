@@ -63,7 +63,8 @@ Training:
   batch_size: !is-positive-int 1
   loss_function:
     name: MSELoss
-    reduction: sum
+    kwargs:
+      reduction: sum
   to_learn: [ p_infect, t_infectious, sigma ]
   device: cpu
   num_threads: ~
