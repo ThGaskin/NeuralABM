@@ -1,5 +1,4 @@
 import itertools
-from operator import itemgetter
 from typing import Any, Sequence, Union
 
 import numpy as np
@@ -504,6 +503,7 @@ def marginal_from_joint(
     *,
     parameter: str,
     normalize: Union[bool, float] = True,
+    scale_y_bins: bool = False,
 ) -> xr.Dataset:
     """
     Computes a marginal from a two-dimensional joint distribution by summing over one parameter. Normalizes
@@ -511,17 +511,28 @@ def marginal_from_joint(
     Since x-values may differ for different parameters, the x-values are variables in a dataset, not coordinates.
     The coordinates are given by the bin index, thereby allowing marginals across multiple parameters to be combined
     into a single xr.Dataset.
+
+    :param joint: the joint distribution over which to marginalise
+    :param normalize: whether to normalize the marginal distribution. If true, normalizes to 1, else normalizes to
+        a given value
+    :param scale_y_bins: whether to scale the integration over y by range of the given values (y_max - y_min)
     """
 
     # Get the integration coordinate
-    integration_coord = list(joint.coords)
-    integration_coord.remove(parameter)
-    integration_coord = integration_coord[0]
+    integration_coord = [c for c in list(joint.coords) if c != parameter][0]
 
+    # Marginalise over the integration coordinate
     marginal = []
-    for i in range(len(joint.coords[parameter])):
-        _y, _x = joint.isel({parameter: i}).data, joint.coords[integration_coord]
-        marginal.append(scipy.integrate.trapezoid(_y[~np.isnan(_y)], _x[~np.isnan(_y)]))
+    for p in joint.coords[parameter]:
+        _y, _x = joint.sel({parameter: p}).data, joint.coords[integration_coord]
+        if scale_y_bins and not np.isnan(_y).all():
+            _f = np.nanmax(_y) - np.nanmin(_y)
+            _f = 1.0 / _f if _f != 0 else 1.0
+        else:
+            _f = 1.0
+        marginal.append(
+            _f * scipy.integrate.trapezoid(_y[~np.isnan(_y)], _x[~np.isnan(_y)])
+        )
 
     # Normalise, if given
     if normalize:
@@ -529,12 +540,16 @@ def marginal_from_joint(
         marginal /= norm if isinstance(normalize, bool) else norm / normalize
 
     # Return a dataset with x- and y-values as variables, and coordinates given by the bin index
+    # This allows combining different marginals with different x-values but identical number of bins
+    # into a single dataset
     return xr.Dataset(
         data_vars=dict(
             x=(["bin_idx"], joint.coords[parameter].data),
             marginal=(["bin_idx"], marginal),
         ),
-        coords=dict(bin_idx=(["bin_idx"], np.arange(len(joint.data)))),
+        coords=dict(
+            bin_idx=(["bin_idx"], np.arange(len(joint.coords[parameter].data)))
+        ),
     )
 
 
