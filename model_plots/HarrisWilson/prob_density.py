@@ -78,7 +78,6 @@ def plot_prob_density(
             )
 
     # Get the dataset and parameter name
-    dset = ds
     if "parameter" in list(ds.coords):
         pname = ds.coords["parameter"].values.item()
     else:
@@ -87,15 +86,15 @@ def plot_prob_density(
     # Track the legend handles and labels
     _handles, _labels = [], []
     if hue:
-        for i, coord in enumerate(dset.coords[hue].values):
+        for i, coord in enumerate(ds.coords[hue].values):
 
-            if x in dset.coords:
-                x_vals = dset.coords[x]
+            if x in ds.coords:
+                x_vals = ds.coords[x]
             else:
-                x_vals = dset[x].sel({hue: coord})
+                x_vals = ds[x].sel({hue: coord})
 
-            y_vals = dset[y].sel({hue: coord})
-            yerr_vals = dset[yerr].sel({hue: coord}) if yerr is not None else None
+            y_vals = ds[y].sel({hue: coord})
+            yerr_vals = ds[yerr].sel({hue: coord}) if yerr is not None else None
 
             handle = _plot_1d(
                 _x=x_vals,
@@ -120,12 +119,12 @@ def plot_prob_density(
 
     else:
 
-        if x in dset.coords:
-            x_vals = dset.coords[x]
+        if x in ds.coords:
+            x_vals = ds.coords[x]
         else:
-            x_vals = dset[x]
-        y_vals = dset[y]
-        yerr_vals = dset[yerr] if yerr is not None else None
+            x_vals = ds[x]
+        y_vals = ds[y]
+        yerr_vals = ds[yerr] if yerr is not None else None
 
         _plot_1d(
             _x=x_vals,
