@@ -1,5 +1,4 @@
 import copy
-import logging
 
 import scipy.ndimage
 import xarray as xr
@@ -78,7 +77,6 @@ def plot_prob_density(
             )
 
     # Get the dataset and parameter name
-    dset = ds
     if "parameter" in list(ds.coords):
         pname = ds.coords["parameter"].values.item()
     else:
@@ -87,15 +85,15 @@ def plot_prob_density(
     # Track the legend handles and labels
     _handles, _labels = [], []
     if hue:
-        for i, coord in enumerate(dset.coords[hue].values):
+        for i, coord in enumerate(ds.coords[hue].values):
 
-            if x in dset.coords:
-                x_vals = dset.coords[x]
+            if x in ds.coords:
+                x_vals = ds.coords[x]
             else:
-                x_vals = dset[x].sel({hue: coord})
+                x_vals = ds[x].sel({hue: coord})
 
-            y_vals = dset[y].sel({hue: coord})
-            yerr_vals = dset[yerr].sel({hue: coord}) if yerr is not None else None
+            y_vals = ds[y].sel({hue: coord})
+            yerr_vals = ds[yerr].sel({hue: coord}) if yerr is not None else None
 
             handle = _plot_1d(
                 _x=x_vals,
@@ -120,12 +118,12 @@ def plot_prob_density(
 
     else:
 
-        if x in dset.coords:
-            x_vals = dset.coords[x]
+        if x in ds.coords:
+            x_vals = ds.coords[x]
         else:
-            x_vals = dset[x]
-        y_vals = dset[y]
-        yerr_vals = dset[yerr] if yerr is not None else None
+            x_vals = ds[x]
+        y_vals = ds[y]
+        yerr_vals = ds[yerr] if yerr is not None else None
 
         _plot_1d(
             _x=x_vals,
@@ -136,72 +134,3 @@ def plot_prob_density(
             _label=label,
             **plot_kwargs,
         )
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# HACKY STUFF
-# ----------------------------------------------------------------------------------------------------------------------
-from utopya.eval import PlotHelper
-
-
-def add_entry_to_figlegend(color: str, label: str, *, hlpr: PlotHelper):
-    """Hacky solution.
-    Adds an entry to an existing legend by copying the existing artists, re-drawing them in the given colour,
-    and adding a label."""
-
-    from dantro.plot.utils.mpl import remove_duplicate_handles_labels
-
-    # Get the handles and labels from the current legend
-    h, l = remove_duplicate_handles_labels(*hlpr.all_handles_labels)
-    new_h = copy.deepcopy(h[0])
-    new_h.set_color(color)
-    h.append(new_h)
-    l.append(label)
-
-    title = hlpr._figlegend.get_title().get_text()
-    hlpr._figlegend.remove()
-
-    # Get the title and position of current legend
-    hlpr.fig.legend(h, l, title=title, loc="center right")
-
-
-def calculate_Hellingers(*, hlpr: PlotHelper):
-
-    import matplotlib
-    import numpy as np
-    import scipy
-
-    log = logging.getLogger(__name__)
-
-    objs = dict()
-    plots = [
-        obj
-        for obj in (hlpr.ax.get_children())
-        if isinstance(obj, matplotlib.lines.Line2D)
-    ]
-
-    # Get the data
-    for line in plots:
-        if line.get_color() == "#2F7194":
-            objs["Neural"] = line.get_data()
-        elif line.get_color() == "#3D4244":
-            objs["True"] = line.get_data()
-        else:
-            objs["MCMC"] = line.get_data()
-
-    if "True" not in objs.keys():
-        objs["True"] = [np.linspace(0, 1, 1000), np.ones(1000)]
-    Hellingers = dict()
-    # Interpolate: get the highest common lower bound, and lowest common upper bound
-    for val in ["Neural", "MCMC"]:
-        x_min, x_max = np.max([np.min(objs["True"][0]), np.min(objs[val][0])]), np.min(
-            [np.max(objs["True"][0]), np.max(objs[val][0])]
-        )
-        grid = np.linspace(x_min, x_max, 1000)
-        true_interp = np.interp(grid, objs["True"][0], objs["True"][1])
-        val_interp = np.interp(grid, objs[val][0], objs[val][1])
-        Hellinger = 0.5 * scipy.integrate.trapezoid(
-            pow(np.sqrt(val_interp) - np.sqrt(true_interp), 2), grid
-        )
-        Hellingers[val] = Hellinger
-    log.remark(f"Hellinger distances: {Hellingers}")

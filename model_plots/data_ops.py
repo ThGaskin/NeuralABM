@@ -1,5 +1,4 @@
 import itertools
-from operator import itemgetter
 from typing import Any, Sequence, Union
 
 import numpy as np
@@ -504,6 +503,7 @@ def marginal_from_joint(
     *,
     parameter: str,
     normalize: Union[bool, float] = True,
+    scale_y_bins: bool = False,
 ) -> xr.Dataset:
     """
     Computes a marginal from a two-dimensional joint distribution by summing over one parameter. Normalizes
@@ -511,17 +511,28 @@ def marginal_from_joint(
     Since x-values may differ for different parameters, the x-values are variables in a dataset, not coordinates.
     The coordinates are given by the bin index, thereby allowing marginals across multiple parameters to be combined
     into a single xr.Dataset.
+
+    :param joint: the joint distribution over which to marginalise
+    :param normalize: whether to normalize the marginal distribution. If true, normalizes to 1, else normalizes to
+        a given value
+    :param scale_y_bins: whether to scale the integration over y by range of the given values (y_max - y_min)
     """
 
     # Get the integration coordinate
-    integration_coord = list(joint.coords)
-    integration_coord.remove(parameter)
-    integration_coord = integration_coord[0]
+    integration_coord = [c for c in list(joint.coords) if c != parameter][0]
 
+    # Marginalise over the integration coordinate
     marginal = []
-    for i in range(len(joint.coords[parameter])):
-        _y, _x = joint.isel({parameter: i}).data, joint.coords[integration_coord]
-        marginal.append(scipy.integrate.trapezoid(_y[~np.isnan(_y)], _x[~np.isnan(_y)]))
+    for p in joint.coords[parameter]:
+        _y, _x = joint.sel({parameter: p}).data, joint.coords[integration_coord]
+        if scale_y_bins and not np.isnan(_y).all():
+            _f = np.nanmax(_y) - np.nanmin(_y)
+            _f = 1.0 / _f if _f != 0 else 1.0
+        else:
+            _f = 1.0
+        marginal.append(
+            _f * scipy.integrate.trapezoid(_y[~np.isnan(_y)], _x[~np.isnan(_y)])
+        )
 
     # Normalise, if given
     if normalize:
@@ -529,12 +540,16 @@ def marginal_from_joint(
         marginal /= norm if isinstance(normalize, bool) else norm / normalize
 
     # Return a dataset with x- and y-values as variables, and coordinates given by the bin index
+    # This allows combining different marginals with different x-values but identical number of bins
+    # into a single dataset
     return xr.Dataset(
         data_vars=dict(
             x=(["bin_idx"], joint.coords[parameter].data),
             marginal=(["bin_idx"], marginal),
         ),
-        coords=dict(bin_idx=(["bin_idx"], np.arange(len(joint.data)))),
+        coords=dict(
+            bin_idx=(["bin_idx"], np.arange(len(joint.coords[parameter].data)))
+        ),
     )
 
 
@@ -548,6 +563,7 @@ def marginal(
     *,
     parameter: str = "x",
     normalize: Union[bool, float] = True,
+    scale_y_bins: bool = False,
     **kwargs,
 ) -> xr.Dataset:
     """
@@ -562,11 +578,14 @@ def marginal(
     :param range: range to use for both dimensions. Defaults to the minimum and maximum along each dimension
     :param parameter: the parameter over which to marginalise. Defaults to the first dimension.
     :param normalize: whether to normalize the marginal
+    :param scale_y_bins: whether to scale the integration over y by range of the given values (y_max - y_min)
     :param kwargs: other kwargs, passed to the joint_2D function
     :return: an xr.Dataset of the marginal densities
     """
     joint = joint_2D(x, prob, prob, bins, ranges, normalize=normalize, **kwargs)
-    return marginal_from_joint(joint, parameter=parameter, normalize=normalize)
+    return marginal_from_joint(
+        joint, parameter=parameter, normalize=normalize, scale_y_bins=scale_y_bins
+    )
 
 
 @is_operation("marginal_from_ds")
@@ -655,36 +674,50 @@ def joint_DD(
 @is_operation("Hellinger_distance")
 @apply_along_dim
 def Hellinger_distance(
-    p: Union[xr.Dataset, xr.DataArray],
-    q: Union[xr.Dataset, xr.DataArray],
-    *,
-    sum: bool = True,
-    x: str = None,
+    p: xr.DataArray,
+    q: xr.DataArray,
 ) -> xr.Dataset:
     """Calculates the pointwise Hellinger distance between two distributions p and q, defined as
 
         d_H(p, q)(x) = sqrt(p(x)) - sqrt(q(x))**2
 
-    If p is a dataset, the Hellinger distance is computed for each distribution in the family. If given, the
-    total Hellinger distance along a dimension is also calculated by summing along x. If x is not given, the total
-    distance is returned.
+    The Hellinger distance is calculated on the common support of p and q; if p and q have different discretisation
+     levels, the functions are interpolated onto a common grid.
 
-    :param p: array or dataset of density values, possibly family-wise
-    :param q: one-dimensional dataset or array of density values
-    :param sum: (optional) whether to calculate the total Hellinger distance
-    :param x: (optional) the dimension along which to calculate the total hellinger distance. If not given, sums over all
-        dimensions
-    :return:
+    :param p: one-dimensional arrays of density values for p
+    :param q: one-dimensional arrays of density values for q
+    :return: the Hellinger distance between p and q
     """
-    res = np.square(np.sqrt(p) - np.sqrt(q))
-    if sum:
-        if x:
-            return res.sum(x)
-        else:
-            # If summing over all dimensions, return as xr.Dataset to allow later stacking
-            return xr.Dataset(data_vars=dict(Hellinger_distance=res.sum()))
-    else:
-        return res
+
+    def _interpolate(_p, _q) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+
+        _dim1, _dim2 = list(_p.coords.keys())[0], list(_q.coords.keys())[0]
+
+        # Generate a common grid
+        _x_min, _x_max = np.max(
+            [_p.coords[_dim1][0].item(), _q.coords[_dim2][0].item()]
+        ), np.min([_p.coords[_dim1][-1].item(), _q.coords[_dim2][-1].item()])
+
+        # Interpolate the functions onto a common grid
+        _grid = np.linspace(
+            _x_min, _x_max, len(_p.coords[_dim1]) + len(_q.coords[_dim2])
+        )
+        _p_interp = np.interp(_grid, _p.coords[_dim1], _p)
+        _q_interp = np.interp(_grid, _q.coords[_dim2], _q)
+
+        return _p_interp, _q_interp, _grid
+
+    p_interp, q_interp, grid = _interpolate(p, q)
+
+    # Calculate the Hellinger distance and return
+    return xr.Dataset(
+        data_vars=dict(
+            Hellinger_distance=0.5
+            * scipy.integrate.trapezoid(
+                np.square(np.sqrt(p_interp) - np.sqrt(q_interp)), grid
+            )
+        )
+    )
 
 
 @is_operation("relative_entropy")

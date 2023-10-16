@@ -47,6 +47,10 @@ register_operation(name="np.randint", func=np.random.randint)
 
 from model_plots.SEIRD.time_dependent_params import *
 
+register_operation(name=".to_xarray", func=lambda d, *a, **k: d.to_xarray(*a, **k))
+register_operation(name="np.nansum", func=np.nansum)
+register_operation(name="np.histogramdd", func=np.histogramdd)
+register_operation(name="np.ones", func=np.ones)
 from .data_ops import *
 from .SEIRD_trajectories_from_densities import SEIRD_densities_from_joint
 from .SIR_trajectories_from_densities import *

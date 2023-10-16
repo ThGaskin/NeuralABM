@@ -56,20 +56,18 @@ marginals:
     - sub: [!dag_prev , !dag_tag counts ]
     - pow: [!dag_prev , 2]
     - .sum: [!dag_prev , ['kind', 'time']]
-    - mul: [!dag_prev , -1]
-    - np.exp: [!dag_prev ]
+    - neg_exp: [!dag_prev ]
     - .squeeze: [!dag_prev ]
     - getitem: [!dag_prev , 'true_counts']
       tag: likelihood
     - marginal_from_joint: [!dag_prev ]
       kwargs: {parameter: 'p_infect'}
-    - to_csv: [!dag_prev , 'p_infect']
       tag: p_infect
     - marginal_from_joint: [!dag_tag likelihood]
       kwargs: {parameter: 't_infectious'}
-    - to_csv: [!dag_prev , 't_infectious']
       tag: t_infectious
     - concat_along: [[!dag_tag p_infect, !dag_tag t_infectious], 'parameter', ['p_infect', 't_infectious']]
+#    - to_csv: [!dag_prev , 'data/SIR/ground_truth.csv']
       tag: data
   x: x
   y: marginal

@@ -181,60 +181,7 @@ predictions_mv:
   color: !dag_result c_darkgrey
   add_legend: False
 
-# Base operations for computing the joint (multiverse case)
-.joint_mv:
-  expected_multiverse_ndim: [ 1, 2, 3, 4, 5, 6, 8]
-  based_on:
-    - .creator.multiverse
-  dag_options:
-    meta_operations:
-      get_joint:
-        - flatten_dims: [!arg 0]
-          kwargs:
-            dims: {sample: [seed, epoch]}
-        - .transpose: [!dag_prev ]
-        - flatten_dims: [!arg 1]
-          kwargs:
-            dims: {sample: [seed, epoch ]}
-        - .transpose: [!dag_prev ]
-        - compute_joint: [!dag_node -3 , !dag_prev ]
-          kwargs:
-            bins: !kwarg bins
-            range: !kwarg range
-            normalize: !kwarg normalize
-            differential: !kwarg differential
-            statistic: !kwarg statistic
-  select_and_combine:
-    fields:
-      parameters: parameters
-      loss: loss
-
-# Base operations for computing the marginal (multiverse case)
-.marginal_mv:
-  based_on: .joint_mv
-  dag_options:
-    meta_operations:
-      get_marginal:
-        - flatten_dims: [!arg 0]
-          kwargs:
-            dims: { sample: [ seed, epoch ] }
-        - .transpose: [!dag_prev ]
-        - flatten_dims: [!arg 1]
-          kwargs:
-            dims: { sample: [ seed, epoch ] }
-        - .transpose: [!dag_prev ]
-        - compute_joint: [!dag_node -3 , !dag_prev ]
-          kwargs:
-            bins: !kwarg bins
-            range: !kwarg range
-            normalize: False
-            differential: ~
-            statistic: !kwarg statistic
-        - compute_marginal: [!dag_prev , !kwarg parameter]
-          kwargs:
-            normalize: !kwarg normalize
-
-# Network plot
+# -- Network plot  --------------------------------------------------------------------------------
 network:
   based_on:
     - .creator.universe

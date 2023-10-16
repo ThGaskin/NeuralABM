@@ -71,7 +71,8 @@ Training:
   to_learn: [alpha, beta, kappa, sigma]
   loss_function:
     name: MSELoss
-    reduction: sum
+    kwargs:
+      reduction: sum
   batch_size: !is-positive-int 1
   device: cpu
   epsilon: 1
