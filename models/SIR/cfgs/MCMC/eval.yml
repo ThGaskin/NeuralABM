@@ -1,0 +1,193 @@
+## Plot the joint distribution
+#joint:
+#  based_on:
+#    - .creator.multiverse
+#    - .plot.facet_grid.pcolormesh
+#  select_and_combine:
+#    fields:
+#      parameters:
+#        path: ../langevin_data/parameters
+#  transform:
+#    - flatten_dims: [!dag_tag parameters]
+#      kwargs: {dims: {sample: ['seed', 'sample']}}
+#    - .transpose: [!dag_prev ]
+#    - histogramdd: [!dag_prev ]
+#      kwargs:
+#        bins: 200
+#        range: [[0, 1], [1, 31]]
+#      tag: data
+#  x: p_infect
+#  y: t_infectious
+#  helpers:
+#    set_limits:
+#      x: [0, 1]
+#      y: [1, 31]
+#    set_labels:
+#      x: $\beta$
+#      y: $\tau$
+#  cmap:
+#    continuous: true
+#    from_values:
+#      0: !dag_result c_darkblue
+#      1: !dag_result c_yellow
+#  cbar_kwargs:
+#    label: ~
+#  style:
+#    figure.figsize: [!dag_result half_width, !dag_result quarter_width]
+
+# Marginal densities on the parameters obtained from the MCMC
+marginals:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: ../langevin_data/parameters
+  transform:
+    - xr.DataArray:
+        data: [1000, 100, 100]
+        dims: ['parameter']
+        coords: {parameter: ['alpha', 'p_infect', 't_infectious']}
+      tag: bins
+    - xr.DataArray:
+        data: [[0, 1], [0, 1], [1, 30]]
+        dims: ['parameter', 'idx']
+        coords: {parameter: ['alpha', 'p_infect', 't_infectious']}
+      tag: ranges
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs: {dims: {sample: [seed, sample]}}
+    - .rename: [!dag_prev , 'value']
+    - to_csv: [!dag_prev , 'data/SIR/MCMC_data.csv']
+    - hist_ndim: [!dag_prev , !dag_tag bins , !dag_tag ranges]
+      kwargs:
+        exclude_dim: [parameter]
+        normalize: True
+      tag: data
+  x: x
+  y: value
+  col: parameter
+  sharex: False
+  sharey: False
+  c: !dag_result c_darkblue
+  smooth_kwargs:
+    p_infect:
+      enabled: False
+    t_infectious:
+      enabled: True
+      sigma: 2
+    alpha:
+      enabled: True
+      sigma: 100
+
+## Calculate the standard errors for each chain
+#standard_errors:
+#  based_on:
+#    - .creator.multiverse
+#    - .plot.facet_grid.line
+#  select_and_combine:
+#    fields:
+#      parameters:
+#        path: ../langevin_data/parameters
+#        transform:
+#          - .isel: [!dag_prev , {'sample': !slice [500, ~, 10]}]
+#  dag_options:
+#    define:
+#      batch_size: 100
+#  transform:
+#    - batch_mean: [!dag_tag parameters]
+#      kwargs:
+#        along_dim: sample
+#        batch_size: !dag_tag batch_size
+#    - .to_array: [!dag_prev ]
+#    - .std: [!dag_prev , 'batch_idx']
+#    - sqrt: [!dag_tag batch_size]
+#    - mul: [!dag_node -2 , !dag_prev ]
+#      tag: data
+#  x: seed
+#  col: parameter
+#  sharey: False
+#  color: !dag_result c_grey
+#  style:
+#    figure.figsize: [ !dag_result third_width, !dag_result quarter_width ]
+#
+# Calculate the Gelman-Rubin statistic for each parameter over time
+gelman_rubin:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      parameters:
+        path: ../langevin_data/parameters
+  transform:
+    - gelman_rubin: [!dag_tag parameters ]
+      kwargs:
+        along_dim: [sample, seed]
+        step_size: 10
+      file_cache:
+        read: True
+        write: True
+    - .to_array: [!dag_prev ]
+      tag: data
+  x: sample
+  col: parameter
+  color: !dag_result c_darkgrey
+  sharey: False
+  helpers:
+    set_hv_lines:
+      hlines:
+        - pos: 1.2
+          linestyle: 'dashed'
+          color: !dag_result c_red
+    setup_figure:
+      ncols: 3
+      nrows: 1
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_title:
+          title: Infection parameter $\beta$
+      1:
+        axis: [ 1, 0 ]
+        set_title:
+          title: Recovery parameter $\tau$
+      2:
+        axis: [ 2, 0 ]
+        set_title:
+          title: Redundant parameter $\alpha$
+  figsize: [ !dag_result full_width, !dag_result third_width ]
+
+## Marginal just for the alpha parameter
+#marginal_alpha:
+#  based_on:
+#    - .creator.multiverse
+#    - .plot.multiplot
+#  select_and_combine:
+#    fields:
+#      parameters:
+#        path: ../langevin_data/parameters
+#        transform:
+#          - .data: [!dag_prev ]
+#          - .isel: [!dag_prev , {parameter: -1}]
+#          - .isel: [!dag_prev , {sample: !slice [500, ~, 5]}] # burn-in
+#  transform:
+#    # Flatten the parameters
+#    - flatten_dims: [ !dag_tag parameters , [seed, sample], s]
+#    - .rename: [!dag_prev , {s: sample}]
+#    - .drop_vars: [!dag_prev , 'parameter']
+#    - to_csv: [!dag_prev , 'alpha' ]
+#      tag: data
+#  to_plot:
+#    - function: sns.kdeplot
+#      data: !dag_result data
+#      fill: true
+#      clip: [0, 1]
+#  compute_only: []
+#  helpers:
+#    set_labels:
+#      x: $\alpha$
+#      y: ''
+#    set_limits:
+#      x: [0, 1]
+#  style:
+#    figure.figsize: [ !dag_result third_width, !dag_result quarter_width ]

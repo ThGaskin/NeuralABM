@@ -88,6 +88,25 @@
       dpi: 900
   file_ext: pdf
 
+.cycler_marginals:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_darkblue]:}',
+                              '{colors[c_pink]:}',
+                              '{colors[c_darkgreen]:}',
+                              '{colors[c_red]:}',
+                              '{colors[c_lightgreen]:}',
+                              '{colors[c_lightblue]:}',
+                              '{colors[c_lightbrown]:}',
+                              '{colors[c_orange]:}',
+                              '{colors[c_yellow]:}',
+                              '{colors[c_darkgrey]:}',
+                              '{colors[c_purple]:}',
+                              '{colors[c_lightgrey]:}'
+                              ])"
+      colors:
+        <<: *colors
+
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗

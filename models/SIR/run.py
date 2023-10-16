@@ -72,7 +72,7 @@ class SIR_NN:
             key: torch.tensor(val, dtype=torch.float)
             for key, val in true_parameters.items()
         }
-        self.current_predictions = torch.tensor([0.0, 0.0, 0.0])
+        self.current_predictions = torch.zeros(len(to_learn))
 
         self.training_data = training_data
 
@@ -192,20 +192,22 @@ class SIR_NN:
                 tau = 1 / t * torch.sigmoid(1000 * (ele / t - 1))
 
                 # Random noise
-                w = torch.normal(torch.tensor(0.0), torch.tensor(0.1))
+                w = torch.normal(torch.tensor(0.0), torch.tensor(1.0))
 
                 # Solve the ODE
-                current_densities = torch.relu(
+                current_densities = torch.clip(
                     current_densities
                     + torch.stack(
                         [
-                            (-p * current_densities[0] + sigma * w)
+                            (-p * current_densities[0] - sigma * w)
                             * current_densities[1],
                             (p * current_densities[0] + sigma * w - tau)
                             * current_densities[1],
                             tau * current_densities[1],
                         ]
-                    )
+                    ),
+                    0.0,
+                    1.0
                     # + torch.tensor(
                     #     [1 / (10000 + alpha), 1 / (10000 + alpha), 1 / (10000 + alpha)]
                     # )

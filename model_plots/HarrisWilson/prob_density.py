@@ -1,5 +1,4 @@
 import copy
-import logging
 
 import scipy.ndimage
 import xarray as xr
@@ -135,30 +134,3 @@ def plot_prob_density(
             _label=label,
             **plot_kwargs,
         )
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# HACKY STUFF
-# ----------------------------------------------------------------------------------------------------------------------
-from utopya.eval import PlotHelper
-
-
-def add_entry_to_figlegend(color: str, label: str, *, hlpr: PlotHelper):
-    """Hacky solution.
-    Adds an entry to an existing legend by copying the existing artists, re-drawing them in the given colour,
-    and adding a label."""
-
-    from dantro.plot.utils.mpl import remove_duplicate_handles_labels
-
-    # Get the handles and labels from the current legend
-    h, l = remove_duplicate_handles_labels(*hlpr.all_handles_labels)
-    new_h = copy.deepcopy(h[0])
-    new_h.set_color(color)
-    h.append(new_h)
-    l.append(label)
-
-    title = hlpr._figlegend.get_title().get_text()
-    hlpr._figlegend.remove()
-
-    # Get the title and position of current legend
-    hlpr.fig.legend(h, l, title=title, loc="center right")
