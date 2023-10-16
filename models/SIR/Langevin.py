@@ -17,7 +17,6 @@ base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include")
 
 
 class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
-
     """
     A Metropolis-adjusted Langevin sampler that inherits from the base class
     """
@@ -26,7 +25,7 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
         self,
         *,
         true_data: torch.Tensor,
-        init_guess: Any,
+        prior: dict,
         lr: float = 1e-2,
         lr_final: float = 1e-4,
         max_itr: float = 1e4,
@@ -42,6 +41,16 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
         **__,
     ):
 
+        # Parameters to learn
+        self.to_learn = {key: idx for idx, key in enumerate(to_learn)}
+        self.true_parameters = {
+            key: torch.tensor(val, dtype=torch.float)
+            for key, val in true_parameters.items()
+        }
+
+        # Draw an initial guess from the prior
+        init_guess = base.random_tensor(prior, size=(len(to_learn),))
+
         super(SIR_Langevin_sampler, self).__init__(
             true_data=true_data,
             init_guess=init_guess,
@@ -56,13 +65,6 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
             batch_size=batch_size,
             h5File=h5File,
         )
-
-        # Parameters to learn
-        self.to_learn = {key: idx for idx, key in enumerate(to_learn)}
-        self.true_parameters = {
-            key: torch.tensor(val, dtype=torch.float)
-            for key, val in true_parameters.items()
-        }
 
         # Create datasets for the predictions
         self.dset_parameters = self.h5group.create_dataset(
@@ -126,26 +128,27 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
         )
 
         for s in range(start, start + self.batch_size - 1):
-
             # Recovery rate
             tau = 1 / t * torch.sigmoid(1000 * (s / t - 1))
 
             # Random noise
-            w = torch.normal(torch.tensor(0.0), torch.tensor(0.1))
+            w = torch.normal(torch.tensor(0.0), torch.tensor(1.0))
 
             # Solve the ODE
             densities.append(
-                torch.relu(
+                torch.clip(
                     densities[-1]
                     + torch.stack(
                         [
-                            (-p * densities[-1][0] + sigma * w) * densities[-1][1]
-                            + 1 / (10000 * alpha),
+                            (-p * densities[-1][0] - sigma * w) * densities[-1][1]
+                            + 1 / (10000 + alpha),
                             (p * densities[-1][0] + sigma * w - tau) * densities[-1][1]
-                            + 1 / (10000 * alpha),
-                            tau * densities[-1][1] + 1 / (10000 * alpha),
+                            + 1 / (10000 + alpha),
+                            tau * densities[-1][1] + 1 / (10000 + alpha),
                         ]
-                    )
+                    ),
+                    0,
+                    1,
                 )
             )
 
