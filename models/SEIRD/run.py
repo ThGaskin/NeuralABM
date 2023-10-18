@@ -155,11 +155,11 @@ class SEIRD_NN:
         alpha = torch.sum(training_data, dim=0) * self.dt
         alpha = torch.where(alpha > 0, alpha, torch.tensor(1.0))
         self.alpha = (
-            torch.cat([alpha[0:8], torch.sum(alpha[8:11], 0, keepdim=True)], 0)
+            torch.cat([alpha[0:7], torch.sum(alpha[8:11], 0, keepdim=True)], 0)
         ) ** (-1)
 
         # Reduced data model
-        for idx in [0, 1, 2, 3, 8]:  # S, E, I, R, Q are dropped
+        for idx in [0, 1, 2, 3, 7]:  # S, E, I, R, Q are dropped
             self.alpha[idx] = 0
 
         # Get all the jump points
@@ -227,50 +227,55 @@ class SEIRD_NN:
 
                 # Solve the ODE
                 densities.append(
-                    densities[-1]
-                    + torch.stack(
-                        [
-                            (-parameters["k_E"] * densities[-1][2] - k_Q)
-                            * densities[-1][0]
-                            + parameters["k_S"] * densities[-1][8],
-                            parameters["k_E"] * densities[-1][0] * densities[-1][2]
-                            - (parameters["k_I"] + k_Q) * densities[-1][1],
-                            parameters["k_I"] * densities[-1][1]
-                            - (parameters["k_R"] + parameters["k_SY"] + k_Q)
-                            * densities[-1][2],
-                            parameters["k_R"]
-                            * (
-                                densities[-1][2]
-                                + densities[-1][4]
-                                + densities[-1][5]
-                                + densities[-1][6]
-                                + densities[-1][10]
-                            ),
-                            parameters["k_SY"] * (densities[-1][2] + densities[-1][10])
-                            - (parameters["k_R"] + parameters["k_H"])
-                            * densities[-1][4],
-                            parameters["k_H"] * densities[-1][4]
-                            - (parameters["k_R"] + parameters["k_C"])
-                            * densities[-1][5],
-                            parameters["k_C"] * densities[-1][5]
-                            - (parameters["k_R"] + parameters["k_D"])
-                            * densities[-1][6],
-                            parameters["k_D"] * densities[-1][6],
-                            -parameters["k_S"] * densities[-1][8]
-                            + k_Q * densities[-1][0],
-                            -parameters["k_I"] * densities[-1][9]
-                            + k_Q * densities[-1][1],
-                            parameters["k_I"] * densities[-1][9]
-                            + k_Q * densities[-1][2]
-                            - (parameters["k_SY"] + parameters["k_R"])
-                            * densities[-1][10],
-                            parameters["k_SY"] * densities[-1][2]
-                            - self.k_q
-                            * torch.sum(densities[-1][0:3])
-                            * densities[-1][-1],
-                        ]
+                    torch.clip(
+                        densities[-1]
+                        + torch.stack(
+                            [
+                                (-parameters["k_E"] * densities[-1][2] - k_Q)
+                                * densities[-1][0]
+                                + parameters["k_S"] * densities[-1][8],
+                                parameters["k_E"] * densities[-1][0] * densities[-1][2]
+                                - (parameters["k_I"] + k_Q) * densities[-1][1],
+                                parameters["k_I"] * densities[-1][1]
+                                - (parameters["k_R"] + parameters["k_SY"] + k_Q)
+                                * densities[-1][2],
+                                parameters["k_R"]
+                                * (
+                                    densities[-1][2]
+                                    + densities[-1][4]
+                                    + densities[-1][5]
+                                    + densities[-1][6]
+                                    + densities[-1][10]
+                                ),
+                                parameters["k_SY"]
+                                * (densities[-1][2] + densities[-1][10])
+                                - (parameters["k_R"] + parameters["k_H"])
+                                * densities[-1][4],
+                                parameters["k_H"] * densities[-1][4]
+                                - (parameters["k_R"] + parameters["k_C"])
+                                * densities[-1][5],
+                                parameters["k_C"] * densities[-1][5]
+                                - (parameters["k_R"] + parameters["k_D"])
+                                * densities[-1][6],
+                                parameters["k_D"] * densities[-1][6],
+                                -parameters["k_S"] * densities[-1][8]
+                                + k_Q * densities[-1][0],
+                                -parameters["k_I"] * densities[-1][9]
+                                + k_Q * densities[-1][1],
+                                parameters["k_I"] * densities[-1][9]
+                                + k_Q * densities[-1][2]
+                                - (parameters["k_SY"] + parameters["k_R"])
+                                * densities[-1][10],
+                                parameters["k_SY"] * densities[-1][2]
+                                - self.k_q
+                                * torch.sum(densities[-1][0:3])
+                                * densities[-1][-1],
+                            ]
+                        )
+                        * self.dt,
+                        0,
+                        1,
                     )
-                    * self.dt
                 )
 
             densities = torch.stack(densities[1:])
@@ -281,7 +286,7 @@ class SEIRD_NN:
                 # which is not present in the ABM data
                 densities = torch.cat(
                     [
-                        densities[:, :8],
+                        densities[:, :7],
                         torch.sum(densities[:, 8:11], dim=1, keepdim=True),
                     ],
                     dim=1,
@@ -293,7 +298,7 @@ class SEIRD_NN:
                         torch.cat(
                             [
                                 self.training_data[
-                                    batch_idx + 1 : self.batches[batch_no + 1] + 1, :8
+                                    batch_idx + 1 : self.batches[batch_no + 1] + 1, :7
                                 ],
                                 self.training_data[
                                     batch_idx + 1 : self.batches[batch_no + 1] + 1, [8]

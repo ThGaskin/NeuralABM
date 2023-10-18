@@ -10,14 +10,14 @@ parameter_space:
   write_every: 10
   SEIRD+:
     Data:
-      load_from_dir: data/SEIRD_Berlin_data/data_Berlin_with_deceased.h5
+      load_from_dir: data/SEIRD+/Berlin_data/data.h5
       time_dependent_params:
         k_E:
-          - [ 0, 26 ]
-          - [ 26, 35]
-          - [ 35, 80 ]
-          - [ 80, 120 ]
-          - [ 120, ~ ]
+          - [ 0, 26 ] # Feb 16 to Mar 13
+          - [ 26, 35] # Mar 13 to Mar 22
+          - [ 35, 80 ] # Mar 22 to May 6
+          - [ 80, 120 ] # May 6 to June 15
+          - [ 120, ~ ] # June 15 to Sep 3
       synthetic_data:
         dt: 0.1
       training_data_size: !slice [0, 200]
