@@ -3,6 +3,7 @@ from os.path import dirname as up
 
 import numpy as np
 import pytest
+import scipy.integrate
 import xarray as xr
 from dantro._import_tools import import_module_from_path
 from pkg_resources import resource_filename
@@ -97,7 +98,7 @@ def test_mean_std():
         assert m1
 
         # Calculate the indicator along two dimensions
-        m1 = func(ds_2, x="alpha", p="p", along_dim=["x", "y"])
+        m1 = func(m1, x="y", along_dim=["y"])
         assert m1
 
 
@@ -168,30 +169,23 @@ def test_hist():
 # DENSITY FUNCTION TESTS
 # ----------------------------------------------------------------------------------------------------------------------
 def test_marginal_density():
-    # Calculate the marginals along all dimensions
-    m1 = ops.compute_marginal(ds_2, x="alpha", p="p")
-    assert m1
-    assert len(m1.dims) == 1
-
-    # Check the probabilities are normalised
-    assert float(
-        m1["p"].sum() * (abs(m1["x"][1] - m1["x"][0])).item()
-    ) == pytest.approx(1, 1e-5)
 
     # Calculate the marginals along one dimension
-    m1 = ops.compute_marginal(ds_2, x="alpha", p="p", along_dim=["x"])
+    m1 = ops.marginal_from_ds(ds_2, x="alpha", y="p", along_dim=["x"], bins=10)
     assert m1
-    assert len(m1.dims) == 3
+    assert list(m1.dims.keys()) == ["bin_idx", "y", "z"]
 
-    # Calculate the marginals along two dimensions
-    m1 = ops.compute_marginal(ds_2, x="alpha", p="p", along_dim=["x", "y"])
-    assert m1
-    assert len(m1.dims) == 2
-
-    # Calculate the marginals along two dimensions with different bins
-    m1 = ops.compute_marginal(ds_2, x="alpha", p="p", along_dim=["x", "y"])
-    assert m1
-    assert len(m1.dims) == 2
+    # Check the probabilities are normalised
+    _y_idx, _z_idx = np.random.randint(0, len(ds_2.coords["y"])), np.random.randint(
+        0, len(ds_2.coords["z"])
+    )
+    assert float(
+        scipy.integrate.trapezoid(
+            m1["marginal"].isel({"y": _y_idx, "z": _z_idx}),
+            m1["x"].isel({"y": _y_idx, "z": _z_idx}),
+        )
+        == pytest.approx(1, 1e-5)
+    )
 
 
 def test_L2_distance():

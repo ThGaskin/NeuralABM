@@ -172,20 +172,28 @@ def broadcast(
 def mean(
     data: xr.Dataset,
     *,
-    x: str,
-    p: str,
+    x: str = None,
+    p: str = None,
 ) -> xr.Dataset:
-    """Computes the mean of a one-dimensional dataset consisting of x values and associated binned probabilities,
-    (x, p(x)). Since the probabilities are binned, they are normalised such that sum p(x)dx = 1
+    """Computes the mean of a one-dimensional dataset consisting of x values and associated probabilities,
+    (x, p(x)), by calculating \int x p(x) dx. Probabilities should be normalised.
 
     :param data: the dataset
-    :param x: the x-value dimension
-    :param p: the name of the probability dimension along which to select the mode.
+    :param x: (optional) the x-value dimension. If not provided, coordinate values are automatically chosen.
+    :param p: (optional) the name of the probability dimension along which to select the mode. If not provided, the
+        data variable is automatically chosen
     :return: the mean of the dataset
     """
-
+    if x is None:
+        x = list(data.coords.keys())[0]
+    if p is None:
+        p = list(data.data_vars.keys())[0]
+    if x in data.coords.keys():
+        _x_vals = data.coords[x]
+    else:
+        _x_vals = data[x]
     return xr.Dataset(
-        data_vars=dict(mean=scipy.integrate.trapezoid(data[p] * data[x], data[x]))
+        data_vars=dict(mean=scipy.integrate.trapezoid(data[p] * _x_vals, _x_vals))
     )
 
 
@@ -194,24 +202,31 @@ def mean(
 def std(
     data: xr.Dataset,
     *,
-    x: str,
-    p: str,
+    x: str = None,
+    p: str = None,
 ) -> xr.Dataset:
-    """Computes the standard deviation of a one-dimensional dataset consisting of x values and associated binned
-    probabilities, (x, p(x)). Since the probabilities are binned, they are normalised such that sum p(x)dx = 1.
+    """Computes the standard deviation of a one-dimensional dataset consisting of x values and associated probabilities,
+    (x, p(x)), by calculating \sqrt{\int (x - mean)^2 p(x) dx}. Probabilities should be normalised.
 
     :param data: the dataset
-    :param x: the x-value dimension
-    :param p: the name of the probability dimension along which to select the mode.
-    :return: the standard deviation of the dataset
+    :param x: (optional) the x-value dimension. If not provided, coordinate values are automatically chosen.
+    :param p: (optional) the name of the probability dimension along which to select the mode. If not provided, the
+        data variable is automatically chosen
+    :return: the mean of the dataset
     """
+    if x is None:
+        x = list(data.coords.keys())[0]
+    if p is None:
+        p = list(data.data_vars.keys())[0]
+    if x in data.coords.keys():
+        _x_vals = data.coords[x]
+    else:
+        _x_vals = data[x]
 
-    # Calculate the mean
-    m = mean(data, x=x, p=p).to_array().data
-    std = np.sqrt(scipy.integrate.trapezoid(data[p] * (data[x] - m) ** 2, data[x]))
-
-    # Return
-    return xr.Dataset(data_vars=dict(std=std))
+    # Calculate the mean and standard deviation, and return
+    _m = mean(data, x=x, p=p).to_array().data
+    _std = np.sqrt(scipy.integrate.trapezoid(data[p] * (_x_vals - _m) ** 2, _x_vals))
+    return xr.Dataset(data_vars=dict(std=_std))
 
 
 @is_operation("mode")
@@ -558,8 +573,8 @@ def marginal_from_joint(
 def marginal(
     x: xr.DataArray,
     prob: xr.DataArray,
-    bins: xr.DataArray,
-    ranges: xr.DataArray,
+    bins: Union[int, xr.DataArray],
+    ranges: Union[Sequence, xr.DataArray],
     *,
     parameter: str = "x",
     normalize: Union[bool, float] = True,
