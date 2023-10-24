@@ -1,4 +1,5 @@
 import copy
+from typing import Sequence, Union
 
 import scipy.ndimage
 import xarray as xr
@@ -27,6 +28,7 @@ def plot_prob_density(
     label: str = None,
     add_legend: bool = True,
     smooth_kwargs: dict = {},
+    linestyle: Union[str, Sequence] = "solid",
     **plot_kwargs,
 ):
     """Probability density plot for estimated parameters, which combines line- and errorband functionality into a
@@ -80,7 +82,13 @@ def plot_prob_density(
     if "parameter" in list(ds.coords):
         pname = ds.coords["parameter"].values.item()
     else:
-        pname = list(ds.coords.keys())[0]
+        for _c in ds.coords:
+            # Exclude 1D variables and the hue variable
+            if ds.coords[_c].shape == ():
+                continue
+            if hue is not None and _c == hue:
+                continue
+            pname = _c
 
     # Track the legend handles and labels
     _handles, _labels = [], []
@@ -102,6 +110,7 @@ def plot_prob_density(
                 _smooth_kwargs=copy.deepcopy(smooth_kwargs.get(pname, smooth_kwargs)),
                 _ax=hlpr.ax,
                 _label=f"{coord}",
+                linestyle=linestyle if isinstance(linestyle, str) else linestyle[i],
                 **plot_kwargs,
             )
 
@@ -132,5 +141,6 @@ def plot_prob_density(
             _ax=hlpr.ax,
             _smooth_kwargs=copy.deepcopy(smooth_kwargs.get(pname, smooth_kwargs)),
             _label=label,
+            linestyle=linestyle,
             **plot_kwargs,
         )
