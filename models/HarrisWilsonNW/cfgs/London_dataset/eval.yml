@@ -1,51 +1,28 @@
----
-# ======================================================================================================================
-#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
-# ======================================================================================================================
-
-.variables:
-  colors: &colors
-    yellow:               &yellow               '#F5DDA9'
-    darkblue:             &darkblue             '#2F7194'
-    red:                  &red                  '#ec7070'
-    skyblue:              &skyblue              '#97c3d0'
-    green:                &green                '#48675A'
-    lightbrown:           &lightbrown           '#C6BFA2'
-    orange:               &orange               '#EC9F7E'
-    lightgreen:           &lightgreen           '#AFD8BC'
-    grey:                 &grey                 '#3D4244'
-
-  # Page widths in inches for latex documents: ensures easy integration into latex documents
-  page_widths:
-    full_width:           &full_width             7.5
-    half_width:           &half_width             !expr 7.5 / 2
-    third_width:          &third_width            !expr 7.5 / 3
-    quarter_width:        &quarter_width          !expr 7.5 / 4
-    fifth_width:          &fifth_width            !expr 7.5 / 5
-    eighth_width:         &eighth_width           !expr 7.5 / 8
-    two_thirds_width:     &two_thirds_width       !expr 2* 7.5 / 3
-
-# ======================================================================================================================
-# ╔═╗╦  ╔═╗╔╦╗╔═╗
-# ╠═╝║  ║ ║ ║ ╚═╗
-# ╩  ╩═╝╚═╝ ╩ ╚═╝
-# ======================================================================================================================
 # Inferred and true degree distribution
-degree:
-  based_on: degree_marginal
+degree_distribution:
+  based_on: degree_distribution_uni
   dag_options:
     define:
-      upper_bin: 20
+      bins: 500
+      range:
+        - list: [[0, 20]]
+  x: x
+  y: y
+  yerr: yerr
+  hue: type
+  linestyle: [solid, dotted]
   smooth_kwargs:
     enabled: True
-    sigma: 2.8
+    sigma: 2
   helpers:
     set_limits:
       x: [10, 17]
+      y: [ 0, ~ ]
+    set_labels:
+      x: Weighted degree $k$
+      y: ' '
     set_legend:
       custom_labels: [Inferred network, Transport network]
       handlelength: 1.5
   style:
-    figure.figsize: [*half_width, *third_width]
+    figure.figsize: [!dag_result half_width, !dag_result third_width]

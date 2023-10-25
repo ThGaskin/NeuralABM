@@ -29,41 +29,37 @@ coloredlogs.install(fmt="%(levelname)s %(message)s", level="INFO", logger=log)
 class HarrisWilson_NN:
     def __init__(
         self,
-        name: str,
         *,
         rng: np.random.Generator,
-        training_data_group: h5.Group,
+        output_data_group: h5.Group,
         neural_net: base.NeuralNet,
         loss_function: dict,
         ABM: HW.HarrisWilsonABM,
-        true_network: torch.tensor = None,
-        n_or: int,
-        n_dest: int,
+        training_data: torch.Tensor,
+        origin_sizes: torch.Tensor,
+        true_network: torch.Tensor = None,
         write_every: int = 1,
         write_predictions_every: int = 1,
         write_start: int = 1,
-        num_steps: int = 3,
         **__,
     ):
         """Initialize the model instance with a previously constructed RNG and
         HDF5 group to write the output data to.
 
-        Args:
-            name (str): The name of this model instance
-            rng (np.random.Generator): The shared RNG
-            training_data_group (h5.Group): The output file group to write training data to
-            pred_nw_group (h5.Group): (optional) The output file group to write the network edges to
-            neural_net: The neural network
-            ABM: The numerical solver
-            num_agents: the number of agents in the model
-            write_every: write every iteration
-            write_predictions_every: write out predicted parameters every iteration
-            write_start: iteration at which to start writing
-            num_steps: number of iterations of the ABM
+        :param rng (np.random.Generator): The shared RNG
+        :param output_data_group (h5.Group): The output file group to write training data to
+        :param neural_net: The neural network
+        :param loss_function: dictionary of loss function and properties
+        :param ABM: The numerical solver
+        :param training_data: data to use for training; shape is (training_set_size, n_dest, n_steps)
+        :param origin_sizes: time series of origin sizes; shape is (training_set_size, n_origin, n_steps)
+        :param true_network: (optional) true network
+        :param write_every: write every iteration
+        :param write_predictions_every: write out predicted parameters every iteration
+        :param write_start: iteration at which to start writing
         """
-        self._name = name
         self._time = 0
-        self._training_group = training_data_group
+        self._output_data_group = output_data_group
         self._rng = rng
 
         self.ABM = ABM
@@ -73,15 +69,14 @@ class HarrisWilson_NN:
             loss_function.get("args", None), **loss_function.get("kwargs", {})
         )
 
-        self.n_origin = n_or
-        self.n_dest = n_dest
-        self.nw_size = n_or * n_dest
+        self.n_origin = origin_sizes.shape[2]
+        self.n_dest = training_data.shape[2]
+        self.nw_size = self.neural_net.output_dim
         self.true_network = true_network
 
         self._write_every = write_every
         self._write_predictions_every = write_predictions_every
         self._write_start = write_start
-        self._num_steps = num_steps
 
         # Current training loss, Prediction error, and current predictions
         self.current_loss = torch.tensor(0.0, dtype=torch.float)
@@ -89,37 +84,37 @@ class HarrisWilson_NN:
         self.current_adjacency_matrix = torch.zeros(self.n_origin, self.n_dest)
 
         # Store the neural net training loss and error
-        self._dset_loss = self._training_group.create_dataset(
+        self._dset_loss = self._output_data_group.create_dataset(
             "Loss",
             (0, 2),
             maxshape=(None, 2),
             chunks=True,
             compression=3,
         )
-        self._dset_loss.attrs["dim_names"] = ["epoch", "kind"]
-        self._dset_loss.attrs["coords_mode__epoch"] = "start_and_step"
-        self._dset_loss.attrs["coords__epoch"] = [write_start, write_every]
+        self._dset_loss.attrs["dim_names"] = ["batch", "kind"]
+        self._dset_loss.attrs["coords_mode__batch"] = "start_and_step"
+        self._dset_loss.attrs["coords__batch"] = [write_start, write_every]
         self._dset_loss.attrs["coords_mode__kind"] = "values"
         self._dset_loss.attrs["coords__kind"] = ["Training loss", "L1 prediction error"]
 
         # Store the neural net output, possibly less regularly than the loss
-        self._dset_predictions = self._training_group.create_dataset(
+        self._dset_predictions = self._output_data_group.create_dataset(
             "predictions",
             (0, self.n_origin, self.n_dest),
             maxshape=(None, self.n_origin, self.n_dest),
             chunks=True,
             compression=3,
         )
-        self._dset_predictions.attrs["dim_names"] = ["time", "i", "j"]
-        self._dset_predictions.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_predictions.attrs["coords__time"] = [
+        self._dset_predictions.attrs["dim_names"] = ["batch", "i", "j"]
+        self._dset_predictions.attrs["coords_mode__batch"] = "start_and_step"
+        self._dset_predictions.attrs["coords__batch"] = [
             write_start,
             max(self._write_predictions_every, 1),
         ]
         self._dset_predictions.attrs["coords_mode__i"] = "trivial"
         self._dset_predictions.attrs["coords_mode__j"] = "trivial"
 
-        self.dset_time = self._training_group.create_dataset(
+        self.dset_time = self._output_data_group.create_dataset(
             "computation_time",
             (0,),
             maxshape=(None,),
@@ -129,60 +124,51 @@ class HarrisWilson_NN:
         self.dset_time.attrs["dim_names"] = ["epoch"]
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
 
-    def epoch(
-        self,
-        *,
-        training_data,
-        origin_sizes,
-        batch_size: int,
-        epsilon: float = None,
-        dt: float = None,
-    ):
+        # Store training data and generate the batch ids
+        self.training_data = training_data
+        self.origin_sizes = origin_sizes
+        batches = np.arange(0, self.training_data.shape[1], batch_size)
+        if len(batches) == 1:
+            batches = np.append(batches, training_data.shape[1] - 1)
+        else:
+            if batches[-1] != training_data.shape[1] - 1:
+                batches = np.append(batches, training_data.shape[1] - 1)
+        self.batches = batches
+
+    def epoch(self, *, epsilon: float = None, dt: float = None, **__):
 
         """Trains the model for a single epoch.
 
-        :param training_data: the training data
-        :param batch_size: (optional) the number of passes (batches) over the training data before conducting a gradient descent
-                step
         :param epsilon: (optional) the epsilon value to use during training
         :param dt: (optional) the time differential to use during training
         """
 
         start_time = time.time()
 
-        # Generate the batch ids
-        batches = np.arange(0, training_data.shape[1], batch_size)
-
-        if len(batches) == 1:
-            batches = np.append(batches, training_data.shape[1] - 1)
-        else:
-            if batches[-1] != training_data.shape[1] - 1:
-                batches = np.append(batches, training_data.shape[1] - 1)
-
         # Track the number of gradient descent updates
         counter = 0
 
         # Make an initial prediction
         pred_adj_matrix = torch.reshape(
-            self.neural_net(torch.flatten(training_data[0, 0])),
+            self.neural_net(torch.flatten(self.training_data[0, 0])),
             (self.n_origin, self.n_dest),
         )
 
         loss = torch.tensor(0.0, requires_grad=True)
 
-        for batch_no, batch_idx in enumerate(batches[:-1]):
+        for batch_no, batch_idx in enumerate(self.batches[:-1]):
 
-            for i, dset in enumerate(training_data):
+            for i, dset in enumerate(self.training_data):
 
                 current_values = dset[batch_idx].clone()
                 current_values.requires_grad_(True)
 
-                for ele in range(batch_idx + 1, batches[batch_no + 1] + 1):
+                for ele in range(batch_idx + 1, self.batches[batch_no + 1] + 1):
 
                     # Solve the ODE
                     current_values = self.ABM.run_single(
                         adjacency_matrix=pred_adj_matrix,
-                        origin_sizes=origin_sizes[i][ele - 1],
+                        origin_sizes=self.origin_sizes[i][ele - 1],
                         curr_vals=current_values,
                         epsilon=epsilon,
                         dt=dt,
@@ -190,7 +176,7 @@ class HarrisWilson_NN:
 
                     # Calculate the loss
                     loss = loss + (self.loss_function(current_values, dset[ele])) / (
-                        batches[batch_no + 1] - batch_idx + 1
+                        self.batches[batch_no + 1] - batch_idx + 1
                     )
 
                     counter += 1
@@ -222,7 +208,9 @@ class HarrisWilson_NN:
 
                     # Make a new prediction
                     pred_adj_matrix = torch.reshape(
-                        self.neural_net(torch.flatten(dset[batches[batch_no + 1]])),
+                        self.neural_net(
+                            torch.flatten(dset[self.batches[batch_no + 1]])
+                        ),
                         (self.n_origin, self.n_dest),
                     )
 
@@ -332,7 +320,7 @@ if __name__ == "__main__":
         model_cfg["Data"], h5file, training_data_group, device=device
     )
 
-    N_origin, N_dest = or_sizes.shape[-2], dest_sizes.shape[-2]
+    N_origin, N_dest = or_sizes.shape[2], dest_sizes.shape[2]
 
     log.info(
         f"   Initializing the neural net; input size: {N_dest}, output size: {N_origin * N_dest} ..."
@@ -359,13 +347,13 @@ if __name__ == "__main__":
 
     # Initialise the model
     model = HarrisWilson_NN(
-        model_name,
         rng=rng,
-        training_data_group=neural_net_group,
+        output_data_group=neural_net_group,
         neural_net=net,
-        n_or=N_origin,
-        n_dest=N_dest,
         loss_function=model_cfg["Training"]["loss_function"],
+        training_data=dest_sizes,
+        origin_sizes=training_or_sizes,
+        batch_size=batch_size,
         true_network=network,
         ABM=ABM,
         write_every=cfg["write_every"],
@@ -380,11 +368,7 @@ if __name__ == "__main__":
 
     for i in range(num_epochs):
 
-        model.epoch(
-            training_data=dest_sizes,
-            origin_sizes=training_or_sizes,
-            batch_size=batch_size,
-        )
+        model.epoch(**model_cfg["Training"])
 
         # Print progress message
         log.progress(
@@ -394,41 +378,9 @@ if __name__ == "__main__":
             f"            L1 prediction error: {model.current_prediction_error} \n"
         )
 
-        # Save neural net, if specified
-        if model_cfg["NeuralNet"].get("save_to", None) is not None:
-            torch.save(net.state_dict(), model_cfg["NeuralNet"].get("save_to"))
-
     if write_predictions_every == -1:
         model.write_predictions(write_final=True)
 
-    log.info("   Simulation run finished. Generating prediction ... ")
-
-    predicted_ts = torch.flatten(
-        ABM.run(
-            init_data=time_series[0][0],
-            adjacency_matrix=model.current_adjacency_matrix,
-            n_iterations=time_series.shape[1] - 1,
-            origin_sizes=or_sizes[0],
-            generate_time_series=True,
-        ),
-        start_dim=-2,
-    )
-
-    dset_time_series = neural_net_group.create_dataset(
-        "predicted_time_series",
-        predicted_ts.shape,
-        maxshape=predicted_ts.shape,
-        chunks=True,
-        compression=3,
-    )
-    dset_time_series.attrs["dim_names"] = ["time", "zone_id"]
-    dset_time_series.attrs["coords_mode__time"] = "trivial"
-    dset_time_series.attrs["coords_mode__zone_id"] = "trivial"
-
-    dset_time_series[:, :] = predicted_ts
-
-    log.info("   Wrapping up ...")
-
+    log.info("   Training complete. Wrapping up ...")
     h5file.close()
-
     log.success("   All done.")

@@ -182,10 +182,6 @@
   select_and_combine:
     base_path: *base_path
 
-.plot.multiplot:
-  based_on:
-    - .plot.multiplot
-  compute_only: []
 
 # Base function for probability densities
 .plot.facet_grid.density:
@@ -290,7 +286,7 @@ degree_distribution_uni:
           kwargs:
             bins: !dag_tag bins
             ranges: !dag_tag range
-            normalize: True
+            normalize: False
 
     # Divide the loss by the median value: this prevents numerical underflow of very small values all being
     # mapped to 1 under exp(-J)

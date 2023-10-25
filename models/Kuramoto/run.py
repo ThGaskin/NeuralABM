@@ -53,6 +53,7 @@ class Kuramoto_NN:
             rng (np.random.Generator): The shared RNG
             output_data_group (h5.Group): The output file group to write training data to
             neural_net: The neural network
+            loss_function: dictionary of loss function to use
             ABM: The numerical solver
             num_agents: the number of agents in the model
             write_every: write every iteration
