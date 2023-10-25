@@ -33,4 +33,5 @@ register_operation(name="np.nansum", func=np.nansum)
 register_operation(name="np.histogramdd", func=np.histogramdd)
 register_operation(name="np.ones", func=np.ones)
 from .data_ops import *
+from .nw_ops import *
 from .SIR_trajectories_from_densities import *

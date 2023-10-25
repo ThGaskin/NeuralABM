@@ -1,117 +1,102 @@
-# ======================================================================================================================
-#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
-# ======================================================================================================================
-
-.variables:
-  colors: &colors
-    yellow:       &yellow       '#F5DDA9'
-    darkblue:     &darkblue     '#2F7194'
-    red:          &red          '#ec7070'
-    skyblue:      &skyblue      '#97c3d0'
-    green:        &green        '#48675A'
-    lightbrown:   &lightbrown   '#C6BFA2'
-    orange:       &orange       '#EC9F7E'
-    lightgreen:   &lightgreen   '#AFD8BC'
-    grey:         &grey         '#3D4244'
-
-  # Page widths in inches for latex documents: ensures easy integration into latex documents
-  page_widths:
-    full_width:         &full_width         7.5
-    half_width:         &half_width         !expr 7.5 / 2
-    two_thirds_width:   &two_thirds_width   !expr 2 * 7.5 / 3
-    third_width:        &third_width        !expr 7.5 / 3
-    quarter_width:      &quarter_width      !expr 7.5 / 4
-    fifth_width:        &fifth_width        !expr 7.5 / 5
-    eighth_width:       &eighth_width       !expr 7.5 / 8
-
-.matrix_defaults:
-  style:
-    figure.figsize: [ *third_width, *third_width ]
-    axes.grid: False
-    axes.spines.top: True
-    axes.spines.right: True
-    axes.linewidth: 0.5
-  vmax: 1
-  helpers:
-    set_title:
-      title: ''
-    set_ticks:
-      x:
-        major: []
-      y:
-        major: []
-    set_labels:
-      x: ' '
-      y: ' '
-    set_limits:
-      y: [max, min]
-      x: [min, max]
-
-# ======================================================================================================================
-# ╔═╗╦  ╔═╗╔╦╗╔═╗
-# ╠═╝║  ║ ║ ║ ╚═╗
-# ╩  ╩═╝╚═╝ ╩ ╚═╝
-# ======================================================================================================================
-
-# Plot the training and Frobenius loss
-losses:
-  based_on: loss
-  figsize: [*half_width, *third_width]
+# Plot the losses in a facet grid
+loss:
+  based_on: loss_mv
+  figsize: [!dag_result full_width, !dag_result full_width]
+  hue: sigma
+  c: ~
+  sharey: False
+  col_wrap: 3
 
 # Plot the true adjacency matrix
 true_network:
   based_on:
-    - adjacency_matrix
-    - .matrix_defaults
-  cbar_kwargs:
-    label: True edge weight $a_{ij}$
+    - .creator.universe
+    - .adjacency_matrix
+  universes:
+    sigma: {idx: 1}
+  select:
+    data: true_network/_adjacency_matrix
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]
 
 # Plot the predicted adjacency matrix
 predicted_network:
-  based_on: true_network
-  select:
-    data:
-      path: output_data/predictions
-      transform:
-        - .isel: [!dag_prev , {time: -1}]
-  cbar_kwargs:
-    label: Predicted edge weight $\hat{a}_{ij}$
+  based_on:
+    - .creator.multiverse
+    - .adjacency_matrix
+  select_and_combine:
+    fields:
+      data:
+        path: output_data/predictions
+        transform:
+          - .isel: [!dag_prev , {batch: -1}]
+  col: sigma
+  figsize: [ !dag_result full_width, !dag_result half_width ]
 
-# Plot the prediction error on the matrices
+# Plot the L1 prediction error on the edge weights
 error:
   based_on:
-    - error
-    - .matrix_defaults
+    - .creator.multiverse
+    - .adjacency_matrix
+    - .style_error_cmap
+  select_and_combine:
+    fields:
+      prediction:
+        path: output_data/predictions
+        transform:
+          - .isel: [!dag_prev , {batch: -1}]
+            kwargs: {drop: True}
+      true_network:
+        path: true_network/_adjacency_matrix
+        transform: [.data]
+  transform:
+    - sub: [!dag_tag prediction, !dag_tag true_network]
+    - np.abs: [!dag_prev ]
+      tag: data
+  col: sigma
   norm:
     name: LogNorm
   vmin: 1e-7
   vmax: ~
   cbar_kwargs:
     label: Prediction error $\vert \hat{a}_{ij} - a_{ij} \vert$
-  cmap:
-    from_values:
-      0: white
-      0.5: *yellow
-      1: *red
+  figsize: [ !dag_result full_width, !dag_result half_width ]
 
-# Plot the degree distribution with uncertainty
-degree_marginal:
-  based_on: degree_marginal
+# Plot a facet grid  predicted and true degree distribution with uncertainty
+# as a function of sigma
+degree_distribution:
+  based_on: degree_distribution_mv
+  transform:
+    - marginal_distribution: [ !dag_tag predictions, !dag_tag probabilities, !dag_tag true_data ]
+      kwargs:
+        exclude_dim: ['sigma']
+      tag: data
+  x: x
+  y: y
+  yerr: yerr
+  hue: type
+  col: sigma
+  linestyle: [solid, dotted]
+  smooth_kwargs:
+    enabled: True
+    sigma: 1
   helpers:
-    set_limits:
-      x: [ 0, 10 ]
-      y: [ 0, ~ ]
-  style:
-    figure.figsize: [ *half_width, *quarter_width ]
+    set_labels:
+      x: Weighted node degree
+      y: ' '
+  figsize: [ !dag_result full_width, !dag_result third_width ]
 
-
-# Plot density on the triangle distribution
-triangle_marginal:
-  based_on: triangle_marginal
-  helpers:
-    set_limits:
-      x: [0, 5]
-  style:
-    figure.figsize: [ *half_width, *quarter_width ]
+# Plot a facet grid of the triangle distribution for different noise levels
+triangle_distribution:
+  based_on:
+    - degree_distribution
+    - triangle_distribution_mv
+  dag_options:
+    define:
+      range:
+        - list: [[0, 5]]
+  transform:
+    - marginal_distribution: [ !dag_tag predictions, !dag_tag probabilities, !dag_tag true_data ]
+      kwargs:
+        exclude_dim: ['sigma']
+      tag: data
