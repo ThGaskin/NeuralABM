@@ -427,21 +427,27 @@ def hist_1D(
     bins: Any = 100,
     ranges: Any = None,
     *,
-    along_dim: Sequence,
+    along_dim: Sequence = None,
+    axis: int = None,
     normalize: Union[bool, float] = False,
     **kwargs,
 ) -> xr.Dataset:
-    """Applies `np.histogram` along a single axis of a dataset. This bypasses the `apply_along_axis` decorator
-    and is therefore significantly faster than `hist`."""
+    """Applies ``np.histogram`` along a single axis of a dataset. This bypasses the `apply_along_axis` decorator
+    and is therefore significantly faster than ``hist``."""
 
-    if len(along_dim) > 1:
-        raise ValueError(
-            "Cannot use the `hist_1D` function for multidimensional histogram operations!"
-            "Use `hist` instead."
-        )
-
-    # Get the axis of the dimension along which the operation is to be applied
-    axis: int = list(ds.dims).index(along_dim[0])
+    if along_dim is None and axis is None:
+        raise ValueError("One of either 'along_dim' or 'axis' must be passed!")
+    if along_dim is not None:
+        if len(along_dim) > 1:
+            raise ValueError(
+                "Cannot use the `hist_1D` function for multidimensional histogram operations!"
+                "Use `hist` instead."
+            )
+        along_dim = along_dim[0]
+        axis = list(ds.dims).index(along_dim)
+    else:
+        # Get the axis of the dimension along which the operation is to be applied
+        along_dim = list(ds.coords.keys())[axis]
 
     # Get the name of the dimension
     dim = ds.name if ds.name is not None else "_variable"
@@ -462,10 +468,10 @@ def hist_1D(
 
     # Put the dataset back together again, relabelling the coordinate dimension that was binned
     coords = dict(ds.coords)
-    coords.update({along_dim[0]: bin_centres})
+    coords.update({along_dim: bin_centres})
 
     res = xr.Dataset(data_vars={dim: (list(ds.sizes.keys()), counts)}, coords=coords)
-    return res.rename({along_dim[0]: "x"})
+    return res.rename({along_dim: "x"})
 
 
 # ----------------------------------------------------------------------------------------------------------------------
