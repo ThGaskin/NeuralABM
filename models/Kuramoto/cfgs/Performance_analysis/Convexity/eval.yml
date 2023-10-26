@@ -7,7 +7,7 @@ convexity_accuracy:
   select_and_combine:
     fields:
       NN_prediction: output_data/predictions
-      mode_idx:
+      neural_mode_idx:
         path: output_data/Loss
         transform:
           - .sel_with_drop: [!dag_prev , {kind: Data loss}]
@@ -45,29 +45,32 @@ convexity_accuracy:
       tag: regression error
 
     # Total L1 error of the neural prediction
-    - .sel_with_drop: [!dag_tag NN_prediction , {batch: !dag_tag mode_idx}]
+    - .sel_with_drop: [!dag_tag NN_prediction , {batch: !dag_tag neural_mode_idx}]
     - sub: [!dag_prev , !dag_tag true_values ]
     - np.abs: [!dag_prev ]
     - .sum: [!dag_prev , ['i', 'j']]
+      tag: neural_error
 
     # Concatenate both and assign rank coordinates
-    - concat_along: [[!dag_prev , !dag_tag regression error], 'type', ['Neural', 'OLS']]
+    - concat_along: [[!dag_tag neural_error , !dag_tag regression error ], 'type', ['Neural', 'OLS']]
     - .mean: [!dag_prev , 'seed']
     - .std: [!dag_node -2, 'seed']
     - xr.Dataset:
       - {y: !dag_node -2, yerr: !dag_prev }
     - .rename: [!dag_prev , {training_set_size: min_rank}]
     - .assign_coords: [!dag_prev , {min_rank: !dag_tag min_rank}]
-#      tag: data_no_MALA
-#
-#    # Load the MCMC data
-#    - import_and_call: [pandas, read_csv, data/Kuramoto/Langevin_data/MALA_convexity.csv]
-#      kwargs: {index_col: 0}
-#    - .to_dataset: [!dag_prev ]
-#    - .assign_coords: [!dag_prev , {min_rank: !dag_tag min_rank}]
-#    - .expand_dims: [!dag_prev ]
-#      kwargs: {axis: 1, type: [MALA-p]}
-#    - xr.concat: [[!dag_tag data_no_MALA, !dag_prev ]]
+      tag: data_no_MALA
+
+    # Total L1 error of MCMC
+    - import_and_call: [ pandas, read_csv, 'data/Kuramoto/MCMC_data/accuracy_over_convexity.csv']
+      kwargs:
+        index_col: 0
+    - .to_xarray: [!dag_prev ]
+    - .expand_dims: [!dag_prev , {type: ['MALA']}]
+    - .assign_coords: [!dag_prev , {min_rank: !dag_tag min_rank}]
+      tag: MCMC_error
+
+    - xr.concat: [[!dag_tag data_no_MALA , !dag_tag MCMC_error], 'type']
       tag: data
   x: min_rank
   y: y

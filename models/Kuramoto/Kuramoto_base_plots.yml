@@ -111,11 +111,12 @@
 .default_color_cycler:
   style:
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_yellow]:}',
-                              '{colors[c_darkgreen]:}',
+      fstr: "cycler('color', ['{colors[c_darkblue]:}',
                               '{colors[c_red]:}',
+                              'black',
+                              '{colors[c_yellow]:}',
+                              '{colors[c_darkgreen]:}',
                               '{colors[c_lightblue]:}',
-                              '{colors[c_darkblue]:}',
                               '{colors[c_lightbrown]:}',
                               '{colors[c_orange]:}',
                               '{colors[c_lightgreen]:}',
@@ -137,7 +138,7 @@
 .cycler_reds:
   style:
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_red]:}', 'black', '{colors[c_lightbrown]}'])"
+      fstr: "cycler('color', ['{colors[c_red]:}', 'black', '{colors[c_orange]}'])"
       colors:
         <<: *colors
 

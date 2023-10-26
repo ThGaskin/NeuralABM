@@ -1,6 +1,6 @@
 ---
 paths:
-  model_note: OLS_regression_comparison
+  model_note: Accuracy_comparison
 perform_sweep: True
 parameter_space:
   seed: !sweep
@@ -44,3 +44,7 @@ parameter_space:
         values: [0, 1]
     Training:
       batch_size: 5
+      loss_function:
+        name: MSELoss
+        kwargs:
+          reduction: mean # Better results for second-order Kuramoto

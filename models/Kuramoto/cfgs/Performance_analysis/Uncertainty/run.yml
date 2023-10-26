@@ -1,11 +1,13 @@
 ---
+# This configuration set sweeps over the noise in the training data
+# and compares the uncertainties on the network distributions (degrees and triangles)
 perform_sweep: True
 paths:
-  model_note: Noise_performance
+  model_note: Uncertainty
 parameter_space:
   seed: !sweep
     default: 2
-    range: [1]
+    range: [10]
   num_epochs: 50
   write_every: 10
   write_start: 15
@@ -21,6 +23,6 @@ parameter_space:
         training_set_size: 500
         sigma: !sweep
           default: 0.0
-          values: [1e-4, 1e-3, 1e-2] #[0.0, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 2e-2, 4e-2, 6e-2, 8e-2, 1e-1]
+          values: [0.0, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 2e-2, 4e-2, 6e-2, 8e-2, 1e-1]
     Training:
       batch_size: 5

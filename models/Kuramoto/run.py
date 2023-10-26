@@ -284,7 +284,6 @@ class Kuramoto_NN:
         data is always in the last row of the dataset.
         """
         if self._time >= self._write_start and self._time % self._write_every == 0:
-            print(self._time)
             self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
             self._dset_loss[-1, 0] = self.current_total_loss.cpu().numpy()
             self._dset_loss[-1, 1] = self.current_prediction_loss.cpu().numpy()
@@ -494,8 +493,41 @@ if __name__ == "__main__":
         log.info("   Calculating rank of training data ...")
         Kuramoto.rank(training_data, h5file, alpha=ABM.alpha)
 
-    # If specified, run a Langevin sampler
-    # TODO
+    # If specified, run a Langevin MCMC scheme on the training data
+    if model_cfg.get("MCMC", {}).get("perform_sampling", False):
+
+        log.info("   Performing Langevin sampling ... ")
+
+        n_samples = model_cfg["MCMC"].get("n_samples")
+        accept_first_sample = model_cfg["MCMC"].get("accept_first_sample", False)
+
+        model_params = model.ABM.__dict__
+        # Rename the beta from the Kuramoto to avoid conflicting with the MCMC sampler beta
+        model_params.update(dict(Kuramoto_beta=model_params.pop("beta")))
+
+        sampler = Kuramoto.Kuramoto_Langevin_sampler(
+            h5File=h5file,
+            true_data=training_data,
+            eigen_frequencies=eigen_frequencies,
+            true_network=model.true_network,
+            init_guess=torch.reshape(model.current_adjacency_matrix, (-1,)),
+            **model_params,
+            **model_cfg["MCMC"],
+        )
+
+        import time
+
+        start_time = time.time()
+
+        # Collect n_samples
+        for i in range(n_samples):
+            sampler.sample(force_accept=accept_first_sample and i == 0)
+            sampler.write_loss()
+            sampler.write_parameters()
+            log.info(f"Collected {i} of {n_samples}.")
+
+        # Write out the total sampling time
+        sampler.write_time(time.time() - start_time)
 
     log.info("   Wrapping up ...")
 
