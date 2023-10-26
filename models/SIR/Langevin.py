@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -90,11 +89,7 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
 
     def loss_function(self, input):
 
-        """Calculates the loss (negative log-likelihood function) of a vector of parameters via simulation.
-
-        :param parameters: the vector of parameters
-        :return: likelihood || \hat{T}(\hat{Lambda}) - T ||_2
-        """
+        """Calculates the loss (negative log-likelihood function) of a vector of parameters via simulation."""
 
         if self.true_data.shape[0] - self.batch_size == 1:
             start = 1

@@ -1,7 +1,11 @@
 ---
+# Runs the neural scheme and MCMC to collect 100 samples for different sizes of N,
+# and compares compute times. Running this will take about 1 hr on a fast CPU.
 paths:
   model_note: Computational_performance
 perform_sweep: True
+worker_manager:
+  num_workers: 2
 parameter_space:
   num_epochs: 10
   write_every: 1
@@ -10,8 +14,6 @@ parameter_space:
   seed: !sweep
     default: 0
     range: [10]
-  # Regression time only needs to be measured once per seed
-  perform_regression: False
   Kuramoto:
     Data:
       synthetic_data:
@@ -39,3 +41,8 @@ parameter_space:
         values: [1, 2, 4, 10, 20, 30, 40]
         target_name: N
       device: cpu
+    MCMC:
+      perform_sampling: True
+      n_samples: 100
+      write_every: 1
+      accept_first_sample: True

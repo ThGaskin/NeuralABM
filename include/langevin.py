@@ -1,11 +1,8 @@
 import copy
-from typing import Any, Union
 
 import h5py as h5
 import torch
 from torch.optim.optimizer import Optimizer
-
-from .utils import random_tensor
 
 
 class pSGLD(Optimizer):
@@ -235,9 +232,10 @@ class MetropolisAdjustedLangevin(object):
         self.lr_fn = self.decay_fn(lr=lr, lr_final=lr_final, max_itr=max_itr)
         self.time = 0
 
-    def sample(self) -> tuple:
+    def sample(self, *, force_accept: bool = False) -> tuple:
         """
-        Perform a Metropolis-Hastings step to generate a sample.
+        Perform a Metropolis-Hastings step to generate a sample. The sample can be force-accepted, e.g. if it is
+        the first sample.
 
         Returns:
             tuple: A tuple containing the sampled input tensor and
@@ -255,7 +253,7 @@ class MetropolisAdjustedLangevin(object):
                 self.loss[1], [self.x[1]], create_graph=False
             )[0].data
             alpha = min([1.0, self.sample_prob()])
-            if torch.rand([1]) <= alpha:
+            if torch.rand([1]) <= alpha or force_accept:
                 self.grad[0].data = self.grad[1].data
                 self.loss[0].data = self.loss[1].data
                 self.x[0].data = self.x[1].data

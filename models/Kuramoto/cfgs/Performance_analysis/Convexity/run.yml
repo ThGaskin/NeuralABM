@@ -7,13 +7,14 @@ parameter_space:
     default: 0
     range: [10]
   num_epochs: !coupled-sweep
-    default: 10
-    values: [4000, 2000, 1333, 1000, 800, 667, 500]
+    default: 1334
+    values: [6400, 3200, 2134, 1600, 1280, 1164, 800]
     target_name: training_set_size
   write_start: 1
   write_every: 40
   write_predictions_every: 40
   calculate_data_rank: true
+  perform_regression: true
   Kuramoto:
     Data:
       write_adjacency_matrix: true
@@ -22,8 +23,8 @@ parameter_space:
       synthetic_data:
         num_steps: 3
         training_set_size: !sweep
-          default: 2
-          values: [2, 4, 6, 8, 10, 12, 16]
+          default: 6
+          values: [2, 4, 6, 8, 10, 11, 16]
         N: 20
         sigma: 0
         network:
