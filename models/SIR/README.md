@@ -102,10 +102,11 @@ from this dataset. See the `Predictions` configuration set for an example.
 
 The following configuration sets are included in the model:
 
-- `ABM_data`: generates synthetic ABM data (fig. 2 in the publication)
-- `Predictions` fits the SDE system to the ABM data and calculates the marginal densities on the
-parameters (figs. 3 & 4 in the publication).
-
+- `ABM_data`: generates synthetic ABM data
+- `Predictions` fits the SDE system to noisy data and calculates the marginal densities on the
+parameters
+- `MCMC`: runs an MCMC scheme on the same data as `Predictions` and plots the results
+- `Ground_truth`: runs a two-dimensional grid search over two parameters to generate a ground truth distribution
 You can run these sets simply by calling
 
 ```commandline
