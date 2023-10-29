@@ -70,7 +70,7 @@ marginals:
 #    - to_csv: [!dag_prev , 'data/SIR/ground_truth.csv']
       tag: data
   x: x
-  y: marginal
+  y: y
   col: parameter
   sharex: False
   sharey: False
@@ -84,6 +84,7 @@ true_data:
   based_on:
     - .creator.universe
     - .plot.facet_grid.line
+    - .cycler_green_red_green
   universes:
     p_infect: 0.0
     t_infectious: 1.0

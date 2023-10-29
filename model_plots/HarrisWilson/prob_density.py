@@ -51,7 +51,7 @@ def plot_prob_density(
 
         """Plots a single parameter density and smooths the marginal. Returns the artists for the legend."""
         smooth, sigma = _smooth_kwargs.pop("enabled", False), _smooth_kwargs.pop(
-            "sigma", None
+            "smoothing", None
         )
         # Smooth the y values, if given
         if smooth:

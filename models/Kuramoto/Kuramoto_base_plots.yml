@@ -29,15 +29,6 @@
         - mul: [!arg 0 , -1]
         - np.exp: [!dag_prev ]
 
-      # Sets the x-value of a binned statistic as a coordinate
-      set_x_as_coord:
-        - dict: [[[!kwarg name, 'y']]]
-        - .rename: [!arg 0 , !dag_prev ]
-        - getitem: [!dag_prev , 'x']
-        - getitem: [!dag_node -2 , 'y']
-        - .assign_coords: [!dag_prev , {bin_idx: !dag_node -2}]
-        - .rename: [!dag_prev , {bin_idx: x}]
-
       # Flattens a dataset, if required, over the batch and the seed dimension
       # If no seed dimension present, simply returns the dataset
       # This is useful since it allows datasets with and without a 'seed' dimension to be treated
@@ -69,7 +60,7 @@
       c_darkgrey: '#3D4244'
 
       # Set the page width of the document to allow for easy integration
-      _page_width: 7.5
+      _page_width: 7.0
 
       # These are available for all plots and can be used to adjust the figure size or generate new sizes as needed
       full_width: !dag_tag _page_width
@@ -85,13 +76,13 @@
         - mul: [!dag_tag third_width, 2]
 
   style:
-    text.usetex: False   # Set to 'True' to use latex
+    text.usetex: True   # Set to 'True' to use latex
     mathtext.fontset: cm
     font.family: Helvetica
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
     # Set the label fontsize
-    font.size: &fontsize 8
+    font.size: &fontsize 7
     axes.titlesize: *fontsize
     axes.labelsize: *fontsize
     xtick.labelsize: *fontsize
@@ -287,7 +278,6 @@ degree_distribution_uni:
           kwargs:
             bins: !dag_tag bins
             ranges: !dag_tag range
-            normalize: False
 
     # Divide the loss by the median value: this prevents numerical underflow of very small values all being
     # mapped to 1 under exp(-J)
@@ -306,8 +296,7 @@ degree_distribution_uni:
           kwargs:
             bins: !dag_tag bins
             ranges: !dag_tag range
-            axis: 0
-            normalize: False
+            dim: vertex_idx
         - set_x_as_coord: [!dag_prev ]
           kwargs: {name: _degree_weighted}
 
@@ -329,12 +318,11 @@ triangle_distribution_uni:
   select:
     predictions:
       transform:
-        - triangles_1D: [ !dag_prev  ]
+        - triangles: [ !dag_prev  ]
         - binned_nw_statistic: [!dag_prev ]
           kwargs:
             bins: !dag_tag bins
             ranges: !dag_tag range
-            normalize: False
     true_data:
       path: true_network/_triangles_weighted
       transform:
@@ -343,10 +331,8 @@ triangle_distribution_uni:
           kwargs:
             bins: !dag_tag bins
             ranges: !dag_tag range
-            axis: 0
-            normalize: False
-        - set_x_as_coord: [!dag_prev ]
-          kwargs: {name: _triangles_weighted}
+            dim: j
+            use_bins_as_coords: True
   helpers:
     set_labels:
       x: Weighted node triangle count
@@ -396,7 +382,6 @@ degree_distribution_mv:
             kwargs:
               bins: !dag_tag bins
               ranges: !dag_tag range
-              normalize: False
 
       # Divide the loss by the median value: this prevents numerical underflow of very small values all being
       # mapped to 1 under exp(-J)
@@ -415,11 +400,8 @@ degree_distribution_mv:
             kwargs:
               bins: !dag_tag bins
               ranges: !dag_tag range
-              axis: 0
-              normalize: False
-          - set_x_as_coord: [!dag_prev ]
-            kwargs: {name: _degree_weighted}
-
+              dim: vertex_idx
+              use_bins_as_coords: True
   # Get the distribution statistics
   transform:
     - flatten: [!dag_tag predictions]
@@ -449,12 +431,11 @@ triangle_distribution_mv:
       predictions:
         transform:
           - .data: [!dag_prev ]
-          - triangles_1D: [ !dag_prev  ]
+          - triangles: [ !dag_prev  ]
           - binned_nw_statistic: [!dag_prev ]
             kwargs:
               bins: !dag_tag bins
               ranges: !dag_tag range
-              normalize: False
       true_data:
         path: true_network/_triangles_weighted
         transform:
@@ -463,10 +444,8 @@ triangle_distribution_mv:
             kwargs:
               bins: !dag_tag bins
               ranges: !dag_tag range
-              axis: 0
-              normalize: False
-          - set_x_as_coord: [!dag_prev ]
-            kwargs: {name: _triangles_weighted}
+              dim: vertex_idx
+              use_bins_as_coords: True
   helpers:
     set_labels:
       x: Weighted node triangle count

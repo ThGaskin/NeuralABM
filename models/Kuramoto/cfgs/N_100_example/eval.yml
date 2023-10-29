@@ -69,6 +69,7 @@ degree_distribution:
   transform:
     - marginal_distribution: [ !dag_tag predictions, !dag_tag probabilities, !dag_tag true_data ]
       kwargs:
+        yerr: 'iqr'
         exclude_dim: ['sigma']
       tag: data
   x: x
@@ -79,7 +80,7 @@ degree_distribution:
   linestyle: [solid, dotted]
   smooth_kwargs:
     enabled: True
-    sigma: 1
+    smoothing: 1
   helpers:
     set_labels:
       x: Weighted node degree

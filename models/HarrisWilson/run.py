@@ -10,8 +10,6 @@ import ruamel.yaml as yaml
 import torch
 from dantro import logging
 from dantro._import_tools import import_module_from_path
-from tqdm import trange
-from tqdm.contrib.logging import logging_redirect_tqdm
 
 sys.path.append(up(up(__file__)))
 sys.path.append(up(up(up(__file__))))
@@ -146,7 +144,7 @@ class HarrisWilson_NN:
             generate_time_series=False,
         )
 
-        loss = self.loss_function(predicted_data, self.training_data)
+        loss = self.loss_function(predicted_data, self.training_data[-1])
 
         loss.backward()
         self._neural_net.optimizer.step()
@@ -261,9 +259,12 @@ if __name__ == "__main__":
     num_epochs = cfg["num_epochs"]
     log.info(f"   Now commencing training for {num_epochs} epochs ...")
 
-    with logging_redirect_tqdm():
-        for _ in trange(num_epochs):
-            model.epoch(**model_cfg["Training"])
+    for _ in range(num_epochs):
+        model.epoch(**model_cfg["Training"])
+        log.progress(
+            f"   Completed epoch {_+1} / {num_epochs}; "
+            f"   current loss: {model._current_loss}"
+        )
 
     log.info("   Simulation run finished.")
     log.note("   Wrapping up ...")

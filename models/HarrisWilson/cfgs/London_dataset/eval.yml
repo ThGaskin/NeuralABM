@@ -3,6 +3,7 @@ marginals:
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.density
+    - .cycler_yellow_green
   select_and_combine:
     fields:
       parameters: parameters
@@ -40,7 +41,7 @@ marginals:
         exclude_dim: [sigma, metric, parameter]
       tag: data
   x: x
-  y: marginal
+  y: y
   col: parameter
   hue: metric
   row: sigma
@@ -54,6 +55,7 @@ marginals/low_noise/alpha:
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.density
+    - .cycler_yellow_green
   dag_options:
     meta_operations:
       load_csv:
@@ -119,13 +121,13 @@ marginals/low_noise/alpha:
     - .format: ['$\{:}$', !dag_tag parameter]
       tag: x_label
   x: x
-  y: marginal
+  y: y
   hue: metric
   style:
     figure.figsize: [ !dag_result third_width, !dag_result fifth_width ]
   smooth_kwargs:
     enabled: True
-    sigma: 10
+    smoothing: 10
   helpers:
     # Draw the MCMC
     call:
@@ -247,8 +249,8 @@ probability_landscape: !pspace
       x: [min, max]
       y: [min, max]
 
-# Plot the prior densities on the parameters
-priors:
+# Plot the intial value distribution on the parameters
+initial_values:
   based_on:
     - .creator.multiverse
     - .plot.multiplot

@@ -64,11 +64,12 @@
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_lightgreen]:}',
-                              '{colors[c_red]:}',
+      fstr: "cycler('color', ['{colors[c_darkblue]:}',
+                              'black',
                               '{colors[c_darkgreen]:}',
+                              '{colors[c_lightgreen]:}',
+                              '{colors[c_red]:}',
                               '{colors[c_lightblue]:}',
-                              '{colors[c_darkblue]:}',
                               '{colors[c_lightbrown]:}',
                               '{colors[c_orange]:}',
                               '{colors[c_yellow]:}',
@@ -91,19 +92,21 @@
 .cycler_marginals:
   style:
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_darkblue]:}',
-                              '{colors[c_pink]:}',
-                              '{colors[c_darkgreen]:}',
-                              '{colors[c_red]:}',
-                              '{colors[c_lightgreen]:}',
-                              '{colors[c_lightblue]:}',
-                              '{colors[c_lightbrown]:}',
-                              '{colors[c_orange]:}',
-                              '{colors[c_yellow]:}',
-                              '{colors[c_darkgrey]:}',
-                              '{colors[c_purple]:}',
-                              '{colors[c_lightgrey]:}'
-                              ])"
+      fstr: "cycler('color', ['{colors[c_darkblue]:}', '{colors[c_pink]:}'])"
+      colors:
+        <<: *colors
+
+.cycler_green_red_green:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_lightgreen]:}', '{colors[c_red]:}', '{colors[c_darkgreen]:}',])"
+      colors:
+        <<: *colors
+
+.cycler_blue_orange_brown:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_darkblue]:}', '{colors[c_orange]:}', '{colors[c_lightbrown]:}'])"
       colors:
         <<: *colors
 

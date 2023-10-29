@@ -3,6 +3,7 @@ densities_from_joint:
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.errorbands
+    - .cycler_green_red_green
   select_and_combine:
     fields:
       parameters:
@@ -49,11 +50,10 @@ densities_from_joint:
         data: [100, 100]
         dims: [ 'idx' ]
 
-    # Get the normalized joint distribution
+    # Get the unnormalised joint distribution and set nan entries to zero (they will be skipped in the density
+    # calculation)
     - joint_2D_ds: [!dag_tag params, !dag_tag prob, !dag_prev ]
       kwargs:
-        normalize: True
-        differential: 1
         x: p_infect
         y: t_infectious
       tag: joint
@@ -76,7 +76,6 @@ densities_from_joint:
     - .sel: [!dag_node -2 , {type: true_counts}]
       kwargs: {drop: True}
     - getitem: [!dag_prev , mean]
-#    - .sel: [!dag_prev , {kind: ['infected', 'susceptible', 'recovered']}]
       tag: true_counts
   x: time
   y: mean
@@ -106,7 +105,7 @@ densities_from_joint:
           _labels: False
   style:
     figure.figsize: [ !dag_result half_width, !dag_result quarter_width ]
-    # Why God why
+    # No idea why this is necessary ...
     axes.prop_cycle: !format
       fstr: "cycler('color', ['{colors[red]:}','{colors[darkgreen]:}','{colors[lightgreen]:}', '{colors[lightgreen]:}'])"
       colors:
@@ -151,7 +150,7 @@ marginals_all:
       tag: data
   c: !dag_result c_darkblue
   x: x
-  y: marginal
+  y: y
   col: parameter
   sharex: False
   sharey: False
@@ -163,15 +162,6 @@ marginals: !pspace
       load_csv:
         - import_and_call: [ pandas, read_csv, !arg 0 ]
           kwargs: { index_col: !kwarg index_col }
-      calculate_Hellinger_distance:
-        - getitem: [!arg 0, 'marginal']
-        - getitem: [!arg 0, 'x']
-        - .assign_coords: [!dag_node -2, {'bin_idx': !dag_prev }]
-        - getitem: [!arg 1, 'marginal']
-        - getitem: [!arg 1, 'x']
-        - .assign_coords: [!dag_node -2, {'bin_idx': !dag_prev }]
-        - Hellinger_distance: [!dag_node -4 , !dag_prev ]
-        - print: [!dag_prev ]
     define:
       parameter: !sweep
         default: 'p_infect'
@@ -221,13 +211,14 @@ marginals: !pspace
       tag: ground_truth
     - getitem: [!dag_prev , 'x']
       tag: ground_truth_x
-    - getitem: [!dag_node -2, 'marginal']
+    - getitem: [!dag_node -2, 'y']
       tag: ground_truth_y
 
       # --- Calculate the MCMC marginals -------------------------------------------------------------------------------
     - load_csv: ['data/SIR/MCMC_data.csv']
       kwargs: { index_col: [0, 1]}
     - .to_xarray: [!dag_prev ]
+    - getitem: [!dag_prev , 'value']
       tag: MCMC_samples
     - .coords: [!dag_prev , 'parameter']
       tag: MCMC_parameter_coords
@@ -241,11 +232,16 @@ marginals: !pspace
         dims: ['parameter', 'idx']
     - .assign_coords: [!dag_prev , {parameter: !dag_tag MCMC_parameter_coords}]
       tag: MCMC_ranges
-    - hist_ndim: [!dag_tag MCMC_samples , !dag_tag MCMC_bins , !dag_tag MCMC_ranges]
+    - hist: [!dag_tag MCMC_samples , !dag_tag MCMC_bins , !dag_tag MCMC_ranges]
       kwargs:
         exclude_dim: [parameter]
-        normalize: True
-    - .rename: [!dag_prev , {_variable: marginal}]
+        dim: 'sample'
+    - .rename: [!dag_prev , {count: y}]
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: 'x'
+        y: 'y'
+        exclude_dim: [parameter]
     - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
       kwargs: {drop: True}
       tag: MCMC_marginal
@@ -255,18 +251,23 @@ marginals: !pspace
       tag: data
 
     # Calculate the Hellinger distances and print
-    - calculate_Hellinger_distance: [!dag_tag neural_marginal, !dag_tag ground_truth]
+    - Hellinger_distance: [!dag_tag neural_marginal, !dag_tag ground_truth]
+      kwargs: {x: x, y: y}
+    - print: [!dag_prev ]
       tag: Hellinger_neural
-    - calculate_Hellinger_distance: [ !dag_tag MCMC_marginal, !dag_tag ground_truth ]
+    - Hellinger_distance: [ !dag_tag MCMC_marginal, !dag_tag ground_truth ]
+      kwargs: {x: x, y: y}
+    - print: [!dag_prev ]
       tag: Hellinger_MCMC
+
   compute_only: [data, Hellinger_neural, Hellinger_MCMC]
   x: x
-  y: marginal
+  y: y
   hue: kind
   smooth_kwargs:
     t_infectious:
       enabled: True
-      sigma: 1
+      smoothing: 1
   helpers:
     call:
       functions:
@@ -285,8 +286,8 @@ marginals: !pspace
   style:
     figure.figsize: [!dag_result half_width, !dag_result quarter_width]
 
-# Plot the prior densities on the parameters
-priors:
+# Plot the initial value distribution on the parameters
+initial_values:
   based_on:
     - .creator.multiverse
     - .plot.multiplot

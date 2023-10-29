@@ -13,10 +13,10 @@ degree_distribution:
   linestyle: [solid, dotted]
   smooth_kwargs:
     enabled: True
-    sigma: 2
+    smoothing: 2
   helpers:
     set_limits:
-      x: [10, 17]
+      x: [11, 15]
       y: [ 0, ~ ]
     set_labels:
       x: Weighted degree $k$

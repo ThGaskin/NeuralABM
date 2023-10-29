@@ -162,8 +162,8 @@ loss_potential_2d:
   style:
     figure.figsize: [!dag_result half_width, !dag_result half_width]
 
-# Plot the prior densities on the parameters
-priors:
+# Plot the initial value distribution
+initial_values:
   based_on:
     - .creator.multiverse
     - .plot.multiplot
@@ -255,7 +255,7 @@ marginals:
         exclude_dim: [parameter]
       tag: data
   x: x
-  y: marginal
+  y: y
   col: parameter
   sharex: False
   sharey: False
