@@ -37,12 +37,12 @@ class Kuramoto_NN:
         neural_net: base.NeuralNet,
         loss_function: dict,
         ABM: Kuramoto.Kuramoto_ABM,
-        true_network: torch.tensor,
-        num_agents: int,
+        true_network: torch.Tensor = None,
+        training_data: torch.Tensor,
+        eigen_frequencies: torch.Tensor,
         write_every: int = 1,
         write_predictions_every: int = 1,
         write_start: int = 1,
-        num_steps: int = 3,
         **__,
     ):
         """Initialize the model instance with a previously constructed RNG and
@@ -53,12 +53,12 @@ class Kuramoto_NN:
             rng (np.random.Generator): The shared RNG
             output_data_group (h5.Group): The output file group to write training data to
             neural_net: The neural network
+            loss_function: dictionary of loss function to use
             ABM: The numerical solver
             num_agents: the number of agents in the model
             write_every: write every iteration
             write_predictions_every: write out predicted parameters every iteration
             write_start: iteration at which to start writing
-            num_steps: number of iterations of the ABM
         """
         self._name = name
         self._time = 0
@@ -72,14 +72,18 @@ class Kuramoto_NN:
             loss_function.get("args", None), **loss_function.get("kwargs", {})
         )
 
-        self.num_agents = num_agents
-        self.nw_size = num_agents**2
+        # Store the true network
         self.true_network = true_network.to(device)
+
+        # Store the training data and node eigenfrequencies
+        self.training_data = training_data
+        self.eigen_frequencies = eigen_frequencies
 
         self._write_every = write_every
         self._write_predictions_every = write_predictions_every
         self._write_start = write_start
-        self._num_steps = num_steps
+        self.num_agents = training_data.shape[2]
+        self.nw_size = num_agents**2
 
         # Store the current losses: current total training loss, prediction loss on the data, symmetry loss, trace loss,
         # and current prediction error  on the adjacency matrix
@@ -92,6 +96,17 @@ class Kuramoto_NN:
         # Current predicted network
         self.current_adjacency_matrix = torch.zeros(self.num_agents, self.num_agents)
 
+        # Batches: generate the batch ids
+        batches = np.arange(
+            0 if self.ABM.alpha == 0 else 1, training_data.shape[1], batch_size
+        )
+        if len(batches) == 1:
+            batches = np.append(batches, training_data.shape[1] - 1)
+        else:
+            if batches[-1] != training_data.shape[1] - 1:
+                batches = np.append(batches, training_data.shape[1] - 1)
+        self.batches = batches
+
         # Store the losses and errors
         self._dset_loss = self._output_data_group.create_dataset(
             "Loss",
@@ -100,9 +115,9 @@ class Kuramoto_NN:
             chunks=True,
             compression=3,
         )
-        self._dset_loss.attrs["dim_names"] = ["time", "kind"]
-        self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_loss.attrs["coords__time"] = [write_start, write_every]
+        self._dset_loss.attrs["dim_names"] = ["batch", "kind"]
+        self._dset_loss.attrs["coords_mode__batch"] = "start_and_step"
+        self._dset_loss.attrs["coords__batch"] = [write_start, write_every]
         self._dset_loss.attrs["coords_mode__kind"] = "values"
         self._dset_loss.attrs["coords__kind"] = [
             "Total loss",
@@ -120,9 +135,9 @@ class Kuramoto_NN:
             chunks=True,
             compression=3,
         )
-        self._dset_predictions.attrs["dim_names"] = ["time", "i", "j"]
-        self._dset_predictions.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_predictions.attrs["coords__time"] = [
+        self._dset_predictions.attrs["dim_names"] = ["batch", "i", "j"]
+        self._dset_predictions.attrs["coords_mode__batch"] = "start_and_step"
+        self._dset_predictions.attrs["coords__batch"] = [
             write_start,
             max(self._write_predictions_every, 1),
         ]
@@ -140,34 +155,12 @@ class Kuramoto_NN:
         self.dset_time.attrs["dim_names"] = ["epoch"]
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
 
-    def epoch(
-        self,
-        *,
-        training_data,
-        eigen_frequencies,
-        batch_size: int,
-    ):
+    def epoch(self):
 
-        """Trains the model for a single epoch.
-
-        :param training_data: the training data to use
-        :param eigen_frequencies: the time series of the nodes' eigenfrequencies
-        :param batch_size: the number of training data time frames to process before updating the neural net
-            parameters
-        """
+        """Trains the model for a single epoch."""
 
         # Track the start time
         start_time = time.time()
-
-        # Generate the batch ids
-        batches = np.arange(
-            0 if self.ABM.alpha == 0 else 1, training_data.shape[1], batch_size
-        )
-        if len(batches) == 1:
-            batches = np.append(batches, training_data.shape[1] - 1)
-        else:
-            if batches[-1] != training_data.shape[1] - 1:
-                batches = np.append(batches, training_data.shape[1] - 1)
 
         # Track the total number of processed time series frames
         counter = 0
@@ -181,9 +174,9 @@ class Kuramoto_NN:
         data_loss = torch.tensor(0.0, requires_grad=True)
 
         # Process the training data in batches
-        for batch_no, batch_idx in enumerate(batches[:-1]):
+        for batch_no, batch_idx in enumerate(self.batches[:-1]):
 
-            for i, dset in enumerate(training_data):
+            for i, dset in enumerate(self.training_data):
 
                 current_values = dset[batch_idx].clone()
                 current_values.requires_grad_(True)
@@ -193,21 +186,21 @@ class Kuramoto_NN:
                     dset[batch_idx].clone() - dset[batch_idx - 1].clone()
                 ) / self.ABM.dt
 
-                for ele in range(batch_idx + 1, batches[batch_no + 1] + 1):
+                for ele in range(batch_idx + 1, self.batches[batch_no + 1] + 1):
 
                     # Solve the ODE
                     new_values = self.ABM.run_single(
                         current_phases=current_values,
                         current_velocities=current_velocities,
                         adjacency_matrix=predicted_adj_matrix,
-                        eigen_frequencies=eigen_frequencies[i, ele - 1],
+                        eigen_frequencies=self.eigen_frequencies[i, ele - 1],
                         requires_grad=True,
                     )
 
                     # Calculate loss on the data
                     data_loss = data_loss + self.loss_function(
                         new_values, dset[ele]
-                    ) / (batches[batch_no + 1] - batch_idx)
+                    ) / (self.batches[batch_no + 1] - batch_idx)
 
                     counter += 1
 
@@ -242,9 +235,13 @@ class Kuramoto_NN:
                             predicted_adj_matrix.clone().detach()
                         )
 
-                        # Store the prediction error
-                        self.current_prediction_error = torch.nn.functional.l1_loss(
-                            self.true_network, self.current_adjacency_matrix
+                        # Store the prediction error, if applicable
+                        self.current_prediction_error = (
+                            torch.nn.functional.l1_loss(
+                                self.true_network, self.current_adjacency_matrix
+                            )
+                            if self.true_network is not None
+                            else np.nan
                         )
 
                         # Write the data and the predictions
@@ -254,7 +251,9 @@ class Kuramoto_NN:
 
                         # Make a new prediction
                         predicted_adj_matrix = torch.reshape(
-                            self.neural_net(torch.flatten(dset[batches[batch_no + 1]])),
+                            self.neural_net(
+                                torch.flatten(dset[self.batches[batch_no + 1]])
+                            ),
                             (self.num_agents, self.num_agents),
                         )
 
@@ -278,7 +277,7 @@ class Kuramoto_NN:
 
     def write_data(self):
 
-        """Write the current loss and Frobenius error into the state dataset.
+        """Write the current losses into the state dataset.
 
         In the case of HDF5 data writing that is used here, this requires to
         extend the dataset size prior to writing; this way, the newly written
@@ -386,11 +385,6 @@ if __name__ == "__main__":
         input_size=num_agents, output_size=output_size, **model_cfg["NeuralNet"]
     ).to(device)
 
-    # Set the neural net to an initial state, if given
-    if model_cfg["NeuralNet"].get("initial_state", None) is not None:
-        net.load_state_dict(torch.load(model_cfg["NeuralNet"].get("initial_state")))
-        net.eval()
-
     # Get the true parameters
     true_parameters = model_cfg["Training"]["true_parameters"]
 
@@ -412,15 +406,15 @@ if __name__ == "__main__":
         model_name,
         rng=rng,
         output_data_group=output_data_group,
-        num_agents=num_agents,
         neural_net=net,
-        loss_function=model_cfg["Training"]["loss_function"],
+        training_data=training_data,
+        eigen_frequencies=eigen_frequencies,
         true_network=torch.from_numpy(nx.to_numpy_array(network)).float(),
         ABM=ABM,
-        num_steps=training_data.shape[1],
         write_every=cfg["write_every"],
         write_predictions_every=write_predictions_every,
         write_start=cfg["write_start"],
+        **model_cfg["Training"],
     )
 
     log.info(
@@ -430,11 +424,7 @@ if __name__ == "__main__":
     # Train the neural net
     for i in range(num_epochs):
 
-        model.epoch(
-            training_data=training_data.to(device),
-            eigen_frequencies=eigen_frequencies.to(device),
-            batch_size=batch_size,
-        )
+        model.epoch()
 
         # Print progress message
         log.progress(
@@ -446,10 +436,6 @@ if __name__ == "__main__":
             f"                             total:    {model.current_total_loss}\n"
             f"            L1 prediction error: {model.current_prediction_error} \n"
         )
-
-        # Save neural net, if specified
-        if model_cfg["NeuralNet"].get("save_to", None) is not None:
-            torch.save(net.state_dict(), model_cfg["NeuralNet"].get("save_to"))
 
     if write_predictions_every == -1:
         model.write_predictions(write_final=True)
@@ -506,6 +492,42 @@ if __name__ == "__main__":
     if cfg.get("calculate_data_rank", False):
         log.info("   Calculating rank of training data ...")
         Kuramoto.rank(training_data, h5file, alpha=ABM.alpha)
+
+    # If specified, run a Langevin MCMC scheme on the training data
+    if model_cfg.get("MCMC", {}).get("perform_sampling", False):
+
+        log.info("   Performing Langevin sampling ... ")
+
+        n_samples = model_cfg["MCMC"].get("n_samples")
+        accept_first_sample = model_cfg["MCMC"].get("accept_first_sample", False)
+
+        model_params = model.ABM.__dict__
+        # Rename the beta from the Kuramoto to avoid conflicting with the MCMC sampler beta
+        model_params.update(dict(Kuramoto_beta=model_params.pop("beta")))
+
+        sampler = Kuramoto.Kuramoto_Langevin_sampler(
+            h5File=h5file,
+            true_data=training_data,
+            eigen_frequencies=eigen_frequencies,
+            true_network=model.true_network,
+            init_guess=torch.reshape(model.current_adjacency_matrix, (-1,)),
+            **model_params,
+            **model_cfg["MCMC"],
+        )
+
+        import time
+
+        start_time = time.time()
+
+        # Collect n_samples
+        for i in range(n_samples):
+            sampler.sample(force_accept=accept_first_sample and i == 0)
+            sampler.write_loss()
+            sampler.write_parameters()
+            log.info(f"Collected {i} of {n_samples}.")
+
+        # Write out the total sampling time
+        sampler.write_time(time.time() - start_time)
 
     log.info("   Wrapping up ...")
 

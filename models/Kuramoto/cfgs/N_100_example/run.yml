@@ -1,4 +1,6 @@
 ---
+# Simple sweep for a small network (100 nodes) over different levels of noise in the
+# training data
 paths:
   model_note: N_100_example
 perform_sweep: True
@@ -16,7 +18,7 @@ parameter_space:
         N: 100
         sigma: !sweep
           default: 0
-          values: [0, 1e-3]
+          values: [1e-5, 1e-4, 1e-3]
         network:
           mean_degree: 6
     Training:

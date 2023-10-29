@@ -131,17 +131,18 @@ zero, meaning the solver runs the noiseless version of the equations.
 ### Configuration sets
 The following configuration sets are included in the model:
 
-- `Computational_performance`: trains the model for 10 epochs for different network sizes, and plots the average
-compute times.
+- `Accuracy`: compares the prediction accuracy to that of OLS regression and MCMC, both for first- and second-order
+equations
+- `Computational_performance`: trains the model for 10 epochs for different network sizes, and plots the total
+compute time. Also runs an MCMC for the same networks and plots compute times.
 - `Convexity`: plot the error on the predicted degree distribution as a function of the rank of the Gram matrix of
-observations
-- `N_100_example`: infers two networks with 100 nodes for noiseless and noisy training data, and plots the results,
+observations; also plots the accuracy of the neural scheme compared to OLS regression and MCMC.
+- `N_100_example`: infers a network with 100 nodes for different noise leves on the training data, and plots the results,
 including the inferred degree and triangle distributions
 - `N_1000_example`: same as for `N_100_example`, but for 1000 nodes.
-- `Noise_performance`: trains the model and plots the Hellinger and relative entropy errors on the degree and triangle
-marginals as a function of the noise on the training data
-- `Regression_comparison`: compares the prediction performance to that of OLS regression, both for first- and second-order
-equations
+- `Noise_performance`: trains the model and plots the Hellinger error, standard deviation, and relative entropy errors
+on the degree and triangle distributions as a function of the noise on the training data
+
 
 You can run these sets simply by calling
 

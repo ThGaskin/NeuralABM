@@ -183,7 +183,8 @@ class NeuralNet(nn.Module):
         prior_max_iter: int = 500,
         prior_tol: float = 1e-5,
         optimizer: str = "Adam",
-        learning_rate: float = 0.001,
+        learning_rate: float = 0.002,
+        optimizer_kwargs: dict = {},
         **__,
     ):
         """
@@ -238,7 +239,9 @@ class NeuralNet(nn.Module):
             self.layers.append(layer)
 
         # Get the optimizer
-        self.optimizer = self.OPTIMIZERS[optimizer](self.parameters(), lr=learning_rate)
+        self.optimizer = self.OPTIMIZERS[optimizer](
+            self.parameters(), lr=learning_rate, **optimizer_kwargs
+        )
 
         # Get the initial distribution and initialise
         self.prior_distribution = prior
@@ -264,12 +267,15 @@ class NeuralNet(nn.Module):
         # Generate a prediction and train the net to output the given target
         prediction = self.forward(torch.rand(self.input_dim))
         iter = 0
+
+        # Use a separate optimizer for the training
+        optim = torch.optim.Adam(self.parameters(), lr=0.002)
         while torch.norm(prediction - target) > tol and iter < max_iter:
             prediction = self.forward(torch.rand(self.input_dim))
             loss = torch.nn.functional.mse_loss(target, prediction, reduction="sum")
             loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
+            optim.step()
+            optim.zero_grad()
             iter += 1
 
     # ... Evaluation functions .........................................................................................

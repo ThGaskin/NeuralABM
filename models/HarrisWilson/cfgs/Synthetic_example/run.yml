@@ -1,0 +1,48 @@
+---
+perform_sweep: True
+paths:
+  model_note: Synthetic_example
+parameter_space:
+  seed: !sweep
+    default: 2
+    range: [200]
+
+  num_epochs: 1000
+  write_start: 1
+  write_every: 1
+
+  HarrisWilson:
+    Data:
+      load_from_dir: data/HarrisWilson/synthetic_data/noiseless/N_1000_M_100
+
+    # Settings for the neural net architecture
+    NeuralNet:
+      num_layers: 3
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: sigmoid
+        layer_specific:
+          -1: abs
+      prior:
+        # Prior densities on the parameters
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 4
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 8
+        - distribution: uniform
+          parameters:
+            lower: 1
+            upper: 3
+      learning_rate: 0.002
+      optimizer: Adam
+
+    # Settings for the neural net training
+    Training:
+      to_learn: [ alpha, beta, kappa ]
+      true_parameters:
+        sigma: 0

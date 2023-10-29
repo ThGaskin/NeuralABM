@@ -1,0 +1,50 @@
+---
+paths:
+  model_note: Accuracy_comparison
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 0
+    range: [10]
+  num_epochs: !coupled-sweep
+    default: 500
+    values: [500, 2500]
+    target_name: alpha
+  write_start: !coupled-sweep
+    default: 5000
+    values: [5000, 100000]
+    target_name: alpha
+  write_every: 1
+  write_predictions_every: -1
+  perform_regression: true
+  Kuramoto:
+    Data:
+      write_adjacency_matrix: True
+      synthetic_data:
+        num_steps: !coupled-sweep
+          default: 5
+          values: [5, 6]
+          target_name: alpha
+        training_set_size: !coupled-sweep
+          default: 10
+          values: [10, 40]
+          target_name: alpha
+        N: 16
+        sigma: !sweep
+          default: 1e-6
+          values: [1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 2e-2, 4e-2, 6e-2, 8e-2, 1e-1]
+        network:
+          type: random
+          mean_degree: 6
+          graph_props:
+            is_directed: False
+      dt: 0.02
+      alpha: !sweep
+        default: 0
+        values: [0, 1]
+    Training:
+      batch_size: 5
+      loss_function:
+        name: MSELoss
+        kwargs:
+          reduction: mean # Better results for second-order Kuramoto

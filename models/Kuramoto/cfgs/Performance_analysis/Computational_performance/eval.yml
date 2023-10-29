@@ -1,0 +1,100 @@
+# Facet grid of the average losses
+loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+  select_and_combine:
+    fields:
+      loss: output_data/Loss
+  transform:
+    - .mean: [!dag_tag loss, 'seed' ]
+      tag: mean
+    - .std: [!dag_tag loss, 'seed']
+    - xr.Dataset:
+      - y: !dag_tag mean
+        yerr: !dag_prev
+      tag: data
+  x: batch
+  y: y
+  yerr: yerr
+  col: kind
+  row: N
+  sharey: False
+  helpers:
+    set_scales:
+      y: log
+
+# Plot of the computational times of the neural vs MCMC scheme;
+# also plot the neural average L1 loss as a function of N
+time_and_loss:
+  based_on:
+    - .creator.multiverse
+  module: model_plots.Kuramoto
+  plot_func: time_and_loss
+  select_and_combine:
+    fields:
+      loss:
+        path: output_data/Loss
+        transform:
+          - .sel_with_drop: [!dag_prev , {kind: L1 prediction error}]
+          - .min: [!dag_prev ]
+      NN_time: output_data/computation_time
+      Langevin_time:
+          path: langevin_data/time
+          transform:
+            - .isel_with_drop: [!dag_prev , {time: 0}]
+  transform:
+
+    # Calculate average neural compute times
+    - .sum: [!dag_tag NN_time, ['epoch']]
+    - .mean: [!dag_prev , 'seed']
+    - .std: [!dag_node -2 , 'seed']
+    - xr.Dataset:
+      - y: !dag_node -2
+        yerr: !dag_prev
+      tag: neural_time
+
+    # Calculate average MCMC compute times
+    - .mean: [!dag_tag Langevin_time, 'seed']
+    - .std: [!dag_tag Langevin_time, 'seed']
+    - xr.Dataset:
+      - y: !dag_node -2
+        yerr: !dag_prev
+      tag: MCMC_time
+
+    # Compute average L1 loss
+    - .mean: [!dag_tag loss, 'seed' ]
+    - .std: [!dag_tag loss, 'seed']
+    - xr.Dataset:
+      - y: !dag_node -2
+        yerr: !dag_prev
+      tag: loss_data
+  compute_only: [loss_data, neural_time, MCMC_time]
+  helpers:
+    set_labels:
+      x: $N$
+      y: 'Time for 100 samples [s]'
+    set_texts:
+          texts:
+            - x: 300
+              y: 50
+              s: 'Neural'
+              color: black
+              zorder: 10
+            - x: 205
+              y: 80
+              s: 'MALA'
+              color: !dag_result c_red
+              zorder: 10
+            - x: 150
+              y: 142
+              s: '$L^1$ error'
+              color: !dag_result c_darkblue
+    set_limits:
+      x: [min, max]
+  loss_color: !dag_result c_darkblue
+  neural_color: 'black'
+  MCMC_color: !dag_result c_red
+  style:
+    axes.spines.right: True
+    figure.figsize: [!dag_result third_width, !expr 7.5/3 * 1.2]

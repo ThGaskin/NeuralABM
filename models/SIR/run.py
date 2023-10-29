@@ -26,36 +26,36 @@ coloredlogs.install(fmt="%(levelname)s %(message)s", level="INFO", logger=log)
 class SIR_NN:
     def __init__(
         self,
-        name: str,
         *,
         rng: np.random.Generator,
         h5group: h5.Group,
         neural_net: base.NeuralNet,
         loss_function: dict,
         to_learn: list,
-        true_parameters: dict,
+        true_parameters: dict = {},
         write_every: int = 1,
         write_start: int = 1,
-        num_steps: int = 3,
+        training_data: torch.Tensor,
+        batch_size: int,
         **__,
     ):
         """Initialize the model instance with a previously constructed RNG and
         HDF5 group to write the output data to.
 
         Args:
-            name (str): The name of this model instance
             rng (np.random.Generator): The shared RNG
             h5group (h5.Group): The output file group to write data to
             neural_net: The neural network
             loss_function (dict): the loss function to use
             to_learn: the list of parameter names to learn
+            training_data: the training data to use
+            batch_size: epoch batch size: instead of calculating the entire time series,
+                only a subsample of length batch_size can be used. The likelihood is then
+                scaled up accordingly.
             true_parameters: the dictionary of true parameters
             write_every: write every iteration
             write_start: iteration at which to start writing
-            num_steps: number of iterations of the ABM
         """
-        self._name = name
-        self._time = 0
         self._h5group = h5group
         self._rng = rng
 
@@ -72,52 +72,45 @@ class SIR_NN:
             key: torch.tensor(val, dtype=torch.float)
             for key, val in true_parameters.items()
         }
-        self.current_predictions = torch.tensor([0.0, 0.0, 0.0])
+        self.current_predictions = torch.zeros(len(to_learn))
+
+        self.training_data = training_data
+
+        # Generate the batch ids
+        batches = np.arange(0, self.training_data.shape[0], batch_size)
+        if len(batches) == 1:
+            batches = np.append(batches, training_data.shape[0] - 1)
+        else:
+            if batches[-1] != training_data.shape[0] - 1:
+                batches = np.append(batches, training_data.shape[0] - 1)
+
+        self.batches = batches
 
         # --- Set up chunked dataset to store the state data in --------------------------------------------------------
-        # Predicted Counts
-        self._dset_pred_counts = self._h5group.create_dataset(
-            "predicted_counts",
-            (0, 3, 1),
-            maxshape=(None, 3, 1),
-            chunks=True,
-            compression=3,
-            dtype=float,
-        )
-        self._dset_pred_counts.attrs["dim_names"] = ["time", "kind", "dim_name__0"]
-        self._dset_pred_counts.attrs["coords_mode__time"] = "trivial"
-        self._dset_pred_counts.attrs["coords_mode__kind"] = "values"
-        self._dset_pred_counts.attrs["coords__kind"] = [
-            "susceptible",
-            "infected",
-            "recovered",
-        ]
-        self._dset_pred_counts.attrs["coords_mode__dim_name__0"] = "trivial"
-
-        # Setup chunked dataset to store the state data in
+        # Write the loss after every batch
         self._dset_loss = self._h5group.create_dataset(
             "loss",
-            (0, 1),
-            maxshape=(None, 1),
+            (0,),
+            maxshape=(None,),
             chunks=True,
             compression=3,
         )
-        self._dset_loss.attrs["dim_names"] = ["time", "training_loss"]
-        self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_loss.attrs["coords__time"] = [write_start, write_every]
+        self._dset_loss.attrs["dim_names"] = ["batch"]
+        self._dset_loss.attrs["coords_mode__batch"] = "start_and_step"
+        self._dset_loss.attrs["coords__batch"] = [write_start, write_every]
 
+        # Write the computation time of every epoch
         self.dset_time = self._h5group.create_dataset(
             "computation_time",
-            (0, 1),
-            maxshape=(None, 1),
+            (0,),
+            maxshape=(None,),
             chunks=True,
             compression=3,
         )
-        self.dset_time.attrs["dim_names"] = ["epoch", "training_time"]
+        self.dset_time.attrs["dim_names"] = ["epoch"]
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
-        self.dset_time.attrs["coords_mode__training_time"] = "trivial"
 
-        # Parameter predictions
+        # Write the parameter predictions after every batch
         self.dset_parameters = self._h5group.create_dataset(
             "parameters",
             (0, len(self.to_learn.keys())),
@@ -125,22 +118,45 @@ class SIR_NN:
             chunks=True,
             compression=3,
         )
-        self.dset_parameters.attrs["dim_names"] = ["time", "parameter"]
-        self.dset_parameters.attrs["coords_mode__time"] = "start_and_step"
-        self.dset_parameters.attrs["coords__time"] = [write_start, write_every]
+        self.dset_parameters.attrs["dim_names"] = ["batch", "parameter"]
+        self.dset_parameters.attrs["coords_mode__batch"] = "start_and_step"
+        self.dset_parameters.attrs["coords__batch"] = [write_start, write_every]
         self.dset_parameters.attrs["coords_mode__parameter"] = "values"
         self.dset_parameters.attrs["coords__parameter"] = to_learn
 
+        # The training data and batch ids
+        self.training_data = training_data
+
+        batches = np.arange(0, training_data.shape[0], batch_size)
+        if len(batches) == 1:
+            batches = np.append(batches, training_data.shape[0] - 1)
+        else:
+            if batches[-1] != training_data.shape[0] - 1:
+                batches = np.append(batches, training_data.shape[0] - 1)
+        self.batches = batches
+
+        # Batches processed
+        self._time = 0
         self._write_every = write_every
         self._write_start = write_start
-        self._num_steps = num_steps
 
-    def epoch(self, *, training_data: torch.tensor, batch_size: int):
+    def epoch(self):
 
-        """Trains the model for a single epoch"""
-        for s in range(1, self._num_steps - batch_size):
+        """
+        An epoch is a pass over the entire dataset. The dataset is processed in batches, where B < L is the batch
+        number. After each batch, the parameters of the neural network are updated. For example, if L = 100 and
+        B = 50, two passes are made over the dataset -- one over the first 50 steps, and one
+        over the second 50. The entire time series is processed, even if L is not divisible into equal segments of
+        length B. For instance, is B is 30, the time series is processed in 3 steps of 30 and one of 10.
 
-            predicted_parameters = self.neural_net(torch.flatten(training_data[s]))
+        """
+
+        # Process the training data in batches
+        for batch_no, batch_idx in enumerate(self.batches[:-1]):
+
+            predicted_parameters = self.neural_net(
+                torch.flatten(self.training_data[batch_idx])
+            )
 
             # Get the parameters: infection rate, recovery time, noise variance
             p = (
@@ -159,38 +175,50 @@ class SIR_NN:
                 else self.true_parameters["sigma"]
             )
 
-            current_densities = training_data[s].clone()
+            # alpha = (
+            #     predicted_parameters[self.to_learn["alpha"]]
+            #     if "alpha" in self.to_learn.keys()
+            #     else self.true_parameters["alpha"]
+            # )
+
+            current_densities = self.training_data[batch_idx].clone()
             current_densities.requires_grad_(True)
 
             loss = torch.tensor(0.0, requires_grad=True)
 
-            for ele in range(s + 1, s + batch_size + 1):
+            for ele in range(batch_idx + 1, self.batches[batch_no + 1] + 1):
 
                 # Recovery rate
                 tau = 1 / t * torch.sigmoid(1000 * (ele / t - 1))
 
                 # Random noise
-                w = torch.normal(torch.tensor(0.0), torch.tensor(0.1))
+                w = torch.normal(torch.tensor(0.0), torch.tensor(1.0))
 
                 # Solve the ODE
-                current_densities = torch.relu(
+                current_densities = torch.clip(
                     current_densities
                     + torch.stack(
                         [
-                            (-p * current_densities[0] + sigma * w)
+                            (-p * current_densities[0] - sigma * w)
                             * current_densities[1],
                             (p * current_densities[0] + sigma * w - tau)
                             * current_densities[1],
                             tau * current_densities[1],
                         ]
-                    )
+                    ),
+                    0.0,
+                    1.0
+                    # + torch.tensor(
+                    #     [1 / (10000 + alpha), 1 / (10000 + alpha), 1 / (10000 + alpha)]
+                    # )
                 )
 
                 # Calculate loss
-                loss = (
-                    loss
-                    + self.loss_function(current_densities, training_data[ele])
-                    / batch_size
+                loss = loss + self.loss_function(
+                    current_densities, self.training_data[ele]
+                ) * (
+                    self.training_data.shape[0]
+                    / (self.batches[batch_no + 1] - batch_idx)
                 )
 
             loss.backward()
@@ -200,8 +228,8 @@ class SIR_NN:
             self.current_predictions = predicted_parameters.clone().detach().cpu()
             if "t_infectious" in self.to_learn.keys():
                 self.current_predictions[self.to_learn["t_infectious"]] *= 10
-            self.write_data()
             self._time += 1
+            self.write_data()
 
     def write_data(self):
         """Write the current state (loss and parameter predictions) into the state dataset.
@@ -212,7 +240,7 @@ class SIR_NN:
         """
         if self._time >= self._write_start and (self._time % self._write_every == 0):
             self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
-            self._dset_loss[-1, :] = self.current_loss
+            self._dset_loss[-1] = self.current_loss
             self.dset_parameters.resize(self.dset_parameters.shape[0] + 1, axis=0)
             self.dset_parameters[-1, :] = [
                 self.current_predictions[self.to_learn[p]] for p in self.to_learn.keys()
@@ -270,7 +298,6 @@ if __name__ == "__main__":
 
     # Initialise the neural net
     log.info("   Initializing the neural net ...")
-    batch_size = model_cfg["Training"]["batch_size"]
     net = base.NeuralNet(
         input_size=3,
         output_size=len(model_cfg["Training"]["to_learn"]),
@@ -279,44 +306,55 @@ if __name__ == "__main__":
 
     # Initialise the model
     model = SIR_NN(
-        model_name,
         rng=rng,
         h5group=h5group,
         neural_net=net,
-        loss_function=model_cfg["Training"]["loss_function"],
-        to_learn=model_cfg["Training"]["to_learn"],
-        true_parameters=model_cfg["Training"].get("true_parameters", {}),
         write_every=cfg["write_every"],
         write_start=cfg["write_start"],
         num_steps=len(training_data),
+        training_data=training_data,
+        **model_cfg["Training"],
     )
     log.info(f"   Initialized model '{model_name}'.")
 
     num_epochs = cfg["num_epochs"]
     log.info(f"   Now commencing training for {num_epochs} epochs ...")
     for i in range(num_epochs):
-        model.epoch(training_data=training_data, batch_size=batch_size)
+        model.epoch()
         log.progress(
             f"   Completed epoch {i+1} / {num_epochs}; "
             f"   current loss: {model.current_loss}"
         )
 
-    # Generate a complete dataset using the predicted parameters
-    log.progress("   Generating predicted dataset ...")
-    parameters = torch.empty(3, dtype=torch.float)
+    if model_cfg.get("MCMC", {}).pop("perform_sampling", False):
+        log.info("   Performing MCMC sampling ... ")
 
-    for idx, item in enumerate(["p_infect", "t_infectious", "sigma"]):
-        if item in model.to_learn.keys():
-            parameters[idx] = model.current_predictions[model.to_learn[item]]
-        else:
-            parameters[idx] = model.true_parameters[item]
+        n_samples = model_cfg["MCMC"].pop("n_samples")
 
-    SIR.generate_smooth_data(
-        init_state=training_data[0].cpu(),
-        counts=model._dset_pred_counts,
-        num_steps=len(training_data),
-        parameters=parameters,
-    )
+        # Initialise the sampler
+        sampler = SIR.Langevin_sampler(
+            h5File=h5file,
+            true_data=training_data[
+                model_cfg["Data"].get("training_data_size", slice(None, None)), :, :
+            ],
+            to_learn=model_cfg["Training"]["to_learn"],
+            true_parameters=model_cfg["Training"].get("true_parameters", {}),
+            **model_cfg["MCMC"],
+        )
+
+        import time
+
+        start_time = time.time()
+
+        # Collect n_samples
+        for i in range(n_samples):
+            sampler.sample()
+            sampler.write_loss()
+            sampler.write_parameters()
+            log.info(f"Collected {i} of {n_samples}.")
+
+        # Write out the total sampling time
+        sampler.write_time(time.time() - start_time)
 
     log.info("   Simulation run finished.")
     log.info("   Wrapping up ...")
