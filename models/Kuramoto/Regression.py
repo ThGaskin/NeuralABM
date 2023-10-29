@@ -147,7 +147,6 @@ def rank(training_data: torch.Tensor, h5file: h5.File, *, alpha: float):
     N = training_data.shape[2]
 
     if alpha == 0:
-
         # Stack the sine-couplings into a matrix for each node
         G = torch.zeros(
             training_data.shape[0],
@@ -157,7 +156,6 @@ def rank(training_data: torch.Tensor, h5file: h5.File, *, alpha: float):
         )
 
     else:
-
         G = torch.zeros(
             training_data.shape[0],
             training_data.shape[1] - 2,
@@ -201,6 +199,4 @@ def rank(training_data: torch.Tensor, h5file: h5.File, *, alpha: float):
     )
     dset_rank.attrs["dim_names"] = ["vertex_idx"]
     dset_rank.attrs["coords_mode__vertex_idx"] = "trivial"
-    dset_rank[
-        :,
-    ] = ranks
+    dset_rank[:,] = ranks

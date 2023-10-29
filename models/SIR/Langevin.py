@@ -39,7 +39,6 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
         true_parameters: dict,
         **__,
     ):
-
         # Parameters to learn
         self.to_learn = {key: idx for idx, key in enumerate(to_learn)}
         self.true_parameters = {
@@ -50,7 +49,7 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
         # Draw an initial guess from the prior
         init_guess = base.random_tensor(prior, size=(len(to_learn),))
 
-        super(SIR_Langevin_sampler, self).__init__(
+        super().__init__(
             true_data=true_data,
             init_guess=init_guess,
             lr=lr,
@@ -88,7 +87,6 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
         self.grad[1].data = self.grad[0].data
 
     def loss_function(self, input):
-
         """Calculates the loss (negative log-likelihood function) of a vector of parameters via simulation."""
 
         if self.true_data.shape[0] - self.batch_size == 1:
@@ -155,7 +153,6 @@ class SIR_Langevin_sampler(base.MetropolisAdjustedLangevin):
         )
 
     def write_parameters(self):
-
         if self.time > self.write_start and self.time % self.write_every == 0:
             self.dset_parameters.resize(self.dset_parameters.shape[0] + 1, axis=0)
             self.dset_parameters[-1, :] = torch.flatten(self.x[0].detach()).numpy() * [

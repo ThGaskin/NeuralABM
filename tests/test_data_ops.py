@@ -37,7 +37,7 @@ def test_apply_along_dim():
     da = xr.DataArray(
         np.ones((10, 10, 10)),
         dims=["x", "y", "z"],
-        coords=dict((k, np.arange(10)) for k in ["x", "y", "z"]),
+        coords={k: np.arange(10) for k in ["x", "y", "z"]},
         name="foo",
     )
 
@@ -94,7 +94,7 @@ def test_concat():
     da = xr.DataArray(
         np.ones((10, 10, 10)),
         dims=["x", "y", "z"],
-        coords=dict((k, np.arange(10)) for k in ["x", "y", "z"]),
+        coords={k: np.arange(10) for k in ["x", "y", "z"]},
         name="foo",
     )
 
@@ -110,7 +110,7 @@ def test_flatten_dims():
     da = xr.DataArray(
         np.ones((5, 5, 5)),
         dims=["dim1", "dim2", "dim3"],
-        coords=dict((k, np.arange(5)) for k in ["dim1", "dim2", "dim3"]),
+        coords={k: np.arange(5) for k in ["dim1", "dim2", "dim3"]},
     )
 
     # Test on DataArrays and Datasets

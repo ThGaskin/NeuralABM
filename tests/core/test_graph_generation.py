@@ -20,7 +20,6 @@ test_cfg = load_yml(CFG_FILENAME)
 
 def test_graph_generation():
     for _, config in test_cfg.items():
-
         nw_cfg = config.pop("network")
         # Generate the graph from the configuration
         G = graph_gen.generate_graph(**config, **nw_cfg)

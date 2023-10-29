@@ -8,6 +8,7 @@ from .ABM import SIR_ABM
 
 log = logging.getLogger(__name__)
 
+
 # --- Data generation functions ------------------------------------------------------------------------------------
 def generate_data_from_ABM(
     *,
@@ -50,7 +51,6 @@ def generate_data_from_ABM(
 
     log.info("   Generating synthetic data ... ")
     for _ in range(num_steps):
-
         # Run the ABM for a single step
         ABM.run_single(parameters=parameters)
 
@@ -91,7 +91,6 @@ def generate_smooth_data(
     requires_grad: bool = False,
     **__,
 ):
-
     """
     Generates a dataset of SIR-counts by iteratively solving the system of differential equations.
     """
@@ -122,7 +121,6 @@ def generate_smooth_data(
     current_state.requires_grad = requires_grad
 
     for _ in range(num_steps):
-
         # Generate the transformation matrix
         # Patients only start recovering after a certain time
         w = torch.normal(torch.tensor(0.0), torch.tensor(1.0))
@@ -162,9 +160,7 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
     or by iteratively solving the temporal ODE system.
     """
     if "load_from_dir" in data_cfg.keys():
-
         with h5.File(data_cfg["load_from_dir"], "r") as f:
-
             data = np.array(f["SIR"]["true_counts"])
 
             dset_true_counts = h5group.create_dataset(
@@ -191,7 +187,6 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
             return torch.from_numpy(data).float()
 
     elif "synthetic_data" in data_cfg.keys():
-
         # True counts
         dset_true_counts = h5group.create_dataset(
             "true_counts",
@@ -226,7 +221,6 @@ def get_SIR_data(*, data_cfg: dict, h5group: h5.Group, write_init_state: bool = 
             )
 
         elif type == "from_ABM":
-
             N = data_cfg["synthetic_data"]["N"]
 
             # Initialise agent position dataset

@@ -140,7 +140,6 @@ def _get_hist_bins_ranges(ds, bins, ranges, axis):
 def _interpolate(
     _p: xr.DataArray, _q: xr.DataArray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-
     """Interpolates two one-dimensional densities _p and _q onto their common support, with the mesh size given by the sum of the
     individual mesh sizes. ``_p`` and ``_q`` must be one-dimensional."""
 

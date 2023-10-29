@@ -21,7 +21,6 @@ log = logging.getLogger(__name__)
 
 
 def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
-
     """Loads Harris-Wilson data from a directory.
 
     :returns the origin sizes, network, and the time series
@@ -32,7 +31,6 @@ def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
     # If data is to be loaded, check whether a single h5 file, a folder containing csv files, or
     # a dictionary pointing to specific csv files has been passed.
     if isinstance(dir, str):
-
         # If data is in h5 format
         if dir.lower().endswith(".h5"):
             with h5.File(dir, "r") as f:
@@ -52,7 +50,6 @@ def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
 
     # If a dictionary is passed, load data from individual locations
     elif isinstance(dir, dict):
-
         origins = pd.read_csv(dir["origin_zones"], header=0, index_col=0).to_numpy()
         training_data = pd.read_csv(
             dir["destination_zones"], header=0, index_col=0
@@ -72,7 +69,6 @@ def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
 def generate_synthetic_data(
     *, cfg, device: str
 ) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
-
     """Generates synthetic Harris-Wilson using a numerical solver.
 
     :param cfg: the configuration file
@@ -144,7 +140,6 @@ def generate_synthetic_data(
 
 
 def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
-
     """Gets the data for the Harris-Wilson model. If no path to a dataset is passed, synthetic data is generated using
     the config settings
 
