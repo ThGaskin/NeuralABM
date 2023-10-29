@@ -1,0 +1,48 @@
+---
+# Runs the neural scheme and MCMC to collect 100 samples for different sizes of N,
+# and compares compute times. Running this will take about 1 hr on a fast CPU.
+paths:
+  model_note: Computational_performance
+perform_sweep: True
+worker_manager:
+  num_workers: 2
+parameter_space:
+  num_epochs: 10
+  write_every: 1
+  write_start: 1
+  write_predictions_every: 1
+  seed: !sweep
+    default: 0
+    range: [10]
+  Kuramoto:
+    Data:
+      synthetic_data:
+        num_steps: 2
+        training_set_size: !coupled-sweep
+          default: 100
+          values: [5, 10, 20, 50, 100, 150, 200]
+          target_name: N
+        N: !sweep
+          default: 10
+          values: [10, 20, 40, 100, 200, 300, 400]
+        sigma: 1e-3
+        network:
+          type: random
+          mean_degree: !coupled-sweep
+            default: 6
+            values: [3, 4, 6, 10, 14, 17, 20]
+            target_name: N
+          graph_props:
+            is_directed: False
+      dt: 0.02
+    Training:
+      batch_size: !coupled-sweep
+        default: 5
+        values: [1, 2, 4, 10, 20, 30, 40]
+        target_name: N
+      device: cpu
+    MCMC:
+      perform_sampling: True
+      n_samples: 100
+      write_every: 1
+      accept_first_sample: True

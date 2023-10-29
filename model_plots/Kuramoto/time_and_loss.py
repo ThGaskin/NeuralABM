@@ -10,22 +10,20 @@ log = logging.getLogger(__name__)
 @is_plot_func(
     use_dag=True,
     use_helper=True,
-    required_dag_tags=("loss_data", "CPU_time", "GPU_time", "regression_time"),
+    required_dag_tags=("loss_data", "neural_time", "MCMC_time"),
 )
 def time_and_loss(
     hlpr: PlotHelper,
     *,
     data: dict,
     loss_color: str,
-    CPU_color: str,
-    GPU_color: str,
-    regression_color: str
+    neural_color: str = None,
+    MCMC_color: str = None,
 ):
     """Plots a comparison of time and loss values onto two axes"""
     loss_data: xr.Dataset = data["loss_data"]
-    CPU_time: xr.Dataset = data["CPU_time"]
-    GPU_time: xr.Dataset = data["GPU_time"]
-    regression_time: xr.Dataset = data["regression_time"]
+    neural_time: xr.Dataset = data["neural_time"]
+    MCMC_time: xr.Dataset = data["MCMC_time"]
     ax1 = hlpr.ax
 
     # Plot the loss data
@@ -42,25 +40,24 @@ def time_and_loss(
     ax2.set_ylabel(r"avg. $L^1$ error after 10 epochs")
     ax2.set_ylim([0.1, 0.5])
 
+    # Plot the compute times
     hlpr.select_axis(ax=ax1)
-    CPU_time["y"].plot(color=CPU_color)
+    neural_time["y"].plot(color=neural_color)
     ax1.fill_between(
-        CPU_time.coords["N"],
-        (CPU_time["y"] + CPU_time["yerr"]),
-        (CPU_time["y"] - CPU_time["yerr"]),
+        neural_time.coords["N"],
+        (neural_time["y"] + neural_time["yerr"]),
+        (neural_time["y"] - neural_time["yerr"]),
         alpha=0.5,
-        color=CPU_color,
+        color=neural_color,
         lw=0,
     )
 
-    GPU_time["y"].plot(color=GPU_color)
+    MCMC_time["y"].plot(color=MCMC_color)
     ax1.fill_between(
-        GPU_time.coords["N"],
-        (GPU_time["y"] + GPU_time["yerr"]),
-        (GPU_time["y"] - GPU_time["yerr"]),
+        MCMC_time.coords["N"],
+        (MCMC_time["y"] + MCMC_time["yerr"]),
+        (MCMC_time["y"] - MCMC_time["yerr"]),
         alpha=0.5,
-        color=GPU_color,
+        color=MCMC_color,
         lw=0,
     )
-
-    regression_time.plot(color=regression_color, ax=ax1, linestyle="dotted")

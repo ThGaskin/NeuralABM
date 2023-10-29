@@ -48,4 +48,3 @@ root_model_name: Kuramoto
 seed: 42
 write_every: 1
 write_start: 1
-

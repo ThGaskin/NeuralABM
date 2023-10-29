@@ -1,0 +1,215 @@
+# Accuracy over convexity
+convexity_accuracy:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+    - .cycler_reds
+  select_and_combine:
+    fields:
+      NN_prediction: output_data/predictions
+      neural_mode_idx:
+        path: output_data/Loss
+        transform:
+          - .sel_with_drop: [!dag_prev , {kind: Data loss}]
+          - .idxmin: [!dag_prev ]
+      rank: regression_data/rank
+      regression_data:
+        path: regression_data/predictions
+        transform: [ .data ]
+      true_values:
+        path: true_network/_adjacency_matrix
+        transform: [ .data ]
+      N:
+        path: ../cfg
+        transform:
+          - recursive_getitem: [ !dag_prev , [ 'Kuramoto', 'Data', 'synthetic_data', 'N' ] ]
+  transform:
+
+    # Calculate N-1
+    - .isel_with_drop: [!dag_tag N, {seed: 0 , training_set_size: 0}]
+    - sub: [!dag_prev , 1]
+    - .item: [!dag_prev ]
+      tag: N-1
+
+    # Get the minimum Gram matrix rank for each problem and divide by N-1
+    - .min: [!dag_tag rank, vertex_idx]
+    - .mean: [!dag_prev , 'seed']
+    - .data: [!dag_prev ]
+    - div: [!dag_prev , !dag_tag N-1]
+      tag: min_rank
+
+    # Total L1 error of the regression estimate
+    - sub: [ !dag_tag regression_data, !dag_tag true_values ]
+    - np.abs: [ !dag_node -1 ]
+    - .sum: [!dag_prev , ['i', 'j']]
+      tag: regression error
+
+    # Total L1 error of the neural prediction
+    - .sel_with_drop: [!dag_tag NN_prediction , {batch: !dag_tag neural_mode_idx}]
+    - sub: [!dag_prev , !dag_tag true_values ]
+    - np.abs: [!dag_prev ]
+    - .sum: [!dag_prev , ['i', 'j']]
+      tag: neural_error
+
+    # Concatenate both and assign rank coordinates
+    - concat_along: [[!dag_tag neural_error , !dag_tag regression error ], 'type', ['Neural', 'OLS']]
+    - .mean: [!dag_prev , 'seed']
+    - .std: [!dag_node -2, 'seed']
+    - xr.Dataset:
+      - {y: !dag_node -2, yerr: !dag_prev }
+    - .rename: [!dag_prev , {training_set_size: min_rank}]
+    - .assign_coords: [!dag_prev , {min_rank: !dag_tag min_rank}]
+      tag: data_no_MALA
+
+    # Total L1 error of MCMC
+    - import_and_call: [ pandas, read_csv, 'data/Kuramoto/MCMC_data/accuracy_over_convexity.csv']
+      kwargs:
+        index_col: 0
+    - .to_xarray: [!dag_prev ]
+    - .expand_dims: [!dag_prev , {type: ['MALA']}]
+    - .assign_coords: [!dag_prev , {min_rank: !dag_tag min_rank}]
+      tag: MCMC_error
+
+    - xr.concat: [[!dag_tag data_no_MALA , !dag_tag MCMC_error], 'type']
+      tag: data
+  x: min_rank
+  y: y
+  yerr: yerr
+  hue: type
+  helpers:
+    set_labels:
+      x: '$\mathfrak{c}/(N-1)$'
+      y: '$\Vert \hat{\mathbf{A}} - \mathbf{A}\Vert_1$'
+    set_legend:
+      use_legend: false
+    set_scales:
+      y: log
+    set_tick_locators:
+      y:
+        major: {base: 10, name: LogLocator, numticks: 12}
+        minor:
+          base: 10
+          name: LogLocator
+          numticks: 12
+          subs: [0.2, 0.4, 0.6, 0.8]
+  style:
+    figure.figsize: [ !dag_result third_width, !dag_result third_width ]
+
+# Error over convexity
+convexity_error:
+  based_on:
+    - .creator.multiverse
+    - degree_distribution_mv
+    - .plot.facet_grid.errorbands
+  dag_options:
+    define:
+      bins: 100
+      range:
+        - list: [[0, 20]]
+  select_and_combine:
+    fields:
+      N:
+        path: ../cfg
+        transform:
+          - recursive_getitem: [!dag_prev , ['Kuramoto', 'Data', 'synthetic_data', 'N']]
+      rank: regression_data/rank
+  transform:
+
+    # Calculate N-1
+    - .isel_with_drop: [ !dag_tag N, { seed: 0 , training_set_size: 0 } ]
+    - sub: [ !dag_prev , 1 ]
+    - .item: [ !dag_prev ]
+      tag: N-1
+
+    # Get the minimum Gram matrix rank for each problem and divide by N-1
+    - .min: [!dag_tag rank, vertex_idx]
+    - .mean: [!dag_node -1, seed]
+    - .data: [!dag_node -1]
+    - div: [!dag_node -1, !dag_tag N-1]
+      tag: min_rank
+
+    # Calculate the total Hellinger error of the degree distribution for each seed and
+    # training set
+    - marginal_distribution_stats: [!dag_tag predictions, !dag_tag probabilities]
+      kwargs:
+        stat: [Hellinger]
+        distance_to: mode
+        exclude_dim: [training_set_size, seed]
+    - getitem: [!dag_prev , 'stat']
+      file_cache:
+        read: True
+        write: True
+      tag: Hellinger_error
+
+    # Assign coords and divide by the value at the smallest x-value to allow comparison
+    - .rename: [!dag_prev , {training_set_size: min_rank}]
+    - .assign_coords: [!dag_prev , {min_rank: !dag_tag min_rank}]
+    - .isel: [!dag_prev , {min_rank: 0}]
+    - div: [!dag_node -2, !dag_prev ]
+
+    # Compile into a dataset
+    - .mean: [!dag_prev , seed]
+    - .std: [!dag_node -2, seed]
+    - xr.Dataset:
+      - {y: !dag_node -2, yerr: !dag_prev }
+      tag: data
+  x: min_rank
+  y: y
+  yerr: yerr
+  style:
+    figure.figsize: [!dag_result third_width, !dag_result third_width]
+  helpers:
+    set_labels:
+      x: $\mathfrak{c}/(N-1)$
+      y: $d_\mathrm{H} / d_\mathrm{H}(\mathfrak{c}=0.21(N-1))$
+    set_title:
+      title: ''
+
+# Plot a facet grid  predicted and true degree distribution with uncertainty
+# as a function of sigma
+degree_distribution:
+  based_on:
+    - degree_distribution_mv
+    - .hlpr.no_labels
+  dag_options:
+    define:
+      bins: 100
+      range:
+        - list: [[0, 19]]
+  transform:
+    - flatten: [!dag_tag predictions]
+      tag: predictions_flattened
+    - flatten: [!dag_tag probabilities]
+      tag: probabilities_flattened
+    - .isel_with_drop: [!dag_tag true_data, {seed: 0}]
+    - marginal_distribution: [ !dag_tag predictions_flattened, !dag_tag probabilities_flattened, !dag_prev ]
+      kwargs:
+        exclude_dim: ['training_set_size']
+      tag: data
+  x: x
+  y: y
+  yerr: yerr
+  hue: type
+  col: training_set_size
+  col_wrap: 3
+  linestyle: [solid, dotted]
+  smooth_kwargs:
+    enabled: True
+    sigma: 1
+  figsize: [ !dag_result full_width, !dag_result full_width ]
+
+loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      data: output_data/Loss
+  row: training_set_size
+  col: kind
+  x: batch
+  hue: seed
+  sharey: False
+  helpers:
+    set_scales:
+      y: log
