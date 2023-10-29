@@ -64,11 +64,12 @@
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_yellow]:}',
+      fstr: "cycler('color', ['black',
+                              '{colors[c_darkblue]:}',
+                              '{colors[c_yellow]:}',
                               '{colors[c_darkgreen]:}',
                               '{colors[c_red]:}',
                               '{colors[c_lightblue]:}',
-                              '{colors[c_darkblue]:}',
                               '{colors[c_lightbrown]:}',
                               '{colors[c_orange]:}',
                               '{colors[c_lightgreen]:}',
@@ -88,6 +89,12 @@
       dpi: 900
   file_ext: pdf
 
+.cycler_yellow_green:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_yellow]:}', '{colors[c_darkgreen]:}'])"
+      colors:
+        <<: *colors
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗

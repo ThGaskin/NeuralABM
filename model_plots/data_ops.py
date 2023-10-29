@@ -1,4 +1,3 @@
-import itertools
 from typing import Any, Sequence, Union
 
 import numpy as np
@@ -8,95 +7,25 @@ import xarray as xr
 
 from utopya.eval import is_operation
 
+from ._op_utils import (_get_hist_bins_ranges, _hist, _interpolate,
+                        apply_along_dim)
+
 # --- Custom DAG operations for the NeuralABM model --------------------------------------------------------------------
-
-# ----------------------------------------------------------------------------------------------------------------------
-# DECORATOR
-# ----------------------------------------------------------------------------------------------------------------------
-
-
-def apply_along_dim(func):
-    def _apply_along_axes(
-        *args,
-        along_dim: list = None,
-        exclude_dim: list = None,
-        **kwargs,
-    ):
-        """Decorator which allows for applying a function, acting on aligned array-likes, along dimensions of
-        the xarray.Datasets. The datasets must be aligned. All functions using this header should therefore only take
-        xarray objects as arguments that can be indexed along common dimensions. All other arguments should be keywords.
-
-        :param args: xr.Datasets which are to be aligned
-        :param along_dim: the dimensions along with to apply the operation
-        :param exclude_dim: the dimensions to exclude. This is an alternative to providing the 'along_dim' argument.
-            Cannot provide both 'along_dim' and 'exclude_dim'
-        :param kwargs: passed to function
-        :return: xr.Dataset
-        """
-        if along_dim and exclude_dim:
-            raise ValueError("Cannot provide both 'along_dim' and 'exclude_dim'!")
-
-        if along_dim is not None or exclude_dim is not None:
-            # Get the coordinates for all the dimensions that are to be excluded
-            if exclude_dim is None:
-                excluded_dims = []
-                for c in list(args[0].coords.keys()):
-                    if c not in along_dim:
-                        excluded_dims.append(c)
-            else:
-                excluded_dims = exclude_dim
-            excluded_coords = [args[0].coords[_].data for _ in excluded_dims]
-
-            # Collect the dsets into one dataset
-            dsets = []
-
-            # Iterate over all coordinates in the dimensions and apply the function separately
-            for idx in itertools.product(*(range(len(_)) for _ in excluded_coords)):
-                # Strip both datasets of all coords except the ones along which the function is being
-                # applied. Add the coordinates back afterwards and re-merge.
-                dsets.append(
-                    func(
-                        *[
-                            arg.sel(
-                                {
-                                    excluded_dims[j]: excluded_coords[j][idx[j]]
-                                    for j in range(len(excluded_dims))
-                                },
-                                drop=True,
-                            )
-                            for arg in args
-                        ],
-                        **kwargs,
-                    ).expand_dims(
-                        dim={
-                            excluded_dims[i]: [excluded_coords[i][idx[i]]]
-                            for i in range(len(excluded_dims))
-                        }
-                    )
-                )
-
-            # Merge the datasets into one and return
-            return xr.merge(dsets)
-
-        else:
-            return func(*args, **kwargs)
-
-    return _apply_along_axes
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 # DATA RESHAPING AND REORGANIZING
 # ----------------------------------------------------------------------------------------------------------------------
 @is_operation("concat_along")
-def concat(objs: list, name: str, dims: Sequence, *args, **kwargs):
+def concat(objs: Sequence, name: str, dims: Sequence, *args, **kwargs):
     """Combines the pd.Index and xr.concat functions into one.
 
-    :param objs: the xarrays to be concatenated
+    :param objs: the xarray objects to be concatenated
     :param name: the name of the new dimension
     :param dims: the coordinates of the new dimension
-    :param args: passed to xr.concat
-    :param kwargs: passed to xr.concat
-    :return:
+    :param args: passed to ``xr.concat``
+    :param kwargs: passed to ``xr.concat``
+    :return: objects concatenated along the new dimension
     """
     return xr.concat(objs, pd.Index(dims, name=name), *args, **kwargs)
 
@@ -104,18 +33,19 @@ def concat(objs: list, name: str, dims: Sequence, *args, **kwargs):
 @is_operation("flatten_dims")
 @apply_along_dim
 def flatten_dims(
-    ds: xr.Dataset,
+    ds: Union[xr.Dataset, xr.DataArray],
     *,
     dims: dict,
-    new_coords: list = None,
-) -> xr.Dataset:
-    """Flattens dimensions of an xr.Dataset into a new dimension. New coordinates can be assigned,
+    new_coords: Sequence = None,
+) -> Union[xr.Dataset, xr.DataArray]:
+    """Flattens dimensions of an xarray object into a new dimension. New coordinates can be assigned,
     else the dimension is simply given trivial dimensions. The operation is a combination of stacking and
     subsequently dropping the multiindex.
 
-    :param ds: the xr.Dataset to reshape
+    :param ds: the xarray object to reshape
     :param dims: a dictionary, keyed by the name of the new dimension, and with the dimensions to be flattened as the value
-    :param new_coords: the coordinates for the new dimension (optional)
+    :param new_coords: (optional) coordinates for the new dimension
+    :return the xarray object with flattened dimensions
     """
     new_dim, dims_to_stack = list(dims.keys())[0], list(dims.values())[0]
 
@@ -146,24 +76,18 @@ def flatten_dims(
 @is_operation("broadcast")
 @apply_along_dim
 def broadcast(
-    ds1: Union[xr.DataArray, xr.Dataset],
-    ds2: Union[xr.DataArray, xr.Dataset],
-    *,
-    x: str = "x",
-    p: str = "loss",
+    ds1: xr.DataArray, ds2: xr.DataArray, *, x: str = "x", p: str = "loss", **kwargs
 ) -> xr.Dataset:
-    """Broadcasts together two datasets and returns a dataset with the variables of the datasets set as dimensions.
-    This is typically used to broadcast together a dataset of parameters of dimension `(D, N)` and a dataset of associated
-    loss values of dimension `(N, )` into a new dataset of dimension `(D, 2, N)`, where each parameter now has the loss
-    value associated with it, allowing for easy computation of marginals etc.
+    """Broadcasts together two ``xr.DataArray`` s and returns a dataset with given ``x`` and ``p`` as variable names.
 
-    :param ds1: the first dataset
-    :param ds2: the second dataset
-    :param x: name for the new first dimension of the new variable
-    :param p: name for the new second dimension of the new variable
-    :return: ``xr.Dataset`` with the previous variables now dimensions of the dataset
+    :param ds1: the first array
+    :param ds2: the second array
+    :param x: name for the new first variable
+    :param p: name for the new second variable
+    :param kwargs: passed on to ``xr.broadcast``
+    :return: ``xr.Dataset`` with variables ``x`` and ``p``
     """
-    return xr.broadcast(xr.Dataset({x: ds1, p: ds2}))[0]
+    return xr.broadcast(xr.Dataset({x: ds1, p: ds2}), **kwargs)[0]
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -172,57 +96,108 @@ def broadcast(
 @is_operation("stat")
 @apply_along_dim
 def stat_function(
-    data: xr.Dataset, *, stat: str, x: str = None, p: str = None
-) -> xr.Dataset:
+    data: xr.Dataset, *, stat: str, x: str, y: str, **kwargs
+) -> Union[xr.DataArray, xr.Dataset]:
     """Basic statistical function which returns statistical properties of a one-dimensional dataset representing
-    x and f(x)-values.
+    x and y(x)-values.
 
-    :param data: dataset along which to calculate the statistic
-    :param stat: type of statistic to calculate
+    :param data: ``xr.Dataset`` along which to calculate the statistic. The dataset must contain the ``y`` key as
+        a variable, but ``x`` may also be a coordinate name.
+    :param stat: type of statistic to calculate: can be ``mean``, ``std``, ``iqr``, ``mode``, or ``avg_peak_width``.
+        When calculating the mode, both the x-value and y-value are returned, and when calculating peak widths, both the
+        mean width and standard deviation are calculated.
     :param x: label of the x-values; can be a variable in the dataset or a coordinate
-    :param p: function values
+    :param y: function values
+    :param kwargs: kwargs passed to the respective calculation function
     :return: the computed statistic
     """
-    if x is None:
-        x = list(data.coords.keys())[0]
-    if p is None:
-        p = list(data.data_vars.keys())[0]
+
+    _permitted_stat_functions = ["mean", "std", "iqr", "mode", "avg_peak_width"]
+    if stat not in _permitted_stat_functions:
+        raise ValueError(
+            f"Unrecognised stat function '{stat}'; choose from '{', '.join(_permitted_stat_functions)}'."
+        )
+
+    # x-values can be either a variable or a coordinate
     if x in data.coords.keys():
         _x_vals = data.coords[x]
     else:
         _x_vals = data[x]
 
-    _x_vals, _y_vals = _x_vals[~np.isnan(data[p])], data[p][~np.isnan(data[p])]
+    # Ignore nans in the values
+    _x_vals, _y_vals = _x_vals[~np.isnan(data[y])], data[y][~np.isnan(data[y])]
 
-    # Expectation value
+    # ------------------------------------------------------------------------------------------------------------------
+    # Expectation value: m = int f(x) x dx
+    # ------------------------------------------------------------------------------------------------------------------
+
     if stat == "mean":
-        _res = scipy.integrate.trapezoid(_y_vals * _x_vals, _x_vals)
-    # Standard deviation
-    elif stat == "std":
-        _m = mean(data, x=x, p=p).to_array().data
-        _res = np.sqrt(
-            scipy.integrate.trapezoid(_y_vals * (_x_vals - _m) ** 2, _x_vals)
-        )
+        _res = scipy.integrate.trapezoid(_y_vals * _x_vals, _x_vals, **kwargs)
+        return xr.DataArray(_res, name=stat)
 
-    # Interquartile range
+    # ------------------------------------------------------------------------------------------------------------------
+    # Standard deviation: std^2 = int (x - m)^2 f(x) dx
+    # ------------------------------------------------------------------------------------------------------------------
+
+    elif stat == "std":
+        _m = stat_function(data, x=x, y=y, stat="mean")
+        _res = np.sqrt(
+            scipy.integrate.trapezoid(_y_vals * (_x_vals - _m) ** 2, _x_vals, **kwargs)
+        )
+        return xr.DataArray(_res, name=stat)
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # Interquartile range: length between first and third quartile
+    # ------------------------------------------------------------------------------------------------------------------
+
     elif stat == "iqr":
-        _int = scipy.integrate.trapezoid(_y_vals, _x_vals)
+        _int = scipy.integrate.trapezoid(_y_vals, _x_vals, **kwargs)
         _a_0 = -1.0
         __int = 0.0
         _res = 0.0
         for i in range(1, len(_x_vals)):
             __int += scipy.integrate.trapezoid(
-                _y_vals[i - 1 : i + 1], _x_vals[i - 1 : i + 1]
+                _y_vals[i - 1 : i + 1], _x_vals[i - 1 : i + 1], **kwargs
             )
             if __int > 0.25 * _int and _a_0 == -1:
                 _a_0 = _x_vals[i].item()
             if __int > 0.75 * _int:
                 _res = _x_vals[i].item() - _a_0
                 break
-    else:
-        raise ValueError(f"Unrecognized statistic '{stat}'!")
+        return xr.DataArray(_res, name=stat)
 
-    return xr.Dataset(data_vars=dict({stat: _res}))
+    # ------------------------------------------------------------------------------------------------------------------
+    # Mode: both the x-value and the y-value of the mode are returned
+    # ------------------------------------------------------------------------------------------------------------------
+
+    elif stat == "mode":
+        # Get the index of the mode and select it
+        idx_max = np.argmax(_y_vals.data, **kwargs)
+        mode_x = _x_vals[idx_max]
+        mode_y = _y_vals[idx_max]
+        return xr.Dataset(data_vars=dict(mode_x=mode_x, mode_y=mode_y))
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # Average peak width: both the mean width and standard deviation of the widths is returned
+    # ------------------------------------------------------------------------------------------------------------------
+
+    elif stat == "avg_peak_width":
+        if "width" not in kwargs:
+            raise Exception("'width' kwarg required for 'scipy.signal.find_peaks'!")
+
+        # Insert a zero at the beginning and the end of the array to ensure peaks at the ends are found
+        _y_vals = np.insert(np.insert(_y_vals, 0, 0), 0, -1)
+
+        # Find the peaks along the array
+        peaks = scipy.signal.find_peaks(_y_vals, **kwargs)
+
+        # Calculate the mean and standard deviation of the peaks
+        mean, std = (
+            np.mean(peaks[1]["widths"]) * np.diff(_x_vals)[0],
+            np.std(peaks[1]["widths"]) * np.diff(_x_vals)[0],
+        )
+
+        return xr.Dataset(data_vars=dict(mean_peak_width=mean, peak_width_std=std))
 
 
 @is_operation("mean")
@@ -248,95 +223,87 @@ def iqr(*args, **kwargs) -> xr.Dataset:
 
 @is_operation("mode")
 @apply_along_dim
-def mode(data: xr.Dataset, *, p: str, get: str = "coord", **kwargs) -> xr.Dataset:
-    """Returns the x value and associated probability of the mode of a one-dimensional dataset
-    consisting of x-values and associated probabilities, (x, p(x)).
-
-    :param data: the one-dimensional dataset
-    :param p: the name of the probability dimension along which to select the mode.
-    :param get: whether to return the `value` or the `coord` of the mode. Default is the coordinate, i.e. the x-value
-    :param kwargs: keyword arguments passed to xr.DataArray.idxmax
-    :return: the mode of the dataset
-    """
-
-    # Get the name of the dimension
-    coord = list(data.dims.keys())[0]
-
-    # Get the index of the mode and select it
-    x_max = data[p].idxmax(**kwargs).item()
-    mode = data.sel({coord: x_max})
-    if get == "coord":
-        mode[p] = x_max
-    elif get != "value":
-        raise ValueError(
-            f"Unrecognised argument {get} for get! Can be either 'value' or 'coord'!"
-        )
-    return mode.drop_vars(coord)
+def mode(*args, **kwargs) -> xr.Dataset:
+    """Computes the mode of a dataset"""
+    return stat_function(*args, stat="mode", **kwargs)
 
 
-@is_operation("average_peak_widths")
+@is_operation("avg_peak_width")
 @apply_along_dim
-def avg_peak_width(
-    data: xr.DataArray, *, pad: bool = True, width=[None, None], **kwargs
-) -> xr.Dataset:
-    """Computes the average peak width of a one-dimensional DataArray using the scipy.signal.peaks function. Zeros are
-    optionally added to the start and end of the dataset to ensure that peaks at the ends of the intervals are found.
-
-    :param data: the dataset
-    :param pad: whether to pad the array with zeros at the beginning and end (True by default)
-    :param width: the boundaries for the peak widths
-    :param kwargs: (optional) additional kwargs, passed to scipy.signal.find_peaks
-    :return: xr.Dataset of mean peak width and standard deviation
-    """
-
-    # Insert a zero at the beginning and the end of the array
-    arr = np.insert(np.insert(data.data, 0, 0), 0, -1) if pad else data.data
-
-    # Find the peaks along the array
-    peaks = scipy.signal.find_peaks(arr, width=width, **kwargs)
-
-    # Calculate the mean and standard deviation of the peaks
-    mean, std = np.mean(peaks[1]["widths"]), np.std(peaks[1]["widths"])
-
-    return xr.Dataset(data_vars=dict(mean=mean, std=std))
+def avg_peak_width(*args, **kwargs) -> xr.Dataset:
+    """Computes the average peak width and std of peak widths of a dataset"""
+    return stat_function(*args, stat="avg_peak_width", **kwargs)
 
 
 @is_operation("p_value")
 @apply_along_dim
-def p_value(data: xr.Dataset, *, t: float, x: str, p: str) -> xr.Dataset:
-    """Calculates the p value for a one-dimensional point from a Dataset containing pairs (x, p(x)).
-    Since the probabilities are binned, they are normalised such that sum p(x)dx = 1.
+def p_value(
+    data: xr.Dataset, point: Any, *, x: str, y: str, null: str = "mean"
+) -> xr.DataArray:
+    """Calculates the p value of a ``point`` from a Dataset containing x-y-pairs. It is assumed the integral under y
+    is normalised for the p-value to be meaningful. The p-value can be calculated wrt to the mean or the mode
+    of the distribution
 
-    :param data: the one-dimensional DataArray containing the x and p(x) values
-    :param t: the value (1d point) for which to calculate the p-value
-    :param x: the x value dimension
-    :param p: the probability value dimension
-    :return: an xr.Dataset of the p-value
+    :param data: ``xr.Dataset`` containing the x and p(x) values
+    :param point: point at which to calculate the p value
+    :param x: label of the x-values; can be a variable in the dataset or a coordinate
+    :param y: function values; assumed to be normalised
+    :param null: (optional) null wrt which the p-value is to be calculated; can be either ``mean``
+        or ``mode``
+    :return: ``xr.DataArray`` of the p-value of ``point``
     """
 
-    # Calculate the mean
-    mu = mean(data, x=x, p=p).to_array().data
-
-    # Calculate the index of t
-    t_index = np.argmin(np.abs(data[x] - t).data)
-
-    # Calculate the p-value depending on the location of t
-    if t >= mu:
-        return xr.Dataset(
-            data_vars=dict(
-                p_value=scipy.integrate.trapezoid(
-                    data[p][t_index:], data[x].values[t_index:]
-                )
-            )
-        )
+    # x can be both a variable and a coordinate
+    if x in data.coords.keys():
+        _x_vals = data.coords[x]
     else:
-        return xr.Dataset(
-            data_vars=dict(
-                p_value=scipy.integrate.trapezoid(
-                    data[p][:t_index], data[x].values[:t_index]
-                )
-            )
+        _x_vals = data[x]
+
+    if isinstance(point, xr.DataArray):
+        point = point.data
+
+    # Calculate the value of the null of the distribution
+    m = (
+        mean(data, x=x, y=y).data
+        if null == "mean"
+        else mode(data, x=x, y=y)["mode_x"].data
+    )
+
+    # Calculate the index of the point
+    t_index = np.argmin(np.abs(_x_vals - point).data)
+
+    # Calculate the p-value depending on the location of the point
+    if point >= m:
+        return xr.DataArray(
+            scipy.integrate.trapezoid(data[y][t_index:], _x_vals[t_index:]),
+            name="p_value",
         )
+
+    else:
+        return xr.DataArray(
+            scipy.integrate.trapezoid(data[y][:t_index], _x_vals[:t_index]),
+            name="p_value",
+        )
+
+
+@is_operation("normalize")
+@apply_along_dim
+def normalize(
+    distribution: xr.Dataset, *, x: str, y: str, norm: float = 1, **kwargs
+) -> xr.Dataset:
+    """Normalises a probability distribution of x- and y-values
+
+    :param distribution: ``xr.Dataset`` of x- and y-values
+    :param x: the x-values
+    :param y: the function values
+    :param norm: (optional) value to which to normalise the distribution
+    :param kwargs: passed to ``scipy.integrate.trapezoid``
+    :return: the normalised probability distribution
+    """
+
+    integral = scipy.integrate.trapezoid(distribution[y], distribution[x], **kwargs)
+    distribution[y] *= norm / integral
+    return distribution
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -344,138 +311,203 @@ def p_value(data: xr.Dataset, *, t: float, x: str, p: str) -> xr.Dataset:
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def _hist(obj, *, normalize, **_kwargs):
-    # Applies numpy histogram along an axis and returns the counts and bin centres
-    _counts, _edges = np.histogram(obj, **_kwargs)
-    _counts = _counts.astype(float)
-    _bin_centres = np.round((_edges[:-1] + _edges[1:]) / 2, 2)
-    if normalize:
-        norm = scipy.integrate.trapezoid(_counts, _bin_centres)
-        norm = 1.0 if norm == 0.0 else norm
-        _counts /= norm if isinstance(normalize, bool) else normalize / norm
-    return _counts, _bin_centres
-
-
-def _get_hist_bins_ranges(ds, bins, ranges, axis):
-    # Get the bins and range objects
-    if isinstance(bins, xr.DataArray):
-        bins = bins.data
-
-    if ranges is not None:
-        ranges = (
-            np.array(ranges.data)
-            if isinstance(ranges, xr.DataArray)
-            else np.array(ranges)
-        )
-        for idx in range(len(ranges)):
-            if ranges[idx] is None:
-                ranges[idx] = (
-                    np.min(ds.data[axis]) if idx == 0 else np.max(ds.data[axis])
-                )
-    return bins, ranges
-
-
 @is_operation("hist")
 @apply_along_dim
 def hist(
-    ds: Union[xr.DataArray, xr.Dataset],
+    da: xr.DataArray,
     bins: Any = 100,
     ranges: Any = None,
     *,
-    axis: int = -1,
+    dim: str,
+    axis: int = None,
     normalize: Union[float, bool] = False,
+    use_bins_as_coords: bool = False,
     **kwargs,
-) -> xr.Dataset:
-    """Applies `np.histogram` using the apply_along_dim decorator to allow histogramming along multiple
-    dimensions. If binning is only desired along a single dimension, `hist_1D` is significantly faster
-    since splitting and merging operations is not required.
+) -> Union[xr.Dataset, xr.DataArray]:
+    """Applies ``np.histogram`` using the ``apply_along_dim`` decorator to allow histogramming along multiple
+    dimensions. This function applies ``np.histogram`` along a single axis of an ``xr.DataArray`` object;
+    it is recommended to only use ``apply_along_dim`` across small dimensions, as splitting and recombining the
+    xarray objects is very expensive.
 
-    :param ds: the DataArray on which to apply the histogram function
-    :param bins: the bins to use, passed to `np.histogram`. This can be a single integer, in which case it is
+    :param da: the ``xr.DataArray`` on which to apply the histogram function
+    :param bins: the bins to use, passed to ``np.histogram``. This can be a single integer, in which case it is
         interpreted as the number of bins, a Sequence defining the bin edges, or a string defining the method to use.
-        See `np.histogram` for details
-    :param ranges: (float, float), optional: the lower and upper range of the bins
-    :param axis: the axis along which to apply np.histogram. By default, this happens on the innermost axis.
+        See ``np.histogram`` for details
+    :param ranges: (optional): the lower and upper range of the bins
+    :param dim: the dimension along which to apply the operation. If not passed, an ``axis`` argument must be
+        provided
+    :param axis: (optional) the axis along which to apply np.histogram.
     :param normalize: whether to normalize the counts. Can be a boolean or a float, in which case the counts are
         normalized to that value
-    :param kwargs: passed to `np.histogram`
+    :param use_bins_as_coords: whether to use the bin centres as coordinates of the dataset, or as variables. If true,
+        a ``xr.DataArray`` is returned, with the bin centres as coordinates and the counts as the data. This may
+        cause incompatibilities with ``apply_along_dim``, since different samples have different bin_centres. For this
+        reason, the default behaviour is to return a ``xr.Dataset`` with the bin_centres and counts as variables,
+        and ``bin_idx`` as the coordinate. This enables combining different histograms with different bin centres
+        (but same number of bins) into a single dataset. If passed, `ranges` must also be passed to ensure
+        all histogram bins are identical.
+    :param kwargs: passed to ``np.histogram``
+    :return ``xr.DataArray`` or ``xr.Dataset`` containing the bin centres either as coordinates or as variables,
+        and the counts.
     """
+    if dim is None and axis is None:
+        raise ValueError("Must supply either 'dim' or 'axis' arguments!")
 
-    if isinstance(ds, xr.Dataset):
-        ds = ds.to_array().squeeze()
+    if use_bins_as_coords and ranges is None:
+        raise ValueError(
+            "Setting 'use_bins_as_coords' to 'True' requires passing a 'ranges' argument to "
+            "ensure all coordinates are equal"
+        )
+    # Get the axis along which to apply the operations
+    if dim is not None:
+        axis = list(da.dims).index(dim)
 
     # Get the bins and range objects
-    bins, ranges = _get_hist_bins_ranges(ds, bins, ranges, axis)
-
-    # Get the name of the dimension
-    dim = ds.name if ds.name is not None else "_variable"
-
-    # Apply the histogram function along the axis
-    counts, bin_centres = np.apply_along_axis(
-        _hist, axis, ds, bins=bins, range=ranges, normalize=normalize, **kwargs
-    )
-
-    return xr.Dataset(
-        data_vars={dim: ("bin_idx", counts), "x": ("bin_idx", bin_centres)},
-        coords={"bin_idx": np.arange(len(bin_centres))},
-    )
-
-
-@is_operation("hist_1D")
-def hist_1D(
-    ds: Union[xr.DataArray, xr.Dataset],
-    bins: Any = 100,
-    ranges: Any = None,
-    *,
-    along_dim: Sequence = None,
-    axis: int = None,
-    normalize: Union[bool, float] = False,
-    **kwargs,
-) -> xr.Dataset:
-    """Applies ``np.histogram`` along a single axis of a dataset. This bypasses the `apply_along_axis` decorator
-    and is therefore significantly faster than ``hist``."""
-
-    if along_dim is None and axis is None:
-        raise ValueError("One of either 'along_dim' or 'axis' must be passed!")
-    if along_dim is not None:
-        if len(along_dim) > 1:
-            raise ValueError(
-                "Cannot use the `hist_1D` function for multidimensional histogram operations!"
-                "Use `hist` instead."
-            )
-        along_dim = along_dim[0]
-        axis = list(ds.dims).index(along_dim)
-    else:
-        # Get the axis of the dimension along which the operation is to be applied
-        along_dim = list(ds.coords.keys())[axis]
-
-    # Get the name of the dimension
-    dim = ds.name if ds.name is not None else "_variable"
-
-    # Get the histogram bins and ranges
-    bins, ranges = _get_hist_bins_ranges(ds, bins, ranges, axis)
+    bins, ranges = _get_hist_bins_ranges(da, bins, ranges, axis)
 
     # Apply the histogram function along the axis
     res = np.apply_along_axis(
-        _hist, axis, ds, bins=bins, range=ranges, normalize=normalize, **kwargs
+        _hist, axis, da, bins=bins, range=ranges, normalize=normalize, **kwargs
     )
 
     # Get the counts and the bin centres. Note that the bin centres are equal along every dimension!
     counts, bin_centres = np.take(res, 0, axis=axis), np.take(res, 1, axis=axis)
-    sel = [0] * len(np.shape(bin_centres))
-    sel[axis] = None
-    bin_centres = bin_centres[*sel].flatten()
 
     # Put the dataset back together again, relabelling the coordinate dimension that was binned
-    coords = dict(ds.coords)
-    coords.update({along_dim: bin_centres})
+    coords = dict(da.coords)
 
-    res = xr.Dataset(data_vars={dim: (list(ds.sizes.keys()), counts)}, coords=coords)
-    return res.rename({along_dim: "x"})
+    # Bin centres are to be used as coordinates
+    if use_bins_as_coords:
+        sel = [0] * len(np.shape(bin_centres))
+        sel[axis] = None
+        bin_centres = bin_centres[*sel].flatten()
+        coords.update({dim: bin_centres})
+
+        res = xr.DataArray(
+            counts,
+            dims=list(da.sizes.keys()),
+            coords=coords,
+            name=da.name if da.name else "count",
+        )
+        return res.rename({dim: "x"})
+
+    else:
+        coords.update({dim: np.arange(np.shape(bin_centres)[axis])})
+        other_dim = list(coords.keys())
+        other_dim.remove(dim)
+        attrs = [*other_dim, "bin_idx"] if other_dim else ["bin_idx"]
+        coords["bin_idx"] = coords.pop(dim)
+
+        return xr.Dataset(
+            data_vars={
+                da.name if da.name else "count": (attrs, counts),
+                "x": (attrs, bin_centres),
+            },
+            coords=coords,
+        )
 
 
 # ----------------------------------------------------------------------------------------------------------------------
-# PROBABILITY DENSITY OPERATIONS
+# DISTANCES BETWEEN PROBABILITY DENSITIES
+# ----------------------------------------------------------------------------------------------------------------------
+@is_operation("distances_between_distributions")
+@apply_along_dim
+def distances_between_distributions(
+    P: Union[xr.DataArray, xr.Dataset],
+    Q: Union[xr.DataArray, xr.Dataset],
+    *,
+    stat: str,
+    p: float = 2,
+    x: str = None,
+    y: str = None,
+    **kwargs,
+) -> xr.DataArray:
+    """Calculates distances between two distributions P and Q. Possible distances are:
+
+    - Hellinger distance: d(P, Q) = 1/2 * integral sqrt(P(x)) - sqrt(Q(x))**2 dx.
+    - Relative entropy: d(P, Q) = integral P(x) log(P(x)/Q(x))dx
+    - Lp distance: d(P, Q) =  ( integral (P(x) - Q(x))^p dx)^{1/p}
+
+    These distances are calculated on the common support of P and Q; if P and Q have different discretisation
+    levels, the functions are interpolated.
+
+    :param P: one-dimensional ``xr.DataArray`` or ``xr.Dataset`` of values for P. If ``xr.Dataset``, ``x`` and ``y``
+        arguments must be passed.
+    :param Q: one-dimensional ``xr.DataArray`` or ``xr.Dataset`` of values for Q. If ``xr.Dataset``, ``x`` and ``y``
+        arguments must be passed.
+    :param stat: which density to function to use
+    :param p: p-value for the Lp distance
+    :param x: x-values to use if P and Q are ``xr.Datasets``.
+    :param y: y-values to use if P and Q are ``xr.Datasets``.
+    :param kwargs: kwargs, passed on to ``scipy.integrate.trapezoid``
+    :return: the distance between p and q
+    """
+
+    _permitted_stat_functions = ["Hellinger", "relative_entropy", "Lp"]
+    if stat not in _permitted_stat_functions:
+        raise ValueError(
+            f"Unrecognised stat function '{stat}'; choose from '{', '.join(_permitted_stat_functions)}'."
+        )
+
+    # If P and Q are datasets, convert to DataArrays
+    if isinstance(P, xr.Dataset):
+        P = xr.DataArray(
+            P[y], coords={"x": P[x] if x in list(P.data_vars) else P.coords[x]}
+        )
+    if isinstance(Q, xr.Dataset):
+        Q = xr.DataArray(
+            Q[y], coords={"x": Q[x] if x in list(Q.data_vars) else Q.coords[x]}
+        )
+
+    # Interpolate P and Q on their common support
+    P, Q, grid = _interpolate(P, Q)
+
+    # Hellinger distance
+    if stat == "Hellinger":
+        return xr.DataArray(
+            0.5
+            * scipy.integrate.trapezoid(
+                np.square(np.sqrt(P) - np.sqrt(Q)), grid, **kwargs
+            ),
+            name="Hellinger_distance",
+        )
+
+    # Relative entropy
+    elif stat == "relative_entropy":
+        P, Q = np.where(P != 0, P, 1), np.where(Q != 0, Q, 1)
+        return xr.DataArray(
+            scipy.integrate.trapezoid(P * np.log(P / Q), grid, **kwargs),
+            name="relative_entropy",
+        )
+
+    # Lp distance
+    elif stat == "Lp":
+        return xr.DataArray(
+            scipy.integrate.trapezoid((P - Q) ** p, grid, **kwargs) ** (1 / p),
+            name=f"Lp_distance",
+        )
+
+
+@is_operation("Hellinger_distance")
+@apply_along_dim
+def Hellinger_distance(*args, **kwargs) -> xr.DataArray:
+    return distances_between_distributions(*args, stat="Hellinger", **kwargs)
+
+
+@is_operation("relative_entropy")
+@apply_along_dim
+def relative_entropy(*args, **kwargs) -> xr.DataArray:
+    return distances_between_distributions(*args, stat="relative_entropy", **kwargs)
+
+
+@is_operation("Lp_distance")
+@apply_along_dim
+def Lp_distance(*args, **kwargs) -> xr.DataArray:
+    return distances_between_distributions(*args, stat="Lp", **kwargs)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# PROBABILITY DENSITY FUNCTIONS
 # ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -490,25 +522,28 @@ def joint_2D(
     *,
     statistic: Union[str, callable] = "mean",
     normalize: Union[bool, float] = False,
-    differential: float = None,
-    dim_names: Sequence = ("x", "p"),
+    dx: float = None,
+    dy: float = None,
+    dim_names: Sequence = ("x", "y"),
     **kwargs,
 ) -> xr.DataArray:
     """
     Computes the two-dimensional joint distribution of a dataset of parameters by calling the scipy.stats.binned_statistic_2d
-    function.
+    function. The function returns a statistic for each bin (typically the mean).
 
-    The function returns a statistic for each bin (typically the mean).
-
-    :param x: DataArray of values in the first dimension
-    :param y: DataArray of values in the second dimension
+    :param x: DataArray of samples in the first dimension
+    :param y: DataArray of samples in the second dimension
     :param values: DataArray of values to be binned
-    :param bins: bins argument to `scipy.binned_statistic_2d`
-    :param ranges: range arguent to `scipy.binned_statistic_2d`
-    :param normalize: whether to normalize the joint (False by default), and the normalisation value (1 by default)
-    :param differential: the spacial differential dx to use for normalisation. Defaults to the grid spacing
-    :param dim_names (optional): names of the two dimensions
-    :return: an xr.Dataset of the joint distribution
+    :param bins: (optional) ``bins`` argument to ``scipy.binned_statistic_2d``
+    :param ranges: (optional) ``range`` argument to ``scipy.binned_statistic_2d``
+    :param statistic: (optional) ``statistic`` argument to ``scipy.binned_statistic_2d``
+    :param normalize: (optional) whether to normalize the joint (False by default), and the normalisation value (1 by default)
+    :param dx: (optional) the spacial differential dx to use for normalisation. If provided, the norm will not be
+        calculated by integrating against the x-values, but rather by assuming the coordinates are spaced ``dx`` apart
+    :param dy: (optional) the spacial differential dy to use for normalisation. If provided, the norm will not be
+        calculated by integrating against the y-values, but rather by assuming the coordinates are spaced ``dy`` apart
+    :param dim_names: (optional) names of the two dimensions
+    :return: ``xr.DataArray`` of the joint distribution
     """
 
     # Get the number of bins
@@ -518,7 +553,11 @@ def joint_2D(
     # Allow passing 'None' arguments in the plot config for certain entries of the range arg
     # This allows clipping only on some dimensions without having to specify every limit
     if ranges is not None:
-        ranges = np.array(ranges.data)
+        ranges = (
+            np.array(ranges.data)
+            if isinstance(ranges, xr.DataArray)
+            else np.array(ranges)
+        )
         for idx in range(len(ranges)):
             if None in ranges[idx]:
                 ranges[idx] = (
@@ -531,12 +570,25 @@ def joint_2D(
     )
     # Normalise the joint distribution, if given
     if normalize:
-        dxdy = (
-            np.prod([a[1] - a[0] for a in [x_edge, y_edge]])
-            if differential is None
-            else differential
+        if dy is None:
+            int_y = [
+                scipy.integrate.trapezoid(
+                    stat[i][~np.isnan(stat[i])],
+                    0.5 * (y_edge[1:] + y_edge[:-1])[~np.isnan(stat[i])],
+                )
+                for i in range(stat.shape[0])
+            ]
+        else:
+            int_y = [
+                scipy.integrate.trapezoid(stat[i][~np.isnan(stat[i])], dx=dy)
+                for i in range(stat.shape[0])
+            ]
+
+        norm = (
+            scipy.integrate.trapezoid(int_y, 0.5 * (x_edge[1:] + x_edge[:-1]))
+            if dx is None
+            else scipy.integrate.trapezoid(int_y, dx=dx)
         )
-        norm = np.nansum(stat) * dxdy
         if norm == 0:
             norm = 1
         stat /= norm if isinstance(normalize, bool) else norm / normalize
@@ -584,7 +636,7 @@ def joint_2D_ds(
 @is_operation("marginal_from_joint")
 @apply_along_dim
 def marginal_from_joint(
-    joint: Union[xr.DataArray, xr.Dataset],
+    joint: xr.DataArray,
     *,
     parameter: str,
     normalize: Union[bool, float] = True,
@@ -632,7 +684,7 @@ def marginal_from_joint(
     return xr.Dataset(
         data_vars=dict(
             x=(["bin_idx"], joint.coords[parameter].data),
-            marginal=(["bin_idx"], marginal),
+            y=(["bin_idx"], marginal),
         ),
         coords=dict(
             bin_idx=(["bin_idx"], np.arange(len(joint.coords[parameter].data)))
@@ -645,8 +697,8 @@ def marginal_from_joint(
 def marginal(
     x: xr.DataArray,
     prob: xr.DataArray,
-    bins: Union[int, xr.DataArray],
-    ranges: Union[Sequence, xr.DataArray],
+    bins: Union[int, xr.DataArray] = None,
+    ranges: Union[Sequence, xr.DataArray] = None,
     *,
     parameter: str = "x",
     normalize: Union[bool, float] = True,
@@ -654,20 +706,20 @@ def marginal(
     **kwargs,
 ) -> xr.Dataset:
     """
-    Computes a marginal directly from a xr.DataArray of x-values and a xr.DataArray of probabilities by first
+    Computes a marginal directly from a ``xr.DataArray`` of x-values and a ``xr.DataArray`` of probabilities by first
     computing the joint distribution and then marginalising over the probability. This way, points that are sampled
     multiple times only contribute once to the marginal, which is not a representation of the frequency with which
     each point is sampled, but of the calculated likelihood function.
 
-    :param x: array of samples in the first dimension (the parameter estimates)
-    :param prob: array of samples in the second dimension (the unnormalised probability value)
+    :param x: array of samples of the first variable (the parameter estimates)
+    :param prob: array of samples of (unnormalised) probability values
     :param bins: bins to use for both dimensions
     :param range: range to use for both dimensions. Defaults to the minimum and maximum along each dimension
     :param parameter: the parameter over which to marginalise. Defaults to the first dimension.
     :param normalize: whether to normalize the marginal
     :param scale_y_bins: whether to scale the integration over y by range of the given values (y_max - y_min)
-    :param kwargs: other kwargs, passed to the joint_2D function
-    :return: an xr.Dataset of the marginal densities
+    :param kwargs: other kwargs, passed to ``joint_2D``
+    :return: ``xr.Dataset`` of the marginal densities
     """
     joint = joint_2D(x, prob, prob, bins, ranges, normalize=normalize, **kwargs)
     return marginal_from_joint(
@@ -700,34 +752,40 @@ def joint_DD(
     *,
     statistic: Union[str, callable] = "mean",
     normalize: Union[bool, float] = False,
-    differential: float = None,
-    dim_names: Sequence,
+    dim_names: Sequence = None,
     **kwargs,
 ) -> xr.DataArray:
     """
-    Computes the d-dimensional joint distribution of a dataset of parameters by calling the scipy.stats.binned_statistic_dd
-    function. This function can handle at most 32 parameters.
+    Computes the d-dimensional joint distribution of a dataset of parameters by calling ``scipy.stats.binned_statistic_dd``.
+    This function can handle at most 32 parameters. A statistic for each bin is returned (mean by default).
 
-    The function returns a statistic for each bin (typically the mean).
-
-    :param sample: DataArray of values
-    :param values: DataArray of values to be binned
-    :param bins: bins argument to `scipy.binned_statistic_dd`
-    :param ranges: range arguent to `scipy.binned_statistic_dd`
-    :param normalize: whether to normalize the joint (False by default), and the normalisation value (1 by default)
-    :param differential: the spacial differential dx to use for normalisation. Defaults to the grid spacing
-    :param dim_names (optional): names of the two dimensions
-    :return: an xr.Dataset of the joint distribution
+    :param sample: ``xr.DataArray`` of samples of shape ``(N, D)``
+    :param values: ``xr.DataArray`` of values to be binned, of shape ``(D, )``
+    :param bins: bins argument to ``scipy.binned_statistic_dd``
+    :param ranges: range argument to ``scipy.binned_statistic_dd``
+    :param statistic: (optional) ``statistic`` argument to ``scipy.binned_statistic_2d``
+    :param normalize: (not implemented) whether to normalize the joint (False by default),
+        and the normalisation value (1 by default)
+    :param dim_names: (optional) names of the two dimensions
+    :return: ``xr.Dataset`` of the joint distribution
     """
+    if normalize:
+        raise NotImplementedError(
+            "Normalisation for d-dimensional joints is not yet implemented!"
+        )
 
     # Get the number of bins
     if isinstance(bins, xr.DataArray):
         bins = bins.data
 
+    dim_names = (
+        sample.coords[list(sample.dims)[-1]].data if dim_names is None else dim_names
+    )
+
     # Allow passing 'None' arguments in the plot config for certain entries of the range arg
     # This allows clipping only on some dimensions without having to specify every limit
     if ranges is not None:
-        ranges = ranges.data
+        ranges = ranges.data if isinstance(ranges, xr.DataArray) else ranges
         for idx in range(len(ranges)):
             if None in ranges[idx]:
                 ranges[idx] = [np.min(sample.coords[idx]), np.max(sample.coords[idx])]
@@ -736,124 +794,13 @@ def joint_DD(
     stat, bin_edges, _ = scipy.stats.binned_statistic_dd(
         sample, values, statistic=statistic, bins=bins, range=ranges, **kwargs
     )
-    # Normalise the joint distribution, if given
-    if normalize:
-        differential = (
-            np.prod([a[1] - a[0] for a in bin_edges])
-            if differential is None
-            else differential
-        )
-        norm = np.nansum(stat) * differential
-        if norm == 0:
-            norm = 1
-        stat /= norm if isinstance(normalize, bool) else norm / normalize
 
     return xr.DataArray(
         data=stat,
         dims=dim_names,
-        coords={
-            dim_names[i]: 0.5 * bin_edges[i][1:] + bin_edges[i][:-1]
-            for i in range(len(bin_edges))
-        },
+        coords={dim_names[i]: 0.5 * b[1:] + b[:-1] for i, b in enumerate(bin_edges)},
         name="joint",
     )
-
-
-def _interpolate(_p, _q) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Projects two densities onto a common grid"""
-    _dim1, _dim2 = list(_p.coords.keys())[0], list(_q.coords.keys())[0]
-
-    # Return densities if they are already equal
-    if all(_p.coords[_dim1].data == _q.coords[_dim2].data):
-        return _p, _q, _p.coords[_dim1].data
-
-    # Generate a common grid
-    _x_min, _x_max = np.max(
-        [_p.coords[_dim1][0].item(), _q.coords[_dim2][0].item()]
-    ), np.min([_p.coords[_dim1][-1].item(), _q.coords[_dim2][-1].item()])
-
-    # Interpolate the functions onto a common grid
-    _grid = np.linspace(_x_min, _x_max, len(_p.coords[_dim1]) + len(_q.coords[_dim2]))
-    _p_interp = np.interp(_grid, _p.coords[_dim1], _p)
-    _q_interp = np.interp(_grid, _q.coords[_dim2], _q)
-
-    return _p_interp, _q_interp, _grid
-
-
-@is_operation("Hellinger_distance")
-@apply_along_dim
-def Hellinger_distance(
-    p: xr.DataArray,
-    q: xr.DataArray,
-) -> xr.Dataset:
-    r"""Calculates the Hellinger distance between two distributions p and q, defined as
-
-        d_H(p, q) = 1/2 * \int sqrt(p(x)) - sqrt(q(x))**2 dx.
-
-    The Hellinger distance is calculated on the common support of p and q; if p and q have different discretisation
-    levels, the functions are interpolated onto a common grid.
-
-    :param p: one-dimensional arrays of density values for p
-    :param q: one-dimensional arrays of density values for q
-    :return: the Hellinger distance between p and q
-    """
-
-    p_interp, q_interp, grid = _interpolate(p, q)
-
-    # Calculate the Hellinger distance and return
-    return xr.Dataset(
-        data_vars=dict(
-            Hellinger_distance=0.5
-            * scipy.integrate.trapezoid(
-                np.square(np.sqrt(p_interp) - np.sqrt(q_interp)), grid
-            )
-        )
-    )
-
-
-@is_operation("relative_entropy")
-@apply_along_dim
-def relative_entropy(
-    p: Union[xr.Dataset, xr.DataArray], q: Union[xr.Dataset, xr.DataArray]
-) -> xr.Dataset:
-    """Calculates the relative_entropy distance between two distributions p and q, defined as
-
-        d_KL(p, q) = int p(x) log(p(x)/q(x))dx
-
-    Canonically, log(0/0) = log(1/1) = 0.
-    The relative entropy (KL divergence) is calculated on the common support of p and q; if p and q have different
-    discretisation levels, the functions are interpolated onto a common grid.
-
-    :param p: one-dimensional arrays of density values for p
-    :param q: one-dimensional arrays of density values for q
-    :return: the relative entropy between p and q
-
-    """
-    p_interp, q_interp, grid = _interpolate(p, q)
-
-    p_interp = np.where(p_interp != 0, p_interp, 1.0)
-    q_interp = np.where(q_interp != 0, q_interp, 1.0)
-    return xr.Dataset(
-        data_vars=dict(
-            relative_entropy=scipy.integrate.trapezoid(
-                p_interp * np.log(p_interp / q_interp), grid
-            )
-        )
-    )
-
-
-@is_operation("L2_distance")
-@apply_along_dim
-def L2_distance(p: xr.DataArray, q: xr.DataArray) -> xr.Dataset:
-    """Calculates the L2 distance between two distributions p and q, defined as
-
-        d_H(p, q) = sqrt(int (p(x) - q(x))**2 dx)
-
-    :param p: one-dimensional array of density values
-    :param q: one-dimensional array of density values
-    :return: the L2 distance between p and q
-    """
-    return xr.Dataset(data_vars=dict(std=np.sqrt(np.square(p - q).sum())))
 
 
 # ----------------------------------------------------------------------------------------------------------------------

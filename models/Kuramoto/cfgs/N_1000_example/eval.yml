@@ -31,6 +31,8 @@ degree_distribution:
     set_labels:
       x: Weighted degree $k$
       y: $P(k)$
+    set_legend:
+      title: ''
   style:
     figure.figsize: [!dag_result half_width, !dag_result quarter_width]
 
@@ -43,9 +45,21 @@ triangle_distribution:
     define:
       range:
         - list: [[0, 30]]
+  transform:
+    - marginal_distribution: [!dag_tag predictions, !dag_tag probabilities, !dag_tag true_data]
+      file_cache:
+        read: True
+        write: True
+      tag: data
   helpers:
+    set_legend:
+      use_legend: False
     set_limits:
       x: [0, 30]
     set_labels:
-      x: Weighted triangle count $t$
-      y: $P(t)$
+      x:
+        label: Weighted triangle count $t$
+#        fontsize: 3
+      y:
+        label: $P(t)$
+        fontsize: 7

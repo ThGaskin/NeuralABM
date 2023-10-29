@@ -44,7 +44,7 @@ def _densities_from_joint(
     """Runs the model with the estimated parameters, given in the xr.Dataset, and weights each time series with
     its corresponding probability. The probabilities must be normalised to 1.
 
-    :param joint: the xr.Dataset of the joint parameter distribution
+    :param joint: the ``xr.Dataset`` of the joint parameter distribution
     :param generating_func: the generating function used to run the model
     :param true_counts: the xr.Dataset of true counts
     :param cfg: the run configuration of the original data (only needed if parameters are time dependent)
@@ -58,6 +58,10 @@ def _densities_from_joint(
 
     # Remove parameters with probability 0
     joint = joint.where(joint > 0, drop=True)
+
+    # Normalise the probabilities to 1 (this is not the same as integrating over the joint -- we are calculating the
+    # expectation value only over the samples we are drawing, not of the entire joint distribution!)
+    joint /= joint.sum()
 
     sample_cfg = cfg["Data"]["synthetic_data"]
 
@@ -90,7 +94,7 @@ def _densities_from_joint(
                 dims=["sample", "type", "time", "kind", "dim_name__0"],
                 coords=dict(
                     sample=[s],
-                    type=["prediction_mean"],
+                    type=["mean prediction"],
                     time=true_counts.coords["time"],
                     kind=true_counts.coords["kind"],
                     dim_name__0=true_counts.coords["dim_name__0"],
@@ -122,7 +126,7 @@ def _densities_from_joint(
         data=[mode_data],
         dims=["type", "time", "kind", "dim_name__0"],
         coords=dict(
-            type=["prediction_mode"],
+            type=["mode prediction"],
             time=true_counts.coords["time"],
             kind=true_counts.coords["kind"],
             dim_name__0=[0],
@@ -140,7 +144,7 @@ def _densities_from_joint(
     std = np.sqrt(((res - mean) ** 2 * prob).sum("sample"))
 
     # Add a type to the true counts to allow concatenation
-    true_counts = true_counts.expand_dims({"type": ["true_counts"]}).squeeze(
+    true_counts = true_counts.expand_dims({"type": ["true data"]}).squeeze(
         "dim_name__0", drop=True
     )
 

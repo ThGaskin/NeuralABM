@@ -83,7 +83,7 @@
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
     # Set the label fontsize
-    font.size: &fontsize 8
+    font.size: &fontsize 7
     axes.titlesize: *fontsize
     axes.labelsize: *fontsize
     xtick.labelsize: *fontsize
@@ -285,14 +285,14 @@ degree_distribution_uni:
       path: true_network/_adjacency_matrix
       transform:
         - .sum: [!dag_prev , 'i']
-        - hist_1D: [!dag_prev , !dag_tag bins, !dag_tag range]
+        - hist: [!dag_prev , !dag_tag bins, !dag_tag range]
           kwargs:
-            axis: 0
-        - getitem: [!dag_prev , '_adjacency_matrix']
+            dim: j
+            use_bins_as_coords: True
 
   # Get the distribution statistics
   transform:
-    - marginal_distribution: [!dag_tag predictions, !dag_tag probabilities, !dag_tag true_data]
+    - marginal_distribution: [!dag_tag predictions, !dag_tag probabilities , !dag_tag true_data ]
       tag: data
   helpers:
     set_limits:

@@ -20,284 +20,372 @@ ops = import_module_from_path(
 CFG_FILENAME = resource_filename("tests", "cfgs/data_ops.yml")
 test_cfg = load_yml(CFG_FILENAME)
 
-# Generate an example dataset consisting of various x-values and associated loss values
-ds_0 = xr.Dataset(
-    data_vars=dict(alpha=(["x"], np.random.rand(1)), p=(["x"], np.random.rand(1))),
-    coords=dict(x=("x", np.arange(1))),
-)
-ds_0["p"] /= np.sum(ds_0["p"])
 
-ds_1 = xr.Dataset(
-    data_vars=dict(alpha=(["x"], np.random.rand(10)), p=(["x"], np.random.rand(10))),
-    coords=dict(x=("x", np.arange(10))),
-)
-ds_1["p"] /= np.sum(ds_1["p"])
-
-x = y = z = np.linspace(-2, 2, 10)
-ds_2 = xr.Dataset(
-    data_vars=dict(
-        alpha=(
-            ["x", "y", "z"],
-            np.squeeze([[[[np.sin(i * j * k)] for i in x] for j in y] for k in z]),
-        ),
-        p=(["x", "y", "z"], np.random.rand(len(x), len(y), len(z))),
-    ),
-    coords=dict(x=("x", x), y=("y", y), z=("z", z)),
-)
-ds_2["p"] /= np.sum(ds_2["p"])
-
-ds_s = xr.Dataset(
-    data_vars=dict(
-        alpha=(
-            ["x", "y", "z"],
-            np.squeeze([[[[np.sin(i * j * k)] for i in x] for j in y] for k in z]),
-        ),
-        p=(["x", "y", "z"], np.random.rand(len(x), len(y), len(z))),
-    ),
-    coords=dict(
-        x=("x", ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]),
-        y=("y", y),
-        z=("z", z),
-    ),
-)
-ds_s["p"] /= np.sum(ds_s["p"])
+# ----------------------------------------------------------------------------------------------------------------------
+# DECORATOR
+# ----------------------------------------------------------------------------------------------------------------------
 
 
 def test_apply_along_dim():
-    m1 = ops.mean(ds_1, x="alpha", p="p")
-    assert m1
-    assert len(m1.dims) == 0
+    """Tests the apply_along_dim decorator"""
 
-    m1 = ops.mean(ds_2, x="alpha", p="p", along_dim=["x"])
-    assert len(m1.dims) == 2
-    assert m1.equals(ops.mean(ds_2, x="alpha", p="p", exclude_dim=["y", "z"]))
+    @ops.apply_along_dim
+    def _test_func(data):
+        return xr.DataArray(np.mean(data), name=data.name)
 
-    m1 = ops.mean(ds_s, x="alpha", p="p", along_dim=["y"])
-    assert m1
+    # Test on DataArray
+    da = xr.DataArray(
+        np.ones((10, 10, 10)),
+        dims=["x", "y", "z"],
+        coords=dict((k, np.arange(10)) for k in ["x", "y", "z"]),
+        name="foo",
+    )
 
-    # TODO test multi-dimensional case
+    res = _test_func(da, along_dim=["x"])
+
+    # apply_along_dim returns a Dataset
+    assert isinstance(res, xr.Dataset)
+
+    # Assert operation was applied along that dimension
+    assert set(res.coords.keys()) == {"y", "z"}
+    assert list(res.data_vars) == ["foo"]
+    assert all(res["foo"].data.flatten() == 1)
+
+    # Assert specifying operation is the same as excluding certain dimensions
+    assert res == _test_func(da, exclude_dim=["y", "z"])
+
+    # Apply along all dimensions
+    res = _test_func(da, along_dim=["x", "y", "z"])
+    assert res == xr.Dataset(data_vars=dict(foo=([], 1)))
+
+    # Test applying function without decorator
+    res = _test_func(da)
+    assert isinstance(res, type(da))
+    assert res == xr.DataArray(1)
+
+    # Test applying the decorator along multiple args
+    @ops.apply_along_dim
+    def _test_func_nD(da1, da2, da3, *, op: str = "sum"):
+        if op == "sum":
+            return (da1 * da2 * da3).sum()
+        else:
+            return (da1 * da2 * da3).mean()
+
+    res = _test_func_nD(da, 2 * da, -1 * da, along_dim=["x"])
+    assert set(res.coords.keys()) == {"y", "z"}
+    assert all(res["foo"].data.flatten() == len(da.coords["x"]) * 2 * -1)
+    assert res == _test_func_nD(da, 2 * da, -1 * da, exclude_dim=["y", "z"])
+
+    # Test passing kwargs to function
+    res = _test_func_nD(da, 2 * da, -1 * da, along_dim=["x"], op="mean")
+    assert all(res["foo"].data.flatten() == 1 * 2 * -1)
+
+    # Test passing both ``along_dim`` and ``exclude_dim`` raises an error
+    with pytest.raises(ValueError, match="Cannot provide both"):
+        _test_func(da, along_dim=["x"], exclude_dim=["y"])
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# DATA RESHAPING AND REORGANIZING
+# ----------------------------------------------------------------------------------------------------------------------
+def test_concat():
+    """Tests concatenation of multiple xarray objects"""
+
+    da = xr.DataArray(
+        np.ones((10, 10, 10)),
+        dims=["x", "y", "z"],
+        coords=dict((k, np.arange(10)) for k in ["x", "y", "z"]),
+        name="foo",
+    )
+
+    # Test on DataArrays and Datasets
+    for _obj in [da, xr.Dataset(dict(foo=da))]:
+        res = ops.concat([_obj, _obj, _obj], "type", ["a", "b", "c"])
+        assert set(res.coords.keys()) == set(list(_obj.coords.keys()) + ["type"])
+
+
+def test_flatten_dims():
+    """Test flattening coordinates of xarray objects into one"""
+
+    da = xr.DataArray(
+        np.ones((5, 5, 5)),
+        dims=["dim1", "dim2", "dim3"],
+        coords=dict((k, np.arange(5)) for k in ["dim1", "dim2", "dim3"]),
+    )
+
+    # Test on DataArrays and Datasets
+    for _obj in [da, xr.Dataset(dict(foo=da))]:
+        res = ops.flatten_dims(_obj, dims={"dim2": ["dim2", "dim3"]})
+        assert set(res.coords.keys()) == {"dim1", "dim2"}
+        assert len(
+            res.coords["dim2"] == len(_obj.coords["dim2"]) * len(_obj.coords["dim3"])
+        )
+
+        # Test reassigning coordinates
+        res = ops.flatten_dims(
+            _obj, dims={"dim2": ["dim2", "dim3"]}, new_coords=np.arange(25, 50, 1)
+        )
+        assert all(res.coords["dim2"] == np.arange(25, 50, 1))
+
+
+def test_broadcast():
+    """Test broadcasting xr.DataArray s into a single Dataset"""
+    da1 = xr.DataArray(np.random.rand(10, 3), dims=["sample", "parameter"])
+    da2 = xr.DataArray(np.exp(-np.linspace(0, 1, 10)), dims=["sample"])
+    res = ops.broadcast(da1, da2, x="x", p="loss")
+
+    assert isinstance(res, xr.Dataset)
+    assert set(res.data_vars) == {"x", "loss"}
+    assert res == ops.broadcast(da2, da1)
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 # BASIC STATISTICS FUNCTIONS
 # ----------------------------------------------------------------------------------------------------------------------
-def test_mean_std():
-    for func in [ops.mean, ops.std]:
-        # Calculate the indicator for a point
-        m1 = func(ds_0, x="alpha", p="p")
-        assert m1
+def test_stat_function():
+    """Tests the statistics functions on a normal distribution"""
+    _x = np.linspace(-5, 5, 1000)
+    _m, _std = 0.0, 1.0
+    _f = np.exp(-((_x - _m) ** 2) / (2 * _std**2))
+    _norm = scipy.integrate.trapezoid(_f, _x)
 
-        # Calculate the indicator for a one-dimensional dataset
-        m1 = func(ds_1, x="alpha", p="p")
-        assert m1
-        m1 = func(ds_1, x="alpha", p="p", along_dim=["x"])
-        assert m1
+    ds = xr.Dataset(dict(y=(["x"], _f)), coords=dict(x=_x))
 
-        # Calculate the indicator along one dimension
-        m1 = func(ds_2, x="alpha", p="p", along_dim=["x"])
-        assert m1
-
-        # Calculate the indicator along two dimensions
-        m1 = func(m1, x="y", along_dim=["y"])
-        assert m1
-
-
-def test_mode():
-    # Calculate the mode for the trivial dataset
-    m1 = ops.mode(ds_0, p="p")
-    assert m1
-
-    m1 = ops.mode(ds_0, p="p", get="value")
-    assert m1
-
-    # Calculate the mode for the one-dimensional dataset
-    m1 = ops.mode(ds_1, p="p")
-    assert m1
-    m1 = ops.mode(ds_1, p="p", along_dim=["x"])
-    assert m1
-
-    # Calculate the mode along a particular dimension
-    m1 = ops.mode(ds_2, along_dim=["x"], p="p")
-    assert m1
-
-
-def test_avg_peak_width():
-    # Calculate the peak widths along all dimensions
-    m1 = ops.avg_peak_width(
-        ds_2["alpha"], along_dim=["x", "y", "z"], width=[None, None]
+    # Test normalisation
+    ds = ops.normalize(ds, x="x", y="y")
+    assert scipy.integrate.trapezoid(ds["y"], ds.coords["x"]) == pytest.approx(
+        1.0, 1e-4
     )
-    assert m1
-    assert len(m1.dims) == 0
-    assert m1.equals(ops.avg_peak_width(ds_2["alpha"], width=[None, None]))
 
-    # Calculate the peak widths along two dimensions
-    m1 = ops.avg_peak_width(ds_2["alpha"], along_dim=["x", "y"], width=[None, None])
-    assert m1
-    assert len(m1.dims) == 1
+    # Test mean
+    mean = ops.stat_function(ds, stat="mean", x="x", y="y")
+    assert mean == pytest.approx(_m, abs=1e-3)
 
-    # Calculate the peak widths along one dimension
-    m1 = ops.avg_peak_width(ds_2["alpha"], along_dim=["x"], width=[None, None])
-    assert m1
-    assert len(m1.dims) == 2
+    # Test mean with x as a coordinate or variable
+    ds = xr.Dataset(dict(y=(["x"], ds["y"].data), x_val=ds.coords["x"]))
+    assert mean == ops.stat_function(ds, stat="mean", x="x_val", y="y")
+    assert mean == ops.stat_function(ds, stat="mean", x="x", y="y")
+
+    # Test standard deviation
+    std = ops.stat_function(ds, stat="std", x="x", y="y")
+    assert std == pytest.approx(_std, abs=1e-3)
+
+    # Test interquartile range
+    iqr = ops.stat_function(ds, stat="iqr", x="x", y="y")
+    assert iqr == pytest.approx(1.34, abs=1e-2)
+
+    # Test mode
+    mode = ops.stat_function(ds, stat="mode", x="x", y="y")
+    assert mode["mode_x"].data.item() == pytest.approx(_m, abs=1e-2)
+    assert mode["mode_y"].data.item() == pytest.approx(1.0 / _norm, abs=1e-2)
+
+    # Test peak width calculation
+    peak_widths = ops.stat_function(ds, stat="avg_peak_width", x="x", y="y", width=1)
+    assert peak_widths["mean_peak_width"] == pytest.approx(2.355 * _std, abs=1e-2)
+    assert peak_widths["peak_width_std"] == 0.0
+
+    # Test p-value calculation
+    assert ops.p_value(ds, 0.0, x="x", y="y") == pytest.approx(0.5, abs=1e-1)
+    assert ops.p_value(ds, -1, x="x", y="y") == pytest.approx(0.159, abs=5e-3)
+    assert ops.p_value(ds, -1, x="x", y="y") == pytest.approx(
+        ops.p_value(ds, +1, x="x", y="y"), abs=5e-3
+    )
+    assert ops.p_value(ds, xr.DataArray(0.0), x="x", y="y") == ops.p_value(
+        ds, 0.0, x="x", y="y"
+    )
+
+    # Assert the p-value for a Gaussian wrt the mean is the same as wrt to the mode
+    assert ops.p_value(ds, -1, x="x", y="y", null="mean") == ops.p_value(
+        ds, -1, x="x", y="y", null="mode"
+    )
 
 
-def test_p_value():
-    # Calculate the p-value along one dimension
-    m1 = ops.p_value(ds_2, along_dim=["x"], x="alpha", p="p", t=0.0)
-    assert m1
-    assert [0 <= p <= 1 for p in m1["p_value"].data.flatten()]
-
-
+# ----------------------------------------------------------------------------------------------------------------------
+# HISTOGRAMS
+# ----------------------------------------------------------------------------------------------------------------------
 def test_hist():
-    m1 = ops.hist(ds_0["p"], bins=np.linspace(-2, 2, 5))
-    assert m1
-    assert len(m1.dims) == len(ds_0.dims)
-    assert "bin_center" in list(m1.coords.keys())
+    """Tests histogram functions"""
 
-    m1 = ops.hist(ds_1["alpha"], bins=np.linspace(-2, 2, 5))
-    assert m1
-    assert len(m1.dims) == len(ds_1.dims)
-    assert "bin_center" in list(m1.coords.keys())
+    _n_samples = 100
+    _n_vals = 100
+    _n_bins = 20
 
-    m1 = ops.hist(ds_2["alpha"], along_dim=["x"], bins=np.linspace(-2, 2, 5))
-    assert m1
-    assert len(m1.dims) == len(ds_2.dims)
-    assert "bin_center" in list(m1.coords.keys())
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# DENSITY FUNCTION TESTS
-# ----------------------------------------------------------------------------------------------------------------------
-def test_marginal_density():
-
-    # Calculate the marginals along one dimension
-    m1 = ops.marginal_from_ds(ds_2, x="alpha", y="p", along_dim=["x"], bins=10)
-    assert m1
-    assert list(m1.dims.keys()) == ["bin_idx", "y", "z"]
-
-    # Check the probabilities are normalised
-    _y_idx, _z_idx = np.random.randint(0, len(ds_2.coords["y"])), np.random.randint(
-        0, len(ds_2.coords["z"])
+    # Test histogramming a 1D array
+    da = xr.DataArray(
+        np.random.rand(_n_vals), dims=["i"], coords=dict(i=np.arange(_n_vals))
     )
-    assert float(
-        scipy.integrate.trapezoid(
-            m1["marginal"].isel({"y": _y_idx, "z": _z_idx}),
-            m1["x"].isel({"y": _y_idx, "z": _z_idx}),
+    hist = ops.hist(da, _n_bins, dim="i")
+    assert set(hist.coords.keys()) == {"bin_idx"}
+    assert set(hist.data_vars) == {"count", "x"}
+
+    # Test total number of counts has not changed
+    assert all(hist["count"].sum("bin_idx").data.flatten() == _n_vals)
+
+    # Repeat the same thing, this time using the bin centres as coordinates
+    hist = ops.hist(da, _n_bins, [0, 1], dim="i", use_bins_as_coords=True)
+    assert isinstance(hist, xr.DataArray)
+    assert set(hist.coords.keys()) == {"x"}
+    assert all(
+        hist.coords["x"].data
+        == 0.5
+        * (np.linspace(0, 1, _n_bins + 1)[1:] + np.linspace(0, 1, _n_bins + 1)[:-1])
+    )
+    assert all(hist.sum("x").data.flatten() == _n_vals)
+
+    # Test histogramming a 2D array
+    da = xr.DataArray(
+        np.random.rand(_n_samples, _n_vals),
+        dims=["sample", "i"],
+        coords=dict(sample=np.arange(_n_samples), i=np.arange(_n_vals)),
+    )
+    hist = ops.hist(da, _n_bins, dim="i")
+    assert set(hist.coords.keys()) == {"sample", "bin_idx"}
+    assert set(hist.data_vars) == {"count", "x"}
+    assert all(hist["count"].sum("bin_idx").data.flatten() == _n_vals)
+
+    hist = ops.hist(da, _n_bins, dim="i", ranges=[0, 1], use_bins_as_coords=True)
+    assert set(hist.coords.keys()) == {"sample", "x"}
+    assert all(hist.sum("x").data.flatten() == _n_vals)
+
+    # Test histogramming a 3D array
+    da = da.expand_dims(dict(dim0=np.arange(4)))
+    hist = ops.hist(
+        da,
+        dim="i",
+        exclude_dim=["dim0"],
+        bins=_n_bins,
+        ranges=[0, 1],
+        use_bins_as_coords=True,
+    )
+    assert set(hist.coords.keys()) == {"sample", "x", "dim0"}
+
+    hist = ops.hist(da, dim="i", exclude_dim=["dim0"], bins=_n_bins)
+    assert set(hist.coords.keys()) == {"sample", "bin_idx", "dim0"}
+
+    # Test normalisation of bin counts
+    hist_normalised = ops.hist(da, bins=100, dim="i", ranges=[0, 1], normalize=2.0)
+    assert hist_normalised["count"].sum("bin_idx").data.flatten() == pytest.approx(
+        2.0, abs=1e-10
+    )
+
+    # Test selecting range
+    hist_clipped = ops.hist(da, bins=100, dim="i", ranges=[1, 2])
+    assert all(hist_clipped["count"].data.flatten() == 0)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# PROBABILITY DENSITY OPERATIONS
+# ----------------------------------------------------------------------------------------------------------------------
+
+
+def test_joint_and_marginal_2D():
+    """Test two-dimensional joint distributions and marginals from joints are correctly calculated"""
+
+    # Generate a 2D-Gaussian on a square domain
+    _lower, _upper, _n_vals = -5, +5, 1000
+    _bins = 50
+    _m, _std = 0.0, 1.0
+    _x, _y = (_upper - _lower) * np.random.rand(_n_vals) + _lower, (
+        _upper - _lower
+    ) * np.random.rand(_n_vals) + _lower
+    _f = np.exp(-((_x - _m) ** 2) / (2 * _std**2)) * np.exp(
+        -((_y - _m) ** 2) / (2 * _std**2)
+    )
+
+    # Calculate the joint distribution
+    joint = ops.joint_2D(_x, _y, _f, bins=_bins, normalize=1.0)
+    assert set(joint.coords.keys()) == {"x", "y"}
+
+    # Assert the maximum of the joint is roughly in the middle
+    assert all(
+        [
+            idx == pytest.approx(25, abs=2)
+            for idx in np.unravel_index(joint.argmax(), joint.shape)
+        ]
+    )
+
+    # Assert the marginal distribution of each dimension is normalized
+    marginal_x = ops.marginal_from_joint(joint, parameter="x")
+    marginal_y = ops.marginal_from_joint(joint, parameter="y")
+    assert scipy.integrate.trapezoid(marginal_x["y"], marginal_x["x"]) == pytest.approx(
+        1.0, abs=1e-4
+    )
+    assert scipy.integrate.trapezoid(marginal_y["y"], marginal_y["x"]) == pytest.approx(
+        1.0, abs=1e-4
+    )
+
+    # Assert the marginals are again approximately Gaussian
+    assert ops.mean(marginal_x, x="x", y="y") == pytest.approx(0.0, abs=1e-1)
+    assert ops.mean(marginal_y, x="x", y="y") == pytest.approx(0.0, abs=1e-1)
+    assert ops.std(marginal_x, x="x", y="y") == pytest.approx(1.0, abs=5e-2)
+    assert ops.std(marginal_y, x="x", y="y") == pytest.approx(1.0, abs=5e-2)
+
+    # Assert alternative joint operation does the same thing
+    joint_from_ds = ops.joint_2D_ds(
+        xr.Dataset(dict(x=_x, y=_y)), _f, x="x", y="y", bins=_bins, normalize=1.0
+    )
+    assert joint_from_ds.equals(joint)
+
+    # Assert 3D joint
+    _z = (_upper - _lower) * np.random.rand(_n_vals) + _lower
+    samples = (
+        ops.concat(
+            [xr.DataArray(_x), xr.DataArray(_y), xr.DataArray(_z)],
+            "parameter",
+            ["a", "b", "c"],
         )
-        == pytest.approx(1, 1e-5)
+        .transpose()
+        .assign_coords(dict(dim_0=np.arange(_n_vals)))
     )
 
-
-def test_L2_distance():
-    m1 = ops.L2_distance(abs(ds_2["alpha"]), abs(ds_2["p"]), along_dim=["x", "y"])
-    assert m1
-
-    # Pointwise error
-    m1 = ops.L2_distance(
-        abs(ds_2["alpha"]), abs(ds_2["p"]), exclude_dim=["x", "y", "z"]
+    _f = xr.DataArray(_f * np.exp(-((_z - _m) ** 2) / (2 * _std**2))).assign_coords(
+        dict(dim_0=np.arange(_n_vals))
     )
-    assert m1
 
-    # Error between identical distributions
-    m2 = ops.L2_distance(abs(ds_2["p"]), abs(ds_2["p"]), along_dim=["x", "y"])
-    assert all(m2["std"] == 0)
+    joint_3D = ops.joint_DD(samples, _f, bins=50)
+    assert set(joint_3D.coords) == {"a", "b", "c"}
 
 
-def test_Hellinger_distance():
-    # Hellinger distance over one dimension
-    m1 = ops.Hellinger_distance(
-        abs(ds_2["alpha"]), abs(ds_2["p"]), along_dim=["x", "y"]
+def test_distances_between_densities():
+    """Tests the Hellinger distance between distributions"""
+    _x = np.linspace(-5, 5, 500)
+    Gaussian = xr.DataArray(
+        np.exp(-(_x**2) / 2), dims=["x"], coords=dict(x=_x)
+    )  # mean = 0, std = 1
+    Gaussian /= scipy.integrate.trapezoid(Gaussian.data, _x)
+
+    assert ops.Hellinger_distance(Gaussian, Gaussian) == 0
+    assert ops.relative_entropy(Gaussian, Gaussian) == 0
+    assert ops.Lp_distance(Gaussian, Gaussian, p=2) == 0
+
+    # Test calculating the distances on a xr.Dataset instead
+    Gaussian = xr.Dataset(dict(_x=Gaussian.coords["x"], y=Gaussian))
+    assert ops.Hellinger_distance(Gaussian, Gaussian, x="_x", y="y") == 0
+    Gaussian = xr.Dataset(dict(y=Gaussian["y"]))
+    assert ops.Hellinger_distance(Gaussian, Gaussian, x="x", y="y") == 0
+
+    _x = np.linspace(0, 5, 500)
+    Uniform1 = xr.DataArray(
+        np.array([1 if 1 <= x <= 3 else 0 for x in _x]), dims=["x"], coords=dict(x=_x)
     )
-    assert m1
-
-    # Pointwise error
-    m1 = ops.Hellinger_distance(
-        abs(ds_2["alpha"]), abs(ds_2["p"]), exclude_dim=["x", "y", "z"]
+    Uniform2 = xr.DataArray(
+        np.array([1 if 2 <= x <= 4 else 0 for x in _x]), dims=["x"], coords=dict(x=_x)
     )
-    assert m1
 
-    # Distance between identical distributions
-    m2 = ops.Hellinger_distance(abs(ds_2["p"]), abs(ds_2["p"]), along_dim=["x", "y"])
-    assert all(m2["Hellinger_distance"] == 0)
+    # Total area where the two do not overlap is 2, so Hellinger distance = 1/2 * 2 = 1
+    assert ops.Hellinger_distance(Uniform1, Uniform2) == pytest.approx(1.0, abs=1e-2)
 
-
-def test_relative_entropy():
-    m1 = ops.relative_entropy(abs(ds_2["alpha"]), abs(ds_2["p"]), along_dim=["x", "y"])
-    assert m1
-
-    # Pointwise error
-    m1 = ops.relative_entropy(
-        abs(ds_2["alpha"]), abs(ds_2["p"]), exclude_dim=["x", "y", "z"]
+    # Test interpolation works: shifted uniform distribution, area of non-overlap = 3, so Hellinger
+    # distance = 3/2
+    Uniform1 = xr.DataArray(
+        np.array([1 if 2 <= x <= 4 else 0 for x in np.linspace(1, 6, 500)]),
+        dims=["x"],
+        coords=dict(x=np.linspace(1, 6, 500)),
     )
-    assert m1
-
-    # Error between identical distributions
-    m2 = ops.relative_entropy(abs(ds_2["p"]), abs(ds_2["p"]), along_dim=["x", "y"])
-    assert all(m2["relative_entropy"] == 0)
-
-
-def test_marginal_of_densities():
-    ds = xr.DataArray(
-        np.random.rand(10, 5),
-        coords=dict(x=("x", np.arange(10)), sample=("sample", np.arange(5))),
+    Uniform2 = xr.DataArray(
+        np.array([1 if 3 <= x else 0 for x in np.linspace(2, 7, 750)]),
+        dims=["x"],
+        coords=dict(x=np.linspace(2, 7, 750)),
     )
-    p = xr.DataArray(np.random.rand(10), coords=dict(x=("x", np.arange(10))))
-    p /= p.sum("x")
 
-    m1 = ops.marginal_of_density(ds, p, error="L2")
-    assert len(m1) == 2
-    assert list(m1.keys()) == ["mean", "err"]
-
-    ds = xr.DataArray(
-        np.random.rand(5, 10, 5),
-        coords=dict(
-            y=("y", np.arange(5)),
-            x=("x", np.arange(10)),
-            sample_id=("sample_id", np.arange(5)),
-        ),
-    )
-    p = xr.DataArray(
-        np.random.rand(5, 10),
-        coords=dict(y=("y", np.arange(5)), x=("x", np.arange(10))),
-    )
-    p /= p.sum(["x", "y"])
-
-    m1 = ops.marginal_of_density(
-        ds, p, error="relative_entropy", exclude_dim=["y"], sample_dim="sample_id"
-    )
-    assert len(m1) == 2
-    assert list(m1.keys()) == ["mean", "err"]
-    assert len(m1.dims) == 2
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# DATA RESHAPING
-# ----------------------------------------------------------------------------------------------------------------------
-def test_flatten_dims():
-    m1 = ops.flatten_dims(ds_2, dims={"t": ["x", "y"]})
-    assert len(m1.dims) == 2
-    assert list(m1.dims) == ["z", "t"]
-    assert len(m1.coords["t"]) == len(ds_2.coords["x"]) * len(ds_2.coords["y"])
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# ADJACENCY MATRIX OPERATIONS
-# ----------------------------------------------------------------------------------------------------------------------
-def test_normalise_degrees():
-    # Test on DataArray
-    degrees = xr.DataArray(
-        data=np.random.rand(10, 5),
-        name="degrees",
-        coords=dict(x=("x", np.arange(10)), sample=("sample", np.arange(5))),
-    )
-    m1 = ops.normalise_to_nw_size(degrees, x="x", along_dim=["x"])
-    assert all(m1.sum("x") == 1)
-
-    # Test on Dataset
-    m1 = ops.normalise_to_nw_size(ds_2, x="x", exclude_dim=["y", "z"])
-    assert all(m1.sum(["x"]) == 1)
-
-
-def test_triangles():
-    m1 = ops.triangles_ndim(ds_2, exclude_dim=["z"], input_core_dims=["x"])
-    assert m1
+    assert ops.Hellinger_distance(Uniform1, Uniform2) == pytest.approx(1.5, abs=1e-2)

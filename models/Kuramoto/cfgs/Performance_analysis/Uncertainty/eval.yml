@@ -43,6 +43,7 @@ degree_distribution:
     - .sel_with_drop: [!dag_tag true_data, {seed: 0}]
     - marginal_distribution: [ !dag_tag predictions_flattened, !dag_tag prob_flattened, !dag_prev ]
       kwargs:
+        yerr: 'iqr'
         exclude_dim: ['sigma']
       tag: data
   x: x
@@ -55,10 +56,44 @@ degree_distribution:
   linestyle: [solid, dotted]
   smooth_kwargs:
     enabled: True
-    sigma: 1
+    smoothing: 1
   helpers:
     set_labels:
       x: Weighted node degree
+      y: ' '
+
+triangle_distribution:
+  dag_options:
+    define:
+      nbins: 200
+      range:
+        - list: [[0, 80]]
+  based_on: triangle_distribution_mv
+  transform:
+    - flatten: [ !dag_tag predictions ]
+      tag: predictions_flattened
+    - flatten: [ !dag_tag probabilities ]
+      tag: prob_flattened
+    - .sel_with_drop: [!dag_tag true_data, {seed: 0}]
+    - marginal_distribution: [ !dag_tag predictions_flattened, !dag_tag prob_flattened, !dag_prev ]
+      kwargs:
+        yerr: 'iqr'
+        exclude_dim: ['sigma']
+      tag: data
+  x: x
+  y: y
+  yerr: yerr
+  hue: type
+  col: sigma
+  col_wrap: 4
+  sharey: False
+  linestyle: [solid, dotted]
+  smooth_kwargs:
+    enabled: True
+    smoothing: 1
+  helpers:
+    set_labels:
+      x: Weighted triangle count
       y: ' '
 
 # Total error on distribution
@@ -85,7 +120,7 @@ degree_distribution:
       title: ''
     set_legend:
       title: ''
-      custom_labels: ['Standard deviation', 'Hellinger distance', 'Relative entropy']
+      custom_labels: ['Hellinger distance', 'Standard deviation', 'Relative Entropy']
     set_labels:
       x: $\sigma$
       y: ' '
@@ -118,8 +153,12 @@ triangle_error:
     - .plot.facet_grid.line
     - .default_color_cycler
     - .distribution_error
+  dag_options:
+    define:
+      range:
+        - list: [[0, 80 ]]
   helpers:
     set_limits:
-      y: [ 1e-2, ~ ]
+      y: [ 8, ~ ]
     set_legend:
       use_legend: False

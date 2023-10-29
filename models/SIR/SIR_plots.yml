@@ -41,26 +41,42 @@ predictions:
 # Plot the marginals of all the parameters
 marginals:
   based_on:
-    - .marginal_uni
+    - .creator.universe
     - .plot.facet_grid.density
+  select:
+    parameters:
+      path: parameters
+      transform: [.data]
+    probabilities:
+      path: loss
+      transform: [neg_exp]
   transform:
+    - broadcast: [!dag_tag parameters, !dag_tag probabilities]
     - xr.DataArray:
-        data: [[0, 1, 1000], [1, 30, 1000], [0, 1, 1000]]
-        dims: ['parameter', 'idx']
+        data: [100, 100, 100]
+        dims: ['parameter']
         coords: {parameter: [p_infect, t_infectious, sigma]}
-    - get_marginals: [!dag_tag parameters, !dag_tag probabilities, !dag_prev ]
+      tag: bins
+    - xr.DataArray:
+        data: [[[0, 1], [~, ~]], [[1, 30], [~, ~]], [[0, 1], [~, ~]]]
+        dims: ['parameter', 'dim1', 'dim0']
+        coords: {parameter: [p_infect, t_infectious, sigma]}
+      tag: ranges
+    - marginal_from_ds: [!dag_node -3, !dag_tag bins, !dag_tag ranges ]
       kwargs:
+        x: x
+        y: loss
         statistic: mean
         exclude_dim: [parameter]
       tag: data
   x: x
-  y: p
+  y: y
+  sharex: False
+  sharey: False
   col: parameter
   smooth_kwargs:
-    enabled: True
-    sigma: 20
-  style:
-    figure.figsize: [!dag_result half_width, !dag_result half_width]
+    enabled: False
+    smoothing: 20
 
 # Plot the densities obtained from the joint of the p_infect and t_infectious parameters
 # Generate densities by drawing from the joint distribution of the parameters
@@ -68,8 +84,14 @@ densities_from_joint:
   based_on:
     - .creator.universe
     - .plot.facet_grid.errorbands
-    - .joint_uni
+    - .cycler_blue_orange_brown
   select:
+    parameters:
+      path: parameters
+      transform: [.data]
+    probabilities:
+      path: loss
+      transform: [neg_exp]
     true_data:
       path: true_counts
       transform: [.data]
@@ -79,25 +101,20 @@ densities_from_joint:
         - getitem: [!dag_prev , 'SIR']
   transform:
     # Get the normalized joint distribution
-    - get_joint: [!dag_tag parameters, !dag_tag probabilities]
+    - joint_DD: [!dag_tag parameters, !dag_tag probabilities]
       kwargs:
         bins: 100
-        range: [[0, 1], [1, 30], [0, 0.5]]
-        normalize: True
-        differential: 1
-      file_cache:
-        read: True
-        write: True
+        ranges: [[0, 1], [1, 30], [0, 0.5]]
       tag: joint
-    - getitem: [!dag_prev , 'mean']
     - .fillna: [!dag_prev , 0]
     - SIR_densities_from_joint: [!dag_prev ]
       kwargs:
         true_counts: !dag_tag true_data
         cfg: !dag_tag cfg
       file_cache:
-        read: True
-        write: True
+        read: False
+        write: False
+    - .sel: [!dag_prev , {type: [true data, mean prediction]}]
       tag: data
   x: time
   y: mean
@@ -116,12 +133,3 @@ densities_from_joint:
         set_legend:
           use_legend: True
           gather_from_fig: True
-          custom_labels: [mean prediction, mode prediction, true data]
-  style:
-    axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[darkblue]:}', '{colors[orange]:}', '{colors[lightbrown]:}'])"
-      colors:
-        darkblue: '#2F7194'
-        orange: '#EC9F7E'
-        lightbrown: '#C6BFA2'
-  file_ext: pdf

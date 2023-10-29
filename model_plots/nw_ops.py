@@ -8,84 +8,53 @@ from .data_ops import *
 # ----------------------------------------------------------------------------------------------------------------------
 # ADJACENCY MATRIX OPERATIONS
 # ----------------------------------------------------------------------------------------------------------------------
-@is_operation("triangles_1D")
-def triangles_1D(
-    ds: xr.DataArray,
-    offset=0,
-    axis1=1,
-    axis2=2,
-    *args,
-    input_core_dims: list = ["j"],
-    **kwargs,
-) -> xr.DataArray:
-    """Calculates the number of triangles on each node from an adjacency matrix along one dimension.
-    The number of triangles are given by
-
-        t(i) = 1/2 sum a_{ij}_a{jk}a_{ki}
-
-    in the undirected case, which is simply the i-th entry of the diagonal of A**3. This does not use the apply_along_dim
-    function is thus fast, but cannot be applied along multiple dimensions.
-
-    :param a: the adjacency matrix
-    :param offset, axis1, axis2: passed to `np.diagonal`
-    :param input_core_dims: passed to `xr.apply_ufunc`
-    :param args, kwargs: additional args and kwargs passed to `np.linalg.matrix_power`
-
-    """
-
-    res = xr.apply_ufunc(np.linalg.matrix_power, ds, 3, *args, **kwargs)
-    res = xr.apply_ufunc(
-        np.diagonal,
-        res,
-        offset,
-        axis1,
-        axis2,
-        input_core_dims=[input_core_dims, [], [], []],
-    )
-    coords = dict(ds.coords)
-    coords.pop(input_core_dims[0])
-    dims = list(ds.sizes.keys())
-    dims.remove(input_core_dims[0])
-
-    return xr.DataArray(res, dims=dims, coords=coords, name="triangles")
-
-
 @is_operation("triangles")
 @apply_along_dim
 def triangles(
-    a: Union[xr.Dataset, xr.DataArray],
-    offset=0,
-    axis1=0,
-    axis2=1,
+    A: xr.DataArray,
     *args,
     input_core_dims: list = ["j"],
+    offset=0,
+    axis1=1,
+    axis2=2,
+    directed: bool = True,
     **kwargs,
-) -> Union[xr.DataArray, xr.Dataset]:
-    """Calculates the number of triangles on each node from an adjacency matrix. The number of triangles
-    are given by
+) -> xr.DataArray:
+    """Calculates the number of triangles on each node from an adjacency matrix A along one dimension.
+    The number of triangles are given by
 
-        t(i) = 1/2 sum a_{ij}_a{jk}a_{ki}
+        t(i) = sum_{jk} A_{ij} A_{jk} A_{ki}
 
-    in the undirected case, which is simply the i-th entry of the diagonal of A**3. This uses the apply_along_dim
-    function and can thus be applied along any dimension, but is slower than 'triangles'.
+    in the directed case, which is simply the i-th entry of the diagonal of A**3. If the network is directed,
+    the number of triangles must be divided by 2. It is recommended to use ``xr.apply_ufunc`` for the inner
+    (the sample) dimension, as the ``apply_along_dim`` decorator is quite slow.
 
-    :param a: the adjacency matrix
-    :param args, kwargs: additional args and kwargs passed to np.linalg.matrix_power
-
+    :param A: the adjacency matrix
+    :param offset: (optional) passed to ``np.diagonal``. Offset of the diagonal from the main diagonal.
+        Can be positive or negative. Defaults to main diagonal (0).
+    :param axis1: (optional) passed to ``np.diagonal``. Axis to be used as the first axis of the
+        2-D sub-arrays from which the diagonals should be taken. Defaults to first axis (0).
+    :param axis2: (optional) passed to ``np.diagonal``. Axis to be used as the second axis of the 2-D sub-arrays from
+        which the diagonals should be taken. Defaults to second axis (1).
+    :param input_core_dims: passed to ``xr.apply_ufunc``
+    :param directed: (optional, bool) whether the network is directed. If not, the number of triangle on each node
+        is divided by 2.
+    :param args, kwargs: additional args and kwargs passed to ``np.linalg.matrix_power``
     """
+
     res = xr.apply_ufunc(
         np.diagonal,
-        xr.apply_ufunc(np.linalg.matrix_power, a, 3, *args, **kwargs),
+        xr.apply_ufunc(np.linalg.matrix_power, A, 3, *args, **kwargs),
         offset,
         axis1,
         axis2,
         input_core_dims=[input_core_dims, [], [], []],
     )
 
-    if isinstance(res, xr.DataArray):
-        return res.rename("triangles")
-    else:
-        return res
+    if not directed:
+        res /= 2
+
+    return res.rename("triangles")
 
 
 @is_operation("binned_nw_statistic")
@@ -95,8 +64,10 @@ def binned_nw_statistic(
     *,
     bins: Any,
     ranges: Sequence = None,
-    normalize: bool = True,
-) -> xr.Dataset:
+    normalize: Union[bool, float] = False,
+    sample_dim: str = "batch",
+    **kwargs,
+) -> xr.DataArray:
     """Calculates a binned statistic from an adjacency matrix statistic along the batch dimension. This function uses
     the `hist_1D` function to speed up computation. Since network statistics are binned along common x-values for each
     prediction element, the x-coordinate is written as a coordinate, rather than a variable like in other marginal
@@ -107,19 +78,79 @@ def binned_nw_statistic(
     :param ranges: (float, float), optional: range of the bins to use. Defaults to the minimum and maximum value
         along *all* predictions.
     :param normalize: whether to normalize bin counts.
+    :param sample_dim: name of the sampling dimension, which will be excluded from histogramming
+    :param kwargs: passed to ``hist``
     :return: xr.Dataset of binned statistics, indexed by the batch index and x-value
     """
 
     _along_dim = list(nw_statistic.coords)
-    _along_dim.remove("batch")
-    return hist_1D(
-        nw_statistic, bins, ranges, along_dim=_along_dim, normalize=normalize
-    ).rename({nw_statistic.name: "y"})
+    _along_dim.remove(sample_dim)
+    return hist(
+        nw_statistic,
+        bins=bins,
+        ranges=ranges,
+        dim=_along_dim[0],
+        normalize=normalize,
+        use_bins_as_coords=True,
+        **kwargs,
+    ).rename("y")
+
+
+@is_operation("sel_matrix_indices")
+@apply_along_dim
+def sel_matrix_indices(
+    A: xr.DataArray, indices: xr.Dataset, drop: bool = False
+) -> xr.DataArray:
+
+    """Selects entries from an adjacency matrix A given in ``indices``. If specified, coordinate labels
+    are dropped.
+
+    :param A: adjacency matrix with rows and columns labelled ``i`` and ``j``
+    :param indices: ``xr.Dataset`` of indices to dropped; variables should be ``i`` and ``j``
+    :param drop: whether to drop the ``i`` and ``j`` coordinate labels
+    :return: selected entries of ``A``
+    """
+
+    A = A.isel(i=(indices["i"]), j=(indices["j"]))
+    return A.drop_vars(["i", "j"]) if drop else A
+
+
+@is_operation("largest_entry_indices")
+@apply_along_dim
+def largest_entry_indices(
+    A: xr.DataArray, n: int, *, symmetric: bool = False
+) -> xr.Dataset:
+    """Returns the two-dimensional indices of the n largest entries in an adjacency matrix as well as the corresponding
+    values. If the matrix is symmetric, only the upper triangle is considered. The entries are returned sorted from
+    highest to lowest.
+
+    :param A: adjacency matrix
+    :param n: number of entries to obtain
+    :param symmetric: (optional) whether the adjacency matrix is symmetric
+    :return: ``xr.Dataset`` of largest entries and their indices
+    """
+
+    if symmetric:
+        indices_i, indices_j = np.unravel_index(
+            np.argsort(np.triu(A).ravel()), np.shape(A)
+        )
+    else:
+        indices_i, indices_j = np.unravel_index(np.argsort(A.data.ravel()), np.shape(A))
+
+    i, j = indices_i[-n:][::-1], indices_j[-n:][::-1]
+    vals = A.data[i, j]
+
+    return xr.Dataset(
+        data_vars=dict(i=("idx", i), j=("idx", j), value=("idx", vals)),
+        coords=dict(idx=("idx", np.arange(len(i)))),
+    )
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 # DISTRIBUTION OPERATIONS
 # ----------------------------------------------------------------------------------------------------------------------
+
+
 @is_operation("marginal_distribution")
 @apply_along_dim
 def marginal_distribution(
@@ -153,7 +184,7 @@ def marginal_distribution(
     predictions = predictions.rename({"x": "_x"})
 
     # Broadcast the predictions and probabilities together
-    predictions_and_loss = broadcast(predictions["y"], probabilities, x="y", p="prob")
+    predictions_and_loss = broadcast(predictions, probabilities, x="y", p="prob")
 
     # Calculate the distribution marginal for each bin
     marginals = marginal_from_ds(
@@ -163,14 +194,18 @@ def marginal_distribution(
     # Calculate the y-statistic: mode (default) or mean
     if y == "mode" or y == "MLE":
         p_max = probabilities.idxmax()
-        _y_vals = predictions.sel({p_max.name: p_max.data}, drop=True)["y"]
+        _y_vals = predictions.sel({p_max.name: p_max.data}, drop=True)
     elif y == "mean":
-        _y_vals = mean(marginals, along_dim=["bin_idx"], x="x", p="marginal")["mean"]
+        _y_vals = mean(marginals, along_dim=["bin_idx"], x="x", y="y")
 
     # Calculate the standard deviation from y
-    _y_err_vals = stat_function(
-        marginals, along_dim=["bin_idx"], x="x", p="marginal", stat=yerr
+    _y_err_vals: xr.DataArray = stat_function(
+        marginals, along_dim=["bin_idx"], x="x", y="y", stat=yerr
     )[yerr]
+
+    # Interquartile range is total range, so divide by 2, since errorbands are shown as ± err
+    if yerr == "iqr":
+        _y_err_vals /= 2
 
     # Combine y and yerr values into a single dataset and rename the 'x' dimension
     res = xr.Dataset(dict(y=_y_vals, yerr=_y_err_vals)).rename({"_x": "x"})
@@ -196,7 +231,7 @@ def marginal_distribution_stats(
     distance_to: str = None,
     stat: Sequence,
     **kwargs,
-) -> xr.Dataset:
+) -> xr.DataArray:
     """Calculates the statistics of a marginal distribution. This operation circumvents having to first compile
     marginals for all dimensions when sweeping, only to then apply a statistics function along the bin dimension,
     thereby saving memory.
@@ -229,7 +264,7 @@ def marginal_distribution_stats(
     predictions = predictions.rename({"x": "_x"})
 
     # Broadcast the predictions and probabilities together, and drop any distributions that are completely zero
-    predictions_and_loss = broadcast(predictions["y"], probabilities, x="y", p="prob")
+    predictions_and_loss = broadcast(predictions, probabilities, x="y", p="prob")
     predictions_and_loss = predictions_and_loss.where(
         predictions_and_loss["prob"] > 0, drop=True
     )
@@ -257,11 +292,9 @@ def marginal_distribution_stats(
 
         # Get the Q distribution with respect to which the error is to be calculated
         if distance_to == "mode" or distance_to == "MLE":
-            _y_vals = marginal_over_counts["marginal"].isel({"bin_idx": -1}, drop=True)
+            _y_vals = marginal_over_counts["y"].isel({"bin_idx": -1}, drop=True)
         elif distance_to == "mean":
-            _y_vals = mean(marginal_over_p, along_dim=["bin_idx"], x="x", p="marginal")[
-                "mean"
-            ]
+            _y_vals = mean(marginal_over_p, along_dim=["bin_idx"], x="x", y="y")["mean"]
 
         # Get the binned loss values associated with each marginal entry
         prob_binned = marginal_over_counts["x"].isel({"_x": 0}, drop=True)
@@ -274,7 +307,7 @@ def marginal_distribution_stats(
         # Average Hellinger distance
         if _stat == "Hellinger":
             _distributions = Hellinger_distance(
-                marginal_over_counts["marginal"],
+                marginal_over_counts["y"],
                 _y_vals.expand_dims(
                     {"bin_idx": marginal_over_counts.coords["bin_idx"]}
                 ),
@@ -283,12 +316,14 @@ def marginal_distribution_stats(
             _err = (
                 prob_binned * _distributions["Hellinger_distance"] / prob_binned.sum()
             ).sum("bin_idx")
-            res.append(xr.DataArray(_err.data, name="stat"))
+            res.append(
+                xr.DataArray(_err.data, name="stat").expand_dims({"type": [_stat]})
+            )
 
         # Average relative entropy
         elif _stat == "KL":
             _distributions = relative_entropy(
-                marginal_over_counts["marginal"],
+                marginal_over_counts["y"],
                 _y_vals.expand_dims(
                     {"bin_idx": marginal_over_counts.coords["bin_idx"]}
                 ),
@@ -300,57 +335,18 @@ def marginal_distribution_stats(
                 * abs(_distributions["relative_entropy"])
                 / prob_binned.sum("bin_idx")
             ).sum("bin_idx")
-            res.append(xr.DataArray(_err.data, name="stat"))
+            res.append(
+                xr.DataArray(_err.data, name="stat").expand_dims({"type": [_stat]})
+            )
         else:
             # Integrate the standard deviation along x
             _err = stat_function(
-                marginal_over_p, along_dim=["bin_idx"], x="x", p="marginal", stat=_stat
+                marginal_over_p, along_dim=["bin_idx"], x="x", y="y", stat=_stat
             )[_stat]
             res.append(
                 xr.DataArray(
                     scipy.integrate.trapezoid(_err.data, _err.coords["_x"]), name="stat"
-                )
+                ).expand_dims({"type": [_stat]})
             )
 
-    return concat(res, "type", stat)
-
-
-# ----------------------------------------------------------------------------------------------------------------------
-# MATRIX SELECTION OPERATIONS
-# ----------------------------------------------------------------------------------------------------------------------
-@is_operation("sel_matrix_indices")
-@apply_along_dim
-def matrix_indices_sel(
-    ds: xr.DataArray, indices: xr.Dataset, drop: bool = False
-) -> xr.DataArray:
-    """Returns the predictions on the weights of the entries given by indices"""
-
-    ds = ds.isel(i=(indices["i"]), j=(indices["j"]))
-    return ds.drop_vars(["i", "j"]) if drop else ds
-
-
-@is_operation("largest_entry_indices")
-@apply_along_dim
-def largest_entry_indices(
-    ds: xr.DataArray, n: int, *, symmetric: bool = True
-) -> xr.Dataset:
-    """Returns the 2d-indices of the n largest entries in an adjacency matrix, as well as the corresponding values.
-    If the matrix is symmetric, only the upper triangle is considered. Sorted from highest to lowest.
-    """
-
-    if symmetric:
-        indices_i, indices_j = np.unravel_index(
-            np.argsort(np.triu(ds.data).ravel()), np.shape(ds)
-        )
-    else:
-        indices_i, indices_j = np.unravel_index(
-            np.argsort(ds.data.ravel()), np.shape(ds)
-        )
-
-    i, j = indices_i[-n:][::-1], indices_j[-n:][::-1]
-    vals = ds.data[i, j]
-
-    return xr.Dataset(
-        data_vars=dict(i=("idx", i), j=("idx", j), relative_error=("idx", vals)),
-        coords=dict(idx=("idx", np.arange(len(i)))),
-    )
+    return xr.concat(res, "type")

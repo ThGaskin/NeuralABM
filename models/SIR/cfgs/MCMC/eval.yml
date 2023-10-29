@@ -8,7 +8,7 @@ marginals:
       parameters: ../langevin_data/parameters
   transform:
     - xr.DataArray:
-        data: [1000, 100, 100]
+        data: [100, 100, 100]
         dims: ['parameter']
         coords: {parameter: ['alpha', 'p_infect', 't_infectious']}
       tag: bins
@@ -19,15 +19,21 @@ marginals:
       tag: ranges
     - flatten_dims: [!dag_tag parameters ]
       kwargs: {dims: {sample: [seed, sample]}}
-    - .rename: [!dag_prev , 'value']
-    - to_csv: [!dag_prev , 'data/SIR/MCMC_data.csv']
-    - hist_ndim: [!dag_prev , !dag_tag bins , !dag_tag ranges]
+    - .rename: [!dag_prev , 'y']
+#    - to_csv: [!dag_prev , 'data/SIR/MCMC_data.csv']
+    - hist: [!dag_prev , !dag_tag bins , !dag_tag ranges]
       kwargs:
+        dim: sample
         exclude_dim: [parameter]
-        normalize: True
+        use_bins_as_coords: False
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: x
+        y: y
+        exclude_dim: [parameter]
       tag: data
   x: x
-  y: value
+  y: y
   col: parameter
   sharex: False
   sharey: False
@@ -37,10 +43,10 @@ marginals:
       enabled: False
     t_infectious:
       enabled: True
-      sigma: 2
+      smoothing: 2
     alpha:
       enabled: True
-      sigma: 100
+      smoothing: 10
 
 # Calculate the Gelman-Rubin statistic for each parameter over time
 gelman_rubin:
@@ -71,20 +77,4 @@ gelman_rubin:
         - pos: 1.2
           linestyle: 'dashed'
           color: !dag_result c_red
-    setup_figure:
-      ncols: 3
-      nrows: 1
-    axis_specific:
-      0:
-        axis: [0, 0]
-        set_title:
-          title: Infection parameter $\beta$
-      1:
-        axis: [ 1, 0 ]
-        set_title:
-          title: Recovery parameter $\tau$
-      2:
-        axis: [ 2, 0 ]
-        set_title:
-          title: Redundant parameter $\alpha$
   figsize: [ !dag_result full_width, !dag_result third_width ]
