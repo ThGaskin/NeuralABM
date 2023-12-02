@@ -52,8 +52,6 @@ densities_from_joint:
     # Get the normalized joint distribution
     - joint_2D_ds: [!dag_tag params, !dag_tag prob, !dag_prev ]
       kwargs:
-        normalize: True
-        differential: 1
         x: p_infect
         y: t_infectious
       tag: joint
@@ -69,11 +67,11 @@ densities_from_joint:
 
     # No point plotting the mode, as sampling from sigma will produce a single stochastic process, rather than an
     # average
-    - .sel: [!dag_prev , {type: prediction_mean}]
+    - .sel: [!dag_prev , {type: mean prediction}]
       tag: data
 
     # Get the true data
-    - .sel: [!dag_node -2 , {type: true_counts}]
+    - .sel: [!dag_node -2 , {type: true data}]
       kwargs: {drop: True}
     - getitem: [!dag_prev , mean]
 #    - .sel: [!dag_prev , {kind: ['infected', 'susceptible', 'recovered']}]
@@ -88,8 +86,8 @@ densities_from_joint:
     set_legend:
       use_legend: False
     set_labels:
-      x: ' '
-      y: ' '
+      x: time
+      y: ''
     call:
       functions:
         - function: [xarray.plot, line]
@@ -170,25 +168,15 @@ marginals: !pspace
       parameter: !sweep
         default: 'p_infect'
         values: ['p_infect', 't_infectious']
-      ground_truth_path: !coupled-sweep
-        default: 'data/SIR/true_data_grid_search/p_infect.csv'
-        values: ['data/SIR/true_data_grid_search/p_infect.csv',
-                 'data/SIR/true_data_grid_search/t_infectious.csv']
-        target_name: parameter
-      mcmc_path: !coupled-sweep
-        default: 'data/SIR/MCMC_estimates/p_infect.csv'
-        values: ['data/SIR/MCMC_estimates/p_infect.csv',
-                 'data/SIR/MCMC_estimates/t_infectious.csv']
-        target_name: parameter
+      ground_truth_path: data/SIR/ground_truth.csv
+      mcmc_path: data/SIR/MCMC_data.csv
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.density
+    - .cycler_blue_pink_grey
   select_and_combine:
     fields:
-      parameters:
-        path: parameters
-        transform:
-          - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
+      parameters: parameters
       probabilities:
         path: loss
         transform: [neg_exp]
@@ -207,52 +195,65 @@ marginals: !pspace
       kwargs:
         dims: {sample: [batch, seed]}
       tag: params
-    - broadcast: [!dag_tag params, !dag_tag prob]
 
-    # Get the marginals along the parameters
-    - marginal_from_ds: [!dag_prev , !dag_tag bins]
+    - joint_2D_ds: [!dag_tag params, !dag_tag prob ]
       kwargs:
-        x: x
-        y: loss
-      tag: data
+        x: p_infect
+        y: t_infectious
+    - marginal_from_joint: [!dag_prev ]
+      kwargs:
+        parameter: !dag_tag parameter
+    - .expand_dims: [!dag_prev , {type: [Neural]}]
+      tag: neural_marginals
 
     # Load the ground truth and MCMC estimates
     - load_csv: [!dag_tag ground_truth_path]
-      kwargs: {index_col: 1}
-    - getitem: [!dag_prev , 'marginal']
+      kwargs: {index_col: [0, 1]}
+    - .to_xarray: [!dag_prev ]
+    - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
+    - .expand_dims: [!dag_prev , {type: [Ground truth]}]
       tag: ground_truth
 
     - load_csv: [ !dag_tag mcmc_path ]
-      kwargs: { index_col: 0 }
+      kwargs: { index_col: [0, 1]}
+    - .to_xarray: [!dag_prev ]
+    - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
+      kwargs: {drop: True}
+    - .to_array: [!dag_prev ]
+    - hist: [!dag_prev ]
+      kwargs:
+        dim: sample
+        use_bins_as_coords: False
+    - .rename: [!dag_prev , {count: y}]
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: x
+        y: y
+    - .expand_dims: [ !dag_prev , { type: [ MALA ] } ]
       tag: mcmc_estimate
+    - xr.concat: [[!dag_tag neural_marginals, !dag_tag mcmc_estimate, !dag_tag ground_truth], 'type']
+    - .squeeze_with_drop: [!dag_prev ]
+      tag: data
   x: x
-  y: marginal
-  label: Neural
+  y: y
+  hue: type
+  linestyle: [solid, solid, dotted]
   helpers:
     set_labels:
-      y: ' '
+      y: ''
     set_legend:
       use_legend: !coupled-sweep
         default: true
         target_name: parameter
         values: [true, false]
-    call:
-      functions:
-      - function: [matplotlib, pyplot.plot]
-        args: [!dag_result ground_truth]
-        color: !dag_result c_darkgrey
-        label: Ground truth
-        linestyle: dotted
-      - function: [seaborn, kdeplot]
-        args: [!dag_result mcmc_estimate]
-        fill: false
-        label: MALA
-      - function: [model_plots.HarrisWilson, calculate_Hellingers]
-        pass_helper: True
-  c: !dag_result c_darkblue
+  smooth_kwargs:
+    enabled: !coupled-sweep
+      default: true
+      target_name: parameter
+      values: [false, true]
+    smoothing: 1
   style:
     figure.figsize: [!dag_result half_width, !dag_result quarter_width]
-    axes.prop_cycle: cycler('color', ['#C6BFA2'])
 
 # Plot the prior densities on the parameters
 priors:
