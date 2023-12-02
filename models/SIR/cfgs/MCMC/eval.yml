@@ -49,7 +49,7 @@ marginals:
       smoothing: 10
 
 # Calculate the Gelman-Rubin statistic for each parameter over time
-gelman_rubin:
+gelman_rubin: !pspace
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.line
@@ -66,15 +66,19 @@ gelman_rubin:
         read: True
         write: True
     - .to_array: [!dag_prev ]
+#    - .sel: [!dag_prev , {sample: !slice [0, 5000, ~]}]
+    - .isel: [!dag_prev , {parameter: 0}]
       tag: data
   x: sample
-  col: parameter
+#  col: parameter
   color: !dag_result c_darkgrey
-  sharey: False
+#  sharey: False
   helpers:
+    set_title:
+      title: ''
     set_hv_lines:
       hlines:
         - pos: 1.2
           linestyle: 'dashed'
           color: !dag_result c_red
-  figsize: [ !dag_result full_width, !dag_result third_width ]
+  figsize: [ !dag_result third_width, !dag_result third_width ]

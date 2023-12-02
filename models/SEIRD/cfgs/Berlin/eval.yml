@@ -166,11 +166,12 @@ densities/all: !pspace
           lw: 0.5
           zorder: -1
     set_title:
-      title: ' '
+      title: ''
     set_labels:
-      x: ' '
+      x: ''
+      y: ''
   style:
-    figure.figsize: [ !dag_result half_width, !dag_result third_width ]
+    figure.figsize: [ !dag_result half_width, !dag_result fifth_width ]
 
 # Plot the SY, H, C compartments (for publication)
 densities/compartments: #!pspace
@@ -265,6 +266,7 @@ densities/compartments: #!pspace
           use_legend: True
           gather_from_fig: True
           custom_labels: [Prediction, True data]
+          loc: upper center
         set_labels:
           y: Symptomatic
       1:
@@ -358,9 +360,9 @@ densities/compartments: #!pspace
           lw: 0.5
           zorder: -1
     set_title:
-      title: ' '
+      title: ''
     set_labels:
-      x: ' '
+      x: ''
   figsize: [ !dag_result half_width, !dag_result two_thirds_width ]
 
 # Plot the ABM data together with the RKI figures, and indicate the intervals
@@ -387,7 +389,7 @@ true_data:
   transform:
     # Load the cumulative number of infected patients
     # Combine counts and cumulative counts
-    - import_and_call: [pandas, read_csv, 'data/SEIRD+/Berlin_data/data_Berlin_cumulative.csv']
+    - import_and_call: [pandas, read_csv, 'data/SEIRD+/Berlin_data/data_cumulative.csv']
       kwargs: {index_col: 0}
     - .to_xarray: [!dag_prev ]
     - .coords: [!dag_prev , 'index']
@@ -425,8 +427,8 @@ true_data:
         lightbrown: '#C6BFA2'
   helpers:
     set_labels:
-      x: ' '
-      y: ' '
+      x: ''
+      y: ''
     set_scales:
       y: log
     set_legend:
@@ -434,7 +436,7 @@ true_data:
       title: ~
       custom_labels: ['SY', 'H', 'C', 'cumulative']
       ncol: 4
-      bbox_to_anchor: [0., 1.1, 1, 0.1]
+      bbox_to_anchor: [0.03, 1., 1, 0.1]
       gather_from_fig: True
     set_tick_formatters:
       x:
@@ -581,6 +583,9 @@ marginals_all:
       kwargs: {index_col: [0, 1]}
     - .to_xarray: [!dag_prev ]
     - .sel: [!dag_prev , {parameter: !dag_tag parameter_coords }]
+    - .to_array: [!dag_prev ]
+    - .isel: [!dag_prev , {variable: 0}]
+      kwargs: {drop: True}
       tag: MCMC_sample
     - .isel: [!dag_tag bins, {idx: 0}]
       tag: MCMC_bins
@@ -590,11 +595,16 @@ marginals_all:
         dims: [ 'parameter', 'idx' ]
         coords: { parameter: ['k_S', 'k_E_0', 'k_E_1', 'k_E_2', 'k_E_3', 'k_E_4', 'k_I', 'k_R', 'k_SY', 'k_H', 'k_C', 'k_D', 'k_CT'] }
       tag: MCMC_ranges
-    - hist_ndim: [!dag_tag MCMC_sample , !dag_tag MCMC_bins , !dag_tag MCMC_ranges ]
+    - hist: [!dag_tag MCMC_sample , !dag_tag MCMC_bins , !dag_tag MCMC_ranges ]
       kwargs:
         exclude_dim: [parameter]
-        normalize: True
-    - .rename: [!dag_prev , {_variable: 'marginal'}]
+        dim: sample
+    - .rename: [!dag_prev , {count: 'y'}]
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: x
+        y: y
+        exclude_dim: [parameter]
       tag: MCMC_marginals
 
     # Combine marginals and reorder
@@ -602,7 +612,7 @@ marginals_all:
     - .sel: [!dag_prev , {parameter: !dag_tag parameter_coords}]
       tag: data
   x: x
-  y: marginal
+  y: y
   hue: type
   label: Neural
   col: parameter
@@ -611,7 +621,7 @@ marginals_all:
   sharey: False
   smooth_kwargs:
     enabled: True
-    sigma: 3
+    smoothing: 3
   style:
     axes.prop_cycle: !format
       fstr: "cycler('color', ['{colors[darkblue]:}',
@@ -631,9 +641,9 @@ marginals_violin/all:
     - .plot.facet_grid.violin
   helpers:
     set_title:
-      title: ' '
+      title: ''
     set_labels:
-      x: ' '
+      x: ''
     set_figlegend:
       gather_from_fig: True
       ncol: 2

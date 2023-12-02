@@ -51,13 +51,21 @@ densities/all:
     - xr.DataArray:
         data: 100
     - .expand_dims: [!dag_prev , {parameter: !dag_tag parameter_coords }]
-    - hist_ndim: [!dag_tag parameters_flattened , !dag_prev ]
+    - .to_array: [!dag_prev ]
+    - .isel: [!dag_prev , {variable: 0}]
+      kwargs: {drop: True}
+    - hist: [!dag_tag parameters_flattened , !dag_prev ]
       kwargs:
         exclude_dim: [parameter]
-        normalize: True
-    - .rename: [!dag_prev , {parameters: 'marginal'}]
+        dim: sample
+    - .rename: [!dag_prev , {parameters: 'y'}]
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: x
+        y: y
+        exclude_dim: [parameter]
     - mean: [!dag_prev ]
-      kwargs: {x: x, p: marginal, exclude_dim: [parameter]}
+      kwargs: {x: x, y: y, exclude_dim: [parameter]}
     - .expand_dims: [!dag_prev , {sample: [0]}]
     - .to_array: [!dag_prev ]
       tag: expected_parameters
@@ -179,13 +187,18 @@ densities/compartments:
     - xr.DataArray:
         data: 100
     - .expand_dims: [!dag_prev , {parameter: !dag_tag parameter_coords }]
-    - hist_ndim: [!dag_tag parameters_flattened , !dag_prev ]
+    - hist: [!dag_tag parameters_flattened , !dag_prev ]
       kwargs:
         exclude_dim: [parameter]
-        normalize: True
-    - .rename: [!dag_prev , {parameters: 'marginal'}]
+        dim: sample
+    - .rename: [!dag_prev , {parameters: 'y'}]
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: x
+        y: y
+        exclude_dim: [parameter]
     - mean: [!dag_prev ]
-      kwargs: {x: x, p: marginal, exclude_dim: [parameter]}
+      kwargs: {x: x, y: y, exclude_dim: [parameter]}
     - .expand_dims: [!dag_prev , {sample: [0]}]
     - .to_array: [!dag_prev ]
       tag: expected_parameters
@@ -336,9 +349,9 @@ densities/compartments:
           lw: 0.5
           zorder: -1
     set_title:
-      title: ' '
+      title: ''
     set_labels:
-      x: ' '
+      x: ''
   figsize: [ !dag_result half_width, !dag_result two_thirds_width ]
 
 # Marginal densities on the parameters obtained from the MCMC
@@ -367,10 +380,10 @@ marginals:
       kwargs:
         exclude_dim: [parameter]
         normalize: True
-    - .rename: [!dag_prev , {parameters: 'marginal'}]
+    - .rename: [!dag_prev , {parameters: 'y'}]
       tag: data
   x: x
-  y: marginal
+  y: y
   col: parameter
   col_wrap: 3
   sharex: False
@@ -399,21 +412,36 @@ gelman_rubin:
       file_cache:
         read: True
         write: True
-    - .to_array: [!dag_prev ]
+    - getitem: [!dag_prev , 'gelman_rubin']
       tag: data
   x: sample
-  col: parameter
-  col_wrap: auto
-  color: !dag_result c_darkgrey
-  sharey: False
+  hue: parameter
   helpers:
     set_scales:
       y: log
+    set_title:
+      title: ''
+    set_labels:
+      x: sample
+      y: ''
+    set_ticks:
+      x:
+        major:
+          locs: [0, 200, 400, 600, 800]
+          labels: [0, 4000, 800, 12000, 16000]
+    set_legend:
+      ncol: 2
+      custom_labels: ['$\lambda_{\rm C}$', '$\lambda_{\rm CT}$', '$\lambda_{\rm D}$',
+                      '$\lambda_{\rm E, 0}$', '$\lambda_{\rm E, 1}$', '$\lambda_{\rm E, 2}$', '$\lambda_{\rm E, 3}$',
+                      '$\lambda_{\rm E, 4}$', '$\lambda_{\rm H}$', '$\lambda_{\rm I}$', '$\lambda_{\rm R}$',
+                      '$\lambda_{\rm S}$', '$\lambda_{\rm SY}$']
     set_hv_lines:
       hlines:
         - pos: 1.2
           linestyle: 'dashed'
           color: !dag_result c_red
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]
 
 # Plot the evolution of the parameter predictions
 predictions:

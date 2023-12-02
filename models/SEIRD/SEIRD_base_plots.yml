@@ -54,13 +54,13 @@
         - mul: [!dag_prev , 2]
 
   style:
-    text.usetex:        True   # Set to 'True' to use latex
+    text.usetex:        False   # Set to 'True' to use latex
     mathtext.fontset:   cm
-    font.family:        serif
+    font.family:        Helvetica
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
     # Set the label fontsize
-    font.size:          &fontsize 9
+    font.size:          &fontsize 7
     axes.titlesize:     *fontsize
     axes.labelsize:     *fontsize
     xtick.labelsize:    *fontsize
@@ -80,7 +80,7 @@
                               '{colors[c_darkgrey]:}',
                               '{colors[c_pink]:}',
                               '{colors[c_purple]:}',
-                              '{colors[c_lightgrey]:}'
+                              '{colors[c_lightgrey]:}', 'black'
                               ])"
       colors:
         <<: *colors

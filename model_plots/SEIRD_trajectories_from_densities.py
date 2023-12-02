@@ -693,33 +693,33 @@ def SEIRD_generate_smooth_densities(
     return da
 
 
-@is_operation("SIR_densities_from_marginals")
-def SIR_densities_from_marginals(
-    data: xr.Dataset, *, num_samples: int, true_counts: xr.Dataset, cfg: dict, **kwargs
-) -> xr.Dataset:
-    return _densities_from_marginals(
-        data,
-        models.SIR.DataGeneration.generate_smooth_data,
-        num_samples=num_samples,
-        true_counts=true_counts,
-        cfg=cfg,
-        **kwargs,
-    )
+# @is_operation("SIR_densities_from_marginals")
+# def SIR_densities_from_marginals(
+#     data: xr.Dataset, *, num_samples: int, true_counts: xr.Dataset, cfg: dict, **kwargs
+# ) -> xr.Dataset:
+#     return _densities_from_marginals(
+#         data,
+#         models.SIR.DataGeneration.generate_smooth_data,
+#         num_samples=num_samples,
+#         true_counts=true_counts,
+#         cfg=cfg,
+#         **kwargs,
+#     )
 
 
-@is_operation("SIR_densities_from_joint")
-def SIR_densities_from_joint(
-    data: xr.Dataset, prob: xr.Dataset, *, true_counts: xr.Dataset, cfg: dict, **kwargs
-) -> xr.Dataset:
-
-    return _densities_from_joint(
-        data,
-        prob,
-        models.SIR.DataGeneration.generate_smooth_data,
-        true_counts=true_counts,
-        cfg=cfg,
-        **kwargs,
-    )
+# @is_operation("SIR_densities_from_joint")
+# def SIR_densities_from_joint(
+#     data: xr.Dataset, prob: xr.Dataset, *, true_counts: xr.Dataset, cfg: dict, **kwargs
+# ) -> xr.Dataset:
+#
+#     return _densities_from_joint(
+#         data,
+#         prob,
+#         models.SIR.DataGeneration.generate_smooth_data,
+#         true_counts=true_counts,
+#         cfg=cfg,
+#         **kwargs,
+#     )
 
 
 @is_operation("SEIRD+_densities_from_marginals")

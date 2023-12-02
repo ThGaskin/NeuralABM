@@ -69,11 +69,11 @@ densities_from_joint:
 
     # No point plotting the mode, as sampling from sigma will produce a single stochastic process, rather than an
     # average
-    - .sel: [!dag_prev , {type: prediction_mean}]
+    - .sel: [!dag_prev , {type: mean prediction}]
       tag: data
 
     # Get the true data
-    - .sel: [!dag_node -2 , {type: true_counts}]
+    - .sel: [!dag_node -2 , {type: true data}]
       kwargs: {drop: True}
     - getitem: [!dag_prev , mean]
       tag: true_counts

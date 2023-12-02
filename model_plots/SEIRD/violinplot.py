@@ -54,7 +54,7 @@ def violin_plot(
 
         """Plots a single parameter density and smooths the marginal. Returns the artists for the legend."""
         smooth, sigma = _smooth_kwargs.pop("enabled", False), _smooth_kwargs.pop(
-            "sigma", None
+            "smoothing", None
         )
         # Smooth the y values, if given
         if smooth:
@@ -122,6 +122,13 @@ def violin_plot(
 
     if format_y_label:
         y_label = (
-            r"$k_{\rm " + ds.coords["parameter"].item()[2:].replace("_", ",") + "}$"
+            r"$\lambda_{\rm "
+            + ds.coords["parameter"].item()[2:].replace("_", ",")
+            + "}$"
         )
         hlpr.provide_defaults("set_labels", y={"label": y_label})
+
+    # Positive values on both axes
+    hlpr.ax.set_xticks(
+        hlpr.ax.get_xticks()[1:], labels=np.round(np.abs(hlpr.ax.get_xticks())[1:], 2)
+    )
