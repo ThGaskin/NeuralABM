@@ -56,7 +56,6 @@ ACTIVATION_FUNCS = {
 def get_architecture(
     input_size: int, output_size: int, n_layers: int, cfg: dict
 ) -> List[int]:
-
     # Apply default to all hidden layers
     _nodes = [cfg.get("default")] * n_layers
 
@@ -69,7 +68,6 @@ def get_architecture(
 
 
 def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
-
     """Extracts the activation functions from the config. The config is a dictionary containing the
     default activation function, and a layer-specific entry detailing exceptions from the default. 'None' entries
     are interpreted as linear layers.
@@ -88,7 +86,6 @@ def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
     """
 
     def _single_layer_func(layer_cfg: Union[str, dict]) -> callable:
-
         """Return the activation function from an entry for a single layer"""
 
         # Entry is a single string
@@ -125,7 +122,6 @@ def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
 
 
 def get_bias(n_layers: int, cfg: dict) -> List[Any]:
-
     """Extracts the bias initialisation settings from the config. The config is a dictionary containing the
     default, and a layer-specific entry detailing exceptions from the default. 'None' entries
     are interpreted as unbiased layers.
@@ -183,7 +179,8 @@ class NeuralNet(nn.Module):
         prior_max_iter: int = 500,
         prior_tol: float = 1e-5,
         optimizer: str = "Adam",
-        learning_rate: float = 0.001,
+        learning_rate: float = 0.002,
+        optimizer_kwargs: dict = {},
         **__,
     ):
         """
@@ -238,7 +235,9 @@ class NeuralNet(nn.Module):
             self.layers.append(layer)
 
         # Get the optimizer
-        self.optimizer = self.OPTIMIZERS[optimizer](self.parameters(), lr=learning_rate)
+        self.optimizer = self.OPTIMIZERS[optimizer](
+            self.parameters(), lr=learning_rate, **optimizer_kwargs
+        )
 
         # Get the initial distribution and initialise
         self.prior_distribution = prior
@@ -264,12 +263,15 @@ class NeuralNet(nn.Module):
         # Generate a prediction and train the net to output the given target
         prediction = self.forward(torch.rand(self.input_dim))
         iter = 0
+
+        # Use a separate optimizer for the training
+        optim = torch.optim.Adam(self.parameters(), lr=0.002)
         while torch.norm(prediction - target) > tol and iter < max_iter:
             prediction = self.forward(torch.rand(self.input_dim))
             loss = torch.nn.functional.mse_loss(target, prediction, reduction="sum")
             loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
+            optim.step()
+            optim.zero_grad()
             iter += 1
 
     # ... Evaluation functions .........................................................................................

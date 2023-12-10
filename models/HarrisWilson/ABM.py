@@ -13,9 +13,8 @@ class HarrisWilsonABM:
         true_parameters: dict = None,
         epsilon: float = 1.0,
         dt: float = 0.001,
-        device: str
+        device: str,
     ):
-
         """The Harris and Wilson model of economic activity.
 
         :param origin_sizes: the origin sizes of the network
@@ -62,16 +61,13 @@ class HarrisWilsonABM:
         input_data=None,
         epsilon: float = None,
         dt: float = None,
-        requires_grad: bool = True
     ):
-
         """Runs the model for a single iteration.
 
         :param curr_vals: the current values which to take as initial data.
         :param input_data: the input parameters (to learn). Defaults to the model defaults.
         :param epsilon: (optional) the epsilon value to use. Defaults to the model default.
         :param dt: (optional) the time differential to use. Defaults to the model default.
-        :param requires_grad: whether the resulting values require differentiation
         :return: the updated values
 
         """
@@ -103,7 +99,6 @@ class HarrisWilsonABM:
         dt = self.dt if dt is None else dt
 
         new_sizes = curr_vals.clone()
-        new_sizes.requires_grad = requires_grad
 
         # Calculate the weight matrix C^beta
         weights = torch.pow(self.nw, beta)
@@ -135,7 +130,7 @@ class HarrisWilsonABM:
         # Update the current values
         new_sizes = (
             new_sizes
-            + +torch.mul(
+            + torch.mul(
                 curr_vals,
                 epsilon * (demand - kappa * curr_vals)
                 + sigma
@@ -158,10 +153,8 @@ class HarrisWilsonABM:
         n_iterations: int,
         epsilon: float = None,
         dt: float = None,
-        requires_grad: bool = True,
-        generate_time_series: bool = False
+        generate_time_series: bool = False,
     ) -> torch.tensor:
-
         """Runs the model for n_iterations.
 
         :param init_data: the initial destination zone size values
@@ -169,35 +162,23 @@ class HarrisWilsonABM:
         :param n_iterations: the number of iteration steps.
         :param epsilon: (optional) the epsilon value to use. Defaults to the model default.
         :param dt: (optional) the time differential to use. Defaults to the model default.
-        :param requires_grad: (optional) whether the calculated values require differentiation
         :param generate_time_series: whether to generate a complete time series or only return the final value
         :return: the time series data
 
         """
+        sizes = [init_data.clone()]
 
-        if not generate_time_series:
-            sizes = init_data.clone()
-            for _ in range(n_iterations):
-                sizes = self.run_single(
-                    curr_vals=sizes,
+        for _ in range(n_iterations):
+            sizes.append(
+                self.run_single(
+                    curr_vals=sizes[-1],
                     input_data=input_data,
                     epsilon=epsilon,
                     dt=dt,
-                    requires_grad=requires_grad,
                 )
-                return torch.stack(sizes)
-
+            )
+        sizes = torch.stack(sizes)
+        if not generate_time_series:
+            return sizes[-1]
         else:
-            sizes = [init_data.clone()]
-            for _ in range(n_iterations):
-                sizes.append(
-                    self.run_single(
-                        curr_vals=sizes[-1],
-                        input_data=input_data,
-                        epsilon=epsilon,
-                        dt=dt,
-                        requires_grad=requires_grad,
-                    )
-                )
-            sizes = torch.stack(sizes)
-            return torch.reshape(sizes, (sizes.shape[0], sizes.shape[1], 1))
+            return sizes

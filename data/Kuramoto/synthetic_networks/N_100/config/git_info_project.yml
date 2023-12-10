@@ -85,4 +85,3 @@ latest_commit: {author: Thomas Gaskin <tgaskin@live.co.uk>, author_date: '2023-0
   refs: add_Kuramoto_model, tree: 75614ef69109e2eef72793d0081ad42a4e035763}
 project_base_dir: /Users/thomasgaskin/NeuralABM
 project_name: NeuralABM
-

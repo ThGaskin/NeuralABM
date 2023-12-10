@@ -1,7 +1,9 @@
 ---
-# Losses
 loss:
   based_on: loss
+  helpers:
+    set_title:
+      title: Loss over time
 
 # True network (as a graph)
 network:
@@ -9,45 +11,176 @@ network:
 
 # True adjacency matrix
 Adjacency_matrices/true_adjacency_matrix:
-  based_on: adjacency_matrix
+  based_on:
+    - .creator.universe
+    - .adjacency_matrix
+  select:
+    data: true_network/_adjacency_matrix
+  helpers:
+    set_title:
+      title: True adjacency matrix
 
 # Predicted adjacency matrix
 Adjacency_matrices/prediction:
-  based_on: adjacency_matrix
+  based_on:
+    - .creator.universe
+    - .adjacency_matrix
   select:
-    data:
-      path: output_data/predictions
+    loss_idx:
+      path: output_data/Loss
       transform:
-        - .isel: [!dag_prev , {time: -1}]
+        - .sel_with_drop: [!dag_prev , {kind: Data loss}]
+        - .idxmin: [!dag_prev ]
+    predictions:
+      path: output_data/predictions
+  transform:
+    - .sel_with_drop: [!dag_tag predictions , {batch: !dag_tag loss_idx}]
+      tag: data
+  helpers:
+    set_title:
+      title: Predicted adjacency matrix (MLE)
 
-# L1 error on each edge
+# L1 error of the most likely prediction on each edge
 Adjacency_matrices/error:
-  based_on: error
-
-# L1 error on true edges
-Adjacency_matrices/error_on_true_edges:
-  based_on: error_on_true_edges
-
-# L1 error on falsely predicted edges
-Adjacency_matrices/error_on_false_edges:
-  based_on: error_on_false_edges
+  based_on:
+    - .creator.universe
+    - .adjacency_matrix
+    - .style_error_cmap
+  select:
+    true_value: true_network/_adjacency_matrix
+    loss_idx:
+      path: output_data/Loss
+      transform:
+        - .sel_with_drop: [!dag_prev , {kind: Data loss}]
+        - .idxmin: [!dag_prev ]
+    predictions:
+      path: output_data/predictions
+  transform:
+    - .sel_with_drop: [!dag_tag predictions , {batch: !dag_tag loss_idx}]
+    - sub: [!dag_prev , !dag_tag true_value]
+    - np.abs: [!dag_prev ]
+      tag: data
+  norm:
+    name: LogNorm
+  vmin: 1e-8
+  helpers:
+    set_title:
+      title: L1 error on prediction
 
 # Polar plot of the training phases
-Training_data/polar_phases:
-  based_on: phases
-
-# Line plot of the training phases
-Training_data/line_phases:
-  based_on: phases_lines
-
-# Oscillations of the nodes
-Training_data/oscillations:
-  based_on: oscillations
-
-# Plot a predicted time series
-predicted_time_series:
-  based_on: phases_lines
+Training_data/phases:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.scatter
   select:
-    data:
-      path: output_data/predicted phases
-      transform: ~
+    phases:
+      path: training_data/phases
+      transform:
+        - .isel_with_drop: [!dag_prev , {time: [0, -1], training_set: 0}]
+  transform:
+    - mod: [!dag_tag phases , 6.283 ]
+      tag: angle
+    - xr.ones_like: [!dag_prev ]
+      tag: radius
+    - xr.Dataset:
+      - angle: !dag_tag angle
+        radius: !dag_tag radius
+      tag: data
+  x: angle
+  y: radius
+  hue: angle
+  col: time
+  subplot_kws:
+    projection: polar
+  cmap:
+    from_values:
+      0: !dag_result c_darkblue
+      0.5: !dag_result c_yellow
+      1: !dag_result c_darkblue
+    continuous: true
+  add_colorbar: False
+  helpers:
+    call:
+      functions:
+        - function: [ matplotlib, pyplot.subplots_adjust ]
+          left: 0.12
+          right: 0.88
+    set_limits:
+      y: [0.2, 1.2]
+    set_ticks:
+      x:
+        major:
+          locs: [0.0, 0.785, 1.570, 2.356, 3.141, 3.926, 4.712, 5.497]
+          labels: [0, $\pi/4$, $\pi/2$, $3\pi/4$, $\pi$, $5\pi/4$, $3\pi/2$, $7\pi/4$]
+        minor:
+          locs: [0.392, 1.178, 1.963, 2.748, 3.534, 4.319, 5.105, 5.890]
+      y:
+        major: []
+        labels: []
+    set_labels:
+      x: ' '
+      y: ' '
+    set_suptitle:
+      title: Polar plot of training data phases
+  style:
+    axes.linewidth: 0.1
+    axes.grid.which: both
+    axes.labelpad: 0
+    xtick.major.pad: 0
+
+# Plot the complete state equation for each vertex (sin(\Omega t + \varphi(t)))
+Training_data/oscillations:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+    - .hlpr.legend.hide
+  select:
+    eigen_frequencies:
+      path: training_data/eigen_frequencies
+      transform:
+        - .isel_with_drop: [ !dag_prev , { training_set: 0 } ]
+    phases:
+      path: training_data/phases
+      transform:
+        - .isel_with_drop: [ !dag_prev , { training_set: 0 } ]
+  transform:
+    - .coords: [!dag_tag phases, 'time']
+      tag: t
+    - .squeeze: [!dag_tag phases]
+    - mul: [!dag_prev , !dag_tag t ]
+    - add: [!dag_tag eigen_frequencies , !dag_prev ]
+    - np.sin: [!dag_prev ]
+      tag: data
+  x: time
+  hue: vertex_idx
+  color: black
+  alpha: 0.5
+
+# Plot the predicted and true degree distribution with uncertainty
+degree_distribution:
+  based_on: degree_distribution_uni
+  x: x
+  y: y
+  yerr: yerr
+  hue: type
+  linestyle: [solid, dotted]
+  smooth_kwargs:
+    enabled: True
+    sigma: 2
+  helpers:
+    set_limits:
+      y: [ 0, ~ ]
+    set_labels:
+      x: Weighted node degree
+      y: ' '
+    set_title:
+      title: True and predicted degree distribution
+
+# Plot the predicted and true degree triangle_distribution with uncertainty
+triangle_distribution:
+  based_on:
+    - degree_distribution
+    - triangle_distribution_uni
+  helpers:
+    set_title:
+      title: True and predicted triangle distribution

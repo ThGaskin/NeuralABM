@@ -19,7 +19,7 @@ repos:
 
   # Default pre-commit hooks ..................................................
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.10.1
+    rev: 5.12.0
     hooks:
       - id: isort
         name: sort imports
@@ -28,20 +28,20 @@ repos:
         args: [--project=utopya]
 
   - repo: https://github.com/psf/black
-    rev: 22.3.0
+    rev: 23.10.1
     hooks:
       - id: black
         name: black code formatting
         args: [--safe]
 
   - repo: https://github.com/pre-commit/pygrep-hooks
-    rev: v1.9.0
+    rev: v1.10.0
     hooks:
       - id: rst-backticks
         name: check RST backticks
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.2.0
+    rev: v4.5.0
     hooks:
       - id: end-of-file-fixer
         name: fix end of files

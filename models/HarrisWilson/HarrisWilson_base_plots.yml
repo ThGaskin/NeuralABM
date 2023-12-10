@@ -1,54 +1,85 @@
 ---
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
 .variables:
   base_path:        &base_path    data/HarrisWilson
-  loss_limit:       &loss_limit   1e-15
 
-  colors: &colors
-    yellow:         &yellow       '#F5DDA9'
-    darkblue:       &darkblue     '#2F7194'
-    red:            &red          '#ec7070'
-    skyblue:        &skyblue      '#97c3d0'
-    green:          &green        '#48675A'
-    lightbrown:     &lightbrown   '#C6BFA2'
-    orange:         &orange       '#EC9F7E'
-    lightgreen:     &lightgreen   '#AFD8BC'
-    grey:           &grey         '#3D4244'
-
-.latex_off:
-  style:
-    text.usetex: False
-
-.latex_on:
-  style:
-    text.usetex: True
-    mathtext.fontset: cm
-    font.family: serif
-    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
+.meta_ops:
+  dag_options:
+    meta_operations:
+      neg_exp:
+        - mul: [!arg 0 , -1]
+        - np.exp: [!dag_prev ]
 
 .default_style:
-  based_on:
-    - .latex_off    # Change this to .latex_on to use latex
+  dag_visualization:
+    enabled: False
+  dag_options:
+    define: &colors
+
+      # Make colors and page widths accessible across all plots
+      c_yellow: '#F5DDA9'
+      c_orange: '#EC9F7E'
+      c_red: '#ec7070'
+      c_pink: '#F8A6A6'
+      c_purple: '#A07CB0'
+      c_lightblue: '#97c3d0'
+      c_darkblue: '#2F7194'
+      c_lightgreen: '#AFD8BC'
+      c_darkgreen: '#48675A'
+      c_lightbrown: '#C6BFA2'
+      c_lightgrey: '#AFC1B9'
+      c_darkgrey: '#3D4244'
+
+      # Set the page width of the document to allow for easy integration
+      _page_width: 7.5
+
+      # These are available for all plots and can be used to adjust the figure size or generate new sizes as needed
+      full_width: !dag_tag _page_width
+      half_width:
+        - div: [!dag_tag _page_width, 2]
+      third_width:
+        - div: [!dag_tag _page_width, 3]
+      quarter_width:
+        - div: [!dag_tag _page_width, 4]
+      fifth_width:
+        - div: [!dag_tag _page_width, 5]
+
   style:
-    font.size:          &font_size 9
-    axes.titlesize:     *font_size
-    axes.labelsize:     *font_size
-    legend.fontsize:    *font_size
-    xtick.labelsize:    *font_size
-    ytick.labelsize:    *font_size
+    text.usetex:        True   # Set to 'True' to use latex
+    mathtext.fontset:   cm
+    font.family:        serif
+    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
+
+    # Set the label fontsize
+    font.size:          &fontsize 8
+    axes.titlesize:     *fontsize
+    axes.labelsize:     *fontsize
+    xtick.labelsize:    *fontsize
+    ytick.labelsize:    *fontsize
+    legend.fontsize:    *fontsize
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[yellow]:}',
-                              '{colors[darkblue]:}',
-                              '{colors[red]:}',
-                              '{colors[skyblue]:}',
-                              '{colors[green]:}',
-                              '{colors[lightbrown]:}',
-                              '{colors[orange]:}',
-                              '{colors[lightgreen]:}',
-                              '{colors[grey]:}'
+      fstr: "cycler('color', ['black',
+                              '{colors[c_darkblue]:}',
+                              '{colors[c_yellow]:}',
+                              '{colors[c_darkgreen]:}',
+                              '{colors[c_red]:}',
+                              '{colors[c_lightblue]:}',
+                              '{colors[c_lightbrown]:}',
+                              '{colors[c_orange]:}',
+                              '{colors[c_lightgreen]:}',
+                              '{colors[c_darkgrey]:}',
+                              '{colors[c_pink]:}',
+                              '{colors[c_purple]:}',
+                              '{colors[c_lightgrey]:}'
                               ])"
-      colors: *colors
+      colors:
+        <<: *colors
     axes.grid:          True
     axes.spines.top:    False
     axes.spines.right:  False
@@ -56,8 +87,14 @@
   helpers:
     save_figure:
       dpi: 900
-  file_ext: png
+  file_ext: pdf
 
+.cycler_yellow_green:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_yellow]:}', '{colors[c_darkgreen]:}'])"
+      colors:
+        <<: *colors
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
@@ -69,6 +106,7 @@
   based_on:
     - .creator.universe
     - .default_style
+    - .meta_ops
 
   dag_options:
     select_path_prefix: *base_path
@@ -77,9 +115,15 @@
   based_on:
     - .creator.multiverse
     - .default_style
+    - .meta_ops
 
   select_and_combine:
     base_path: *base_path
+
+# Base function for probability densities
+.plot.facet_grid.density:
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
 
 # ======================================================================================================================
 #  ╔═╗╦  ╔═╗╔╦╗╔═╗
@@ -101,147 +145,50 @@ loss:
     set_scales:
       y: log
 
-# -- Plot of the parameter predictions  --------------------------------------------------------------------------------
-predictions:
-  based_on:
-    - .creator.universe
-    - .plot.facet_grid.line
-  select:
-    alpha:
-      path: alpha
-      transform:
-        - .data: [ !dag_prev ]
-    beta:
-      path: beta
-      transform:
-        - .data: [ !dag_prev ]
-    kappa:
-      path: kappa
-      transform:
-        - .data: [ !dag_prev ]
-  transform:
-    - xr.concat: [[ !dag_tag alpha, !dag_tag beta, !dag_tag kappa ] ]
-      kwargs:
-        dim: values
-        combine_attrs: drop
-      tag: data
-  x: time
-  helpers:
-    set_labels:
-      x: iteration
-      y: ' '
-
-# -- Plot of the training loss density over the parameter space  -------------------------------------------------------
-# One-dimensional loss potential
-loss_potential:
+loss_mv:
   based_on:
     - .creator.multiverse
-    - .plot.facet_grid.scatter
-  expected_multiverse_ndim: [1,2,3,4,5]
-  select_and_combine:
-    fields:
-      param1: alpha
-      loss:
-        path: loss
-        transform:
-          - np.maximum: [!dag_prev , *loss_limit]
-          - log10: [!dag_prev ]
-          - mul: [!dag_prev , -1]
-  transform:
-    - xr.Dataset:
-      - x: !dag_tag param1
-        loss: !dag_tag loss
-      tag: data
-
-  x: x
-  hue: loss
-  y: loss
-  s: 4
-  alpha: 0.2
-  linewidths: 0
-  add_colorbar: False
-  cmap:
-    continuous: true
-    from_values:
-      0: *yellow
-      1: *darkblue
-  helpers:
-    set_labels:
-      y: &loss_label '$-\log_{10}(J)$'
-
-# Two-dimensional loss potential
-loss_potential_3d:
-  based_on:
-    - .creator.multiverse
-    - loss_potential
-    - .plot.facet_grid.scatter3d
-  select_and_combine:
-    fields:
-      param2:
-        path: beta
-  transform:
-    - xr.Dataset:
-        data_vars:
-          param1: !dag_tag param1
-          param2: !dag_tag param2
-          loss: !dag_tag loss
-    - .stack: [!dag_prev , {' ': ['seed', 'time']}, False]
-      tag: data
-  x: param2
-  y: param1
-  z: loss
-  add_colorbar: False
-  alpha: 1
-  helpers:
-    set_labels:
-      z:
-        label: *loss_label
-        rotation: 90
-      rotate_z_label: False
-
-# Marginal probability densities
-marginals:
-  based_on: .creator.multiverse
-  expected_multiverse_ndim: [1,2,3,4,5]
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
-  select_and_combine:
-    fields:
-      loss:
-        path: loss
-        transform:
-          - np.maximum: [ !dag_prev , *loss_limit ]
-          - mul: [ !dag_prev , -1 ]
-          - np.exp: [!dag_prev ]
-  transform:
-    - xr.Dataset:
-      - x: !dag_tag param1
-        p: !dag_tag loss
-    - compute_marginals: [ !dag_prev ]
-      kwargs:
-        bins: 1000
-        x: x
-        p: p
-      tag: data
-  smooth_kwargs:
-    enabled: true
-    sigma: 1
-
-# Timeseries plot
-time_series:
-  based_on:
-    - .creator.universe
     - .plot.facet_grid.line
-  select:
-    data: time_series
-  hue: zone_id
-  x: time
+  select_and_combine:
+    fields:
+      data: loss
+  color: black
+  hue: seed
+  alpha: 0.5
   add_legend: False
   helpers:
     set_labels:
-      y: $W_j$
+      x: epoch
+      y: Training loss
+    set_scales:
+      y: log
 
-# Network plot
+# -- Plot of the parameter predictions  --------------------------------------------------------------------------------
+predictions_uni:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data:
+      path: parameters
+      transform: [.data]
+  col: parameter
+
+predictions_mv:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      data:
+        path: parameters
+        transform: [.data]
+  col: parameter
+  hue: seed
+  color: !dag_result c_darkgrey
+  add_legend: False
+
+# -- Network plot  --------------------------------------------------------------------------------
 network:
   based_on:
     - .creator.universe
@@ -290,8 +237,8 @@ network:
         from_property: node_type
       cmap:
         from_values:
-          0: *darkblue # origin sizes are encoded as '0'
-          1: *red # destination sizes are encoded as '1'
+          0: !dag_result c_darkblue # origin sizes are encoded as '0'
+          1: !dag_result c_red # destination sizes are encoded as '1'
       colorbar:
         enabled: false
     edges:

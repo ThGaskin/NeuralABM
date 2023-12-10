@@ -63,7 +63,6 @@ class Agent:
         self.move(direction)
 
     def move_in_periodic_space(self, direction: Vector, space: Union[Vector, Sequence]):
-
         if isinstance(space, Vector):
             x_0, x_1 = 0, space.x
             y_0, y_1 = 0, space.y
@@ -196,7 +195,6 @@ class SIR_ABM:
 
     # Initialises the ABM data containers
     def initialise(self):
-
         # Initialise the ABM with one infected agent.
         self.kinds = {
             kinds.SUSCEPTIBLE: {i: None for i in range(1, self.N)},
@@ -222,7 +220,6 @@ class SIR_ABM:
 
     # Updates the agent kinds
     def update_kinds(self, id=None, kind=None):
-
         if id is None:
             self.current_kinds = [int(self.agents[i].kind) for i in range(self.N)]
         else:
@@ -230,7 +227,6 @@ class SIR_ABM:
 
     # Updates the kind counts
     def update_counts(self):
-
         self.current_counts = torch.tensor(
             [
                 [len(self.kinds[kinds.SUSCEPTIBLE])],
@@ -241,7 +237,6 @@ class SIR_ABM:
 
     # Moves the agents randomly in space
     def move_agents_randomly(self):
-
         for agent_id in self.kinds[kinds.SUSCEPTIBLE].keys():
             self.agents[agent_id].move_randomly_in_space(
                 space=self.space,
@@ -265,7 +260,6 @@ class SIR_ABM:
 
     # Updates the agent positions
     def update_positions(self):
-
         self.current_positions = [
             (self.agents[i].position.x, self.agents[i].position.y)
             for i in range(self.N)
@@ -281,7 +275,6 @@ class SIR_ABM:
 
     # Runs the ABM for a single iteration
     def run_single(self, *, parameters: torch.tensor = None):
-
         p_infect = self.p_infect if parameters is None else parameters[0]
         t_infectious = self.t_infectious if parameters is None else parameters[1]
 
@@ -289,7 +282,6 @@ class SIR_ABM:
         infected_agent_ids = []
 
         if self.kinds[kinds.SUSCEPTIBLE] and self.kinds[kinds.INFECTED]:
-
             # For each susceptible agent, calculate the number of contacts to an infected agent.
             # A contact occurs when the susceptible agent is within the infection radius of an infected agent.
             num_contacts = torch.sum(
@@ -342,7 +334,6 @@ class SIR_ABM:
                 ]
 
             if infected_agent_ids:
-
                 # Update the counts of susceptible and infected agents accordingly
                 self.current_counts[0] -= len(infected_agent_ids)
                 self.current_counts[1] += len(infected_agent_ids)
@@ -359,7 +350,6 @@ class SIR_ABM:
 
         # Change any 'infected' agents that have surpassed the maximum infected time to 'recovered'.
         if len(self.times_since_infection) > t_infectious:
-
             # The agents that have been infectious for the maximum amount of time have recovered
             recovered_agents = self.times_since_infection.pop()
 

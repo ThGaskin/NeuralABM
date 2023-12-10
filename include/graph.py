@@ -13,7 +13,6 @@ def generate_graph(
     seed: int = None,
     graph_props: dict = None,
 ) -> nx.Graph:
-
     """Generates graphs of a given topology
 
     :param N: number of nodes
@@ -39,7 +38,6 @@ def generate_graph(
 
     # Random graph
     if type.lower() == "random":
-
         is_directed: bool = graph_props["is_directed"]
 
         G = _connect_isolates(
@@ -50,12 +48,10 @@ def generate_graph(
 
     # Undirected scale-free graph
     elif type.lower() == "barabasialbert":
-
         G = _connect_isolates(nx.barabasi_albert_graph(N, mean_degree, seed))
 
     # Directed scale-free graph
     elif type.lower() == "bollobasriordan":
-
         G = nx.DiGraph(
             _connect_isolates(
                 nx.scale_free_graph(N, **graph_props["BollobasRiordan"], seed=seed)
@@ -64,19 +60,16 @@ def generate_graph(
 
     # Small-world (Watts-Strogatz) graph
     elif type.lower() == "wattsstrogatz":
-
         p: float = graph_props["WattsStrogatz"]["p_rewire"]
 
         G = _connect_isolates(nx.watts_strogatz_graph(N, mean_degree, p, seed))
 
     # Star graph
     elif type.lower() == "star":
-
         G = nx.star_graph(N)
 
     # Regular graph
     elif type.lower() == "regular":
-
         G = nx.random_regular_graph(mean_degree, N, seed)
 
     # Raise error upon unrecognised graph type
@@ -98,7 +91,6 @@ def save_nw(
     write_adjacency_matrix: bool = False,
     static: bool = True,
 ):
-
     """Saves a network to a h5.Group graph group. The network can be either dynamic of static,
     static in this case meaning that none of the datasets have a time dimension.
 
@@ -253,7 +245,6 @@ def save_nw(
         ]
 
     if write_adjacency_matrix:
-
         adj_matrix = nx.to_numpy_array(network)
 
         # Adjacency matrix: only written out if explicity specified

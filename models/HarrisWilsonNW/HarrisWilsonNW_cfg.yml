@@ -8,8 +8,8 @@ Data:
     num_steps: 500
 
     # Origin zone and destination zone size
-    N_origin: !is-positive-int 10
-    N_destination: !is-positive-int 5
+    N_origin: !is-positive-int 50
+    N_destination: !is-positive-int 60
 
     # Size, convenience, cost, noise, and responsiveness parameters
     alpha: !is-positive-or-zero &alpha 1.2
@@ -69,6 +69,8 @@ NeuralNet:
 Training:
   loss_function:
     name: MSELoss
+    kwargs:
+      reduction: sum
   batch_size: !is-positive-int 1
   device: cpu
   true_parameters:

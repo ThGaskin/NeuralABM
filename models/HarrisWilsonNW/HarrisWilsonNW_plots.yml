@@ -2,39 +2,104 @@
 # Plot the losses
 loss:
   based_on: loss
+  helpers:
+    set_title:
+      title: Loss over time
+
+# True network (as a graph)
+network:
+  based_on: network
 
 # True adjacency matrix
 Adjacency_matrices/true_adjacency_matrix:
-  based_on: adjacency_matrix
+  based_on:
+    - .creator.universe
+    - .adjacency_matrix
+  select:
+    data: true_network/_adjacency_matrix
+  helpers:
+    set_title:
+      title: True adjacency matrix
 
 # Predicted adjacency matrix
 Adjacency_matrices/prediction:
-  based_on: adjacency_matrix
+  based_on:
+    - .creator.universe
+    - .adjacency_matrix
   select:
-    data:
-      path: output_data/predictions
+    loss_idx:
+      path: output_data/Loss
       transform:
-        - .isel: [!dag_prev , {time: -1}]
+        - .sel_with_drop: [!dag_prev , {kind: Training loss}]
+        - .idxmin: [!dag_prev ]
+    predictions:
+      path: output_data/predictions
+  transform:
+    - .sel_with_drop: [!dag_tag predictions , {batch: !dag_tag loss_idx}]
+      tag: data
+  helpers:
+    set_title:
+      title: Predicted adjacency matrix (MLE)
 
-# L1 error on each edge
+# L1 error of the most likely prediction on each edge
 Adjacency_matrices/error:
-  based_on: error
+  based_on:
+    - .creator.universe
+    - .adjacency_matrix
+    - .style_error_cmap
+  select:
+    true_value: true_network/_adjacency_matrix
+    loss_idx:
+      path: output_data/Loss
+      transform:
+        - .sel_with_drop: [!dag_prev , {kind: Training loss}]
+        - .idxmin: [!dag_prev ]
+    predictions:
+      path: output_data/predictions
+  transform:
+    - .sel_with_drop: [!dag_tag predictions , {batch: !dag_tag loss_idx}]
+    - sub: [!dag_prev , !dag_tag true_value]
+    - np.abs: [!dag_prev ]
+      tag: data
+  norm:
+    name: LogNorm
+  vmin: 1e-8
+  helpers:
+    set_title:
+      title: L1 error on prediction
 
-# L1 error on true edges
-Adjacency_matrices/error_on_true_edges:
-  based_on: error_on_true_edges
-
-# L1 error on falsely predicted edges
-Adjacency_matrices/error_on_false_edges:
-  based_on: error_on_false_edges
-
-# Compare the true and predicted time series
-predicted_time_series:
-  based_on: prediction_comparison
+# Plot the degree distribution
+# Plot the predicted and true degree distribution with uncertainty
+degree_distribution:
+  based_on: degree_distribution_uni
+  x: x
+  y: y
+  yerr: yerr
+  hue: type
+  linestyle: [solid, dotted]
+  smooth_kwargs:
+    enabled: True
+    sigma: 2
+  helpers:
+    set_limits:
+      y: [ 0, ~ ]
+    set_labels:
+      x: Weighted node degree
+      y: ' '
+    set_title:
+      title: True and predicted degree distribution
 
 # Plot the origin sizes
 origin_sizes:
-  based_on: time_series
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
   select:
     data:
       path: training_data/origin_sizes
+  x: time
+  helpers:
+    set_legend:
+      use_legend: False
+    set_title:
+      title: Origin zone sizes

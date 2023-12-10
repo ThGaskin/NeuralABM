@@ -67,7 +67,6 @@ def distance(
     space: Union[Vector, Sequence] = None,
     as_tensor: bool = True,
 ):
-
     """Returns the distance between two vectors v and w. If the space is periodic, the distance is
     calculated accordingly."""
 

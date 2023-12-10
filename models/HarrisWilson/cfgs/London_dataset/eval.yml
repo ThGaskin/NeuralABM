@@ -1,210 +1,308 @@
----
-_:
-  colors: &colors
-    yellow:             &yellow           '#F5DDA9'
-    darkblue:           &darkblue         '#2F7194'
-    red:                &red              '#ec7070'
-    skyblue:            &skyblue          '#97c3d0'
-    green:              &green            '#48675A'
-    lightbrown:         &lightbrown       '#C6BFA2'
-    orange:             &orange           '#EC9F7E'
-    lightgreen:         &lightgreen       '#AFD8BC'
-    grey:               &grey             '#3D4244'
-    lightgrey:          &lightgrey        '#D6D6D6'
-
-  # Page widths in inches for latex documents: ensures easy integration into latex documents
-  page_widths:
-    full_width:         &full_width       7.00787402
-    half_width:         &half_width       !expr 7.00787402 / 2
-    third_width:        &third_width      !expr 7.00787402 / 3
-    quarter_width:      &quarter_width    !expr 7.00787402 / 4
-    fifth_width:        &fifth_width      !expr 7.00787402 / 5
-
-# ======================================================================================================================
-#  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
-#   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
-#   ╩ ╚═╝╩ ╩╩  ╩═╝╩ ╩ ╩ ╚═╝╚═╝
-# ======================================================================================================================
-# Defaults for marginals plots
-.defaults:
-  based_on: marginals
-  file_ext: pdf
-  style:
-    figure.figsize: [ *third_width, *fifth_width ]
-    axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[yellow]:}', '{colors[green]:}'])"
-      colors: *colors
-
-  # Smoothing settings for marginals
-  smooth_kwargs:
-    enabled: true
-    sigma: 1.5
-
-# ======================================================================================================================
-#  ╦  ╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
-#  ║  ║ ║║║║  ║║║║ ║║╚═╗║╣   ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
-#  ╩═╝╚═╝╚╩╝  ╝╚╝╚═╝╩╚═╝╚═╝  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
-# ======================================================================================================================
-# -- Marginal density for alpha for the different metrics, including the MCMC density (low noise regime) ---------------
-low_noise/alpha:
-  based_on: .defaults
-  dag_options:
-    define:
-      mcmc_data_path: 'data/HarrisWilson/London_data/MCMC_data/low_noise_alpha.csv'
-      pname: 'alpha'
+# Plot the marginals in a single facet_grid plot
+marginals:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+    - .cycler_yellow_green
   select_and_combine:
     fields:
-      param1: alpha
-    subspace:
-      sigma:
-        idx: 1
+      parameters: parameters
+      loss: loss
   transform:
 
-    # Get the MCMC data
-    - import_and_call: [ pandas, read_csv, !dag_tag mcmc_data_path]
-      kwargs:
-        index_col: 0
-    - getitem: [!dag_prev , !dag_tag pname]
-      tag: mcmc_data
+    # Divide the loss by the median value: this is necessary to prevent numerical underflow
+    # arising from very small values of J
+    - .median: [ !dag_tag loss , [ 'epoch', 'seed', 'metric' ] ]
+    - div: [ !dag_tag loss, !dag_prev ]
+    - mul: [ !dag_prev , -1 ]
+    - np.exp: [ !dag_prev ]
 
-    # Compute the model marginals
-    - xr.Dataset:
-      - x: !dag_tag param1
-        p: !dag_tag loss
-    - .assign_coords: [!dag_prev , {'metric': ['temporal', 'spatial']}]
-    - operation: compute_marginals
-      args: [!dag_prev ]
+    # Flatten the prob and parameter samples into a single dimension
+    # Reassign metric coordinates for easier selection
+    - flatten_dims: [!dag_prev ]
       kwargs:
-        exclude_dim:
-          - metric
-        bins: 1000
-        clip: [0, 2]
+        dims: {sample: [epoch, seed]}
+    - .assign_coords: [ !dag_prev , { metric: [ 'temporal', 'spatial' ] } ]
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+    - .assign_coords: [ !dag_prev , { metric: [ 'temporal', 'spatial' ] } ]
+      tag: params
+
+    # Broadcast the parameter and probabilities into a common dataset
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev ]
+      kwargs:
         x: x
-        p: p
+        y: loss
+        exclude_dim: [sigma, metric, parameter]
       tag: data
   x: x
-  y: p
+  y: y
+  col: parameter
   hue: metric
+  row: sigma
+  sharex: False
+  sharey: False
+  style:
+    figure.figsize: [!dag_result full_width, !dag_result full_width]
+
+# Plot each individual marginal, smoothed, with the MCMC comparison (PNAS publication plots)
+marginals/low_noise/alpha:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+    - .cycler_yellow_green
+  dag_options:
+    meta_operations:
+      load_csv:
+        - import_and_call: [ pandas, read_csv, !arg 0 ]
+          kwargs: {index_col: 0}
+        - getitem: [ !dag_prev , !arg 1 ]
+    define:
+      parameter: 'alpha'
+      mcmc_path: 'data/HarrisWilson/London_data/MCMC_data/low_noise_alpha.csv'
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
+      loss: loss
+    subspace:
+      sigma: {idx: 1}
+  transform:
+    - xr.DataArray:
+        data: [[1000, 1000], [1000, 1000]]
+        dims: ['metric', 'idx']
+        coords: {metric: ['temporal', 'spatial']}
+      tag: bins
+
+    # Divide the loss by the median value: this is necessary to prevent numerical underflow
+    # arising from very small values of J
+    - .median: [ !dag_tag loss ]
+    - div: [ !dag_tag loss, !dag_prev ]
+    - mul: [ !dag_prev , -1 ]
+    - np.exp: [ !dag_prev ]
+
+    # Flatten the prob and parameter samples into a single dimension
+    # Reassign metric coordinates for easier selection
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {sample: [epoch, seed, sigma]}
+    - .assign_coords: [ !dag_prev , { metric: [ 'temporal', 'spatial' ] } ]
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [epoch, seed, sigma]}
+    - .assign_coords: [ !dag_prev , { metric: [ 'temporal', 'spatial' ] } ]
+      tag: params
+
+    # Broadcast the parameter and probabilities into a common dataset
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev , !dag_tag bins ]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [metric]
+      tag: data
+
+    # Load the MCMC data for comparison, if available
+    - load_csv: [!dag_tag mcmc_path, !dag_tag parameter]
+      allow_failure: silent
+      tag: mcmc_data
+
+    # Format the parameter name as a latex string
+    - .format: ['$\{:}$', !dag_tag parameter]
+      tag: x_label
+  x: x
+  y: y
+  hue: metric
+  style:
+    figure.figsize: [ !dag_result third_width, !dag_result fifth_width ]
+  smooth_kwargs:
+    enabled: True
+    smoothing: 10
   helpers:
+    # Draw the MCMC
     call:
       functions:
         - function: sns.kdeplot
           data: !dag_result mcmc_data
-          color: *lightbrown
-          label: Euclidean metric (MCMC)
+          color: !dag_result c_lightbrown
+          label: MCMC
+    set_legend:
+      use_legend: True
+      gather_from_fig: True
     set_labels:
-      x: '$\alpha$'
+      x: !dag_result x_label
       y: ' '
-    set_legend:
-      use_legend: False
-    set_limits:
-      x: [0.5, 1.5]
 
-# -- Marginal density for beta for the different metrics, including the MCMC density (low noise regime) ---------------
-low_noise/beta:
-  based_on: low_noise/alpha
+marginals/low_noise/beta:
+  based_on: marginals/low_noise/alpha
   dag_options:
     define:
-      mcmc_data_path: 'data/HarrisWilson/London_data/MCMC_data/low_noise_beta.csv'
-      pname: beta
-  select_and_combine:
-    fields:
-      param1: beta
-  helpers:
-    set_legend:
-      use_legend: False
-    set_labels:
-      x: '$\beta$'
-    set_limits:
-      x: [0, 0.5]
+      parameter: 'beta'
+      mcmc_path: 'data/HarrisWilson/London_data/MCMC_data/low_noise_beta.csv'
 
-# -- Marginal density for kappa for the different metrics (low noise regime) -------------------------------------------
-low_noise/kappa:
-  based_on: .defaults
+# No MCMC estimate exists for kappa
+marginals/low_noise/kappa:
+  based_on: marginals/low_noise/alpha
+  dag_options:
+    define:
+      parameter: 'kappa'
+  helpers:
+    call: {functions: []}
+
+marginals/high_noise/alpha:
+  based_on: marginals/low_noise/alpha
+  dag_options:
+    define:
+      mcmc_path: 'data/HarrisWilson/London_data/MCMC_data/high_noise_alpha.csv'
+  select_and_combine:
+    subspace:
+      sigma: {idx: 2}
+
+marginals/high_noise/beta:
+  based_on: marginals/low_noise/beta
+  dag_options:
+    define:
+      mcmc_path: 'data/HarrisWilson/London_data/MCMC_data/high_noise_beta.csv'
+  select_and_combine:
+    subspace:
+      sigma: {idx: 2}
+
+marginals/high_noise/kappa:
+  based_on: marginals/low_noise/kappa
+  select_and_combine:
+    subspace:
+      sigma: {idx: 2}
+
+# Plot the predictions of the parameters, colour-coded by loss
+predictions: !pspace
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.scatter
+  add_legend: False
   select_and_combine:
     fields:
-      param1: kappa
+      parameters:
+        path: parameters
+        transform: [.data]
+      loss:
+        path: loss
+        transform: [.data]
     subspace:
-      sigma:
-        idx: 1
+      sigma: !sweep
+        default: 0.14
+        values: [0.014, 0.14]
   transform:
-    - xr.Dataset:
-      - x: !dag_tag param1
-        p: !dag_tag loss
-    - .assign_coords: [!dag_prev , {'metric': ['temporal', 'spatial']}]
-    - operation: compute_marginals
-      args: [ !dag_prev ]
+    - broadcast: [!dag_tag parameters, !dag_tag loss]
       kwargs:
-        exclude_dim:
-          - metric
-        bins: 1000
-        x: x
-        p: p
+        exclude_dim: ['seed', 'metric', 'sigma']
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {'iteration': ['epoch', 'seed']}
+    - .assign_coords: [!dag_prev , {metric: ['temporal', 'spatial']}]
       tag: data
+  col: metric
+  row: parameter
+  x: iteration
+  y: x
+  hue: loss
+  s: 1
+  sharey: False # Seems to have no effect?
+  norm:
+    name: LogNorm
+  cmap:
+    continuous: true
+    from_values:
+      0: !dag_result c_darkblue
+      1: !dag_result c_yellow
+  helpers:
+    set_limits:
+      x: [0, max]
+      y: [0, max] # Why is this necessary?
+
+# Plot the probability landscape
+probability_landscape: !pspace
+  based_on: predictions
+  select_and_combine:
+    fields:
+      loss:
+        path: loss
+        transform:
+          - log10: [!dag_prev ]
+          - mul: [!dag_prev , -1]
   x: x
-  y: p
-  hue: metric
+  y: loss
+  hue: loss
+  sharex: False
+  s: 1
   helpers:
+    set_limits:
+      x: [min, max]
+      y: [min, max]
+
+# Plot the intial value distribution on the parameters
+initial_values:
+  based_on:
+    - .creator.multiverse
+    - .plot.multiplot
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .isel: [!dag_prev , {epoch: 0}]
+  transform:
+    - flatten_dims: [!dag_tag parameters]
+      kwargs:
+        dims: {'sample': ['seed', 'sigma', 'metric']}
+      tag: parameters_flattened
+    - .isel: [!dag_tag parameters_flattened, {parameter: 0}]
+      tag: a
+    - .isel: [!dag_tag parameters_flattened, {parameter: 1}]
+      tag: b
+    - .isel: [!dag_tag parameters_flattened, {parameter: 2}]
+      tag: k
+  to_plot:
+    [0, 0]:
+      - function: sns.histplot
+        data: !dag_result a
+    [1, 0]:
+      - function: sns.histplot
+        data: !dag_result b
+    [2, 0]:
+      - function: sns.histplot
+        data: !dag_result k
+  color: !dag_result c_darkblue
+  linewidth: 0.5
+  bins: 20
+  helpers:
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_labels:
+          x: $\alpha$
+      1:
+        axis: [ 1, 0 ]
+        set_labels:
+          x: $\beta$
+      2:
+        axis: [ 2, 0 ]
+        set_labels:
+          x: $\kappa$
+    setup_figure:
+      nrows: 1
+      ncols: 3
     set_labels:
-      x: '$\kappa$'
-    set_limits:
-      x: [4, 9]
-    # Indicate the true value of kappa
-    set_hv_lines:
-      vlines:
-        - pos: 8.3
-          color: *red
-          zorder: 5
-          linestyle: dotted
-          linewidth: 1
-
-# ======================================================================================================================
-#  ╦ ╦╦╔═╗╦ ╦  ╔╗╔╔═╗╦╔═╗╔═╗  ╔╦╗╔═╗╦═╗╔═╗╦╔╗╔╔═╗╦  ╔═╗
-#  ╠═╣║║ ╦╠═╣  ║║║║ ║║╚═╗║╣   ║║║╠═╣╠╦╝║ ╦║║║║╠═╣║  ╚═╗
-#  ╩ ╩╩╚═╝╩ ╩  ╝╚╝╚═╝╩╚═╝╚═╝  ╩ ╩╩ ╩╩╚═╚═╝╩╝╚╝╩ ╩╩═╝╚═╝
-# ======================================================================================================================
-
-# -- Marginal density for alpha for the different metrics, including the MCMC density (high noise regime) --------------
-high_noise/alpha:
-  based_on: low_noise/alpha
-  dag_options:
-    define:
-      mcmc_data_path: 'data/HarrisWilson/London_data/MCMC_data/high_noise_alpha.csv'
-  select_and_combine:
-    subspace:
-      sigma:
-        idx: 2
-  helpers:
-    set_limits:
-      x: [0, 2]
-  smooth_kwargs:
-    sigma: 2
-
-# -- Marginal density for beta for the different metrics, including the MCMC density (high noise regime) ---------------
-high_noise/beta:
-  based_on: low_noise/beta
-  dag_options:
-    define:
-      mcmc_data_path: 'data/HarrisWilson/London_data/MCMC_data/high_noise_beta.csv'
-  select_and_combine:
-    subspace:
-      sigma:
-        idx: 2
-  helpers:
-    set_limits:
-      x: [ -0.2, 2.2 ]
-  smooth_kwargs:
-    sigma: 10
-
-# -- Marginal density for kappa for the different metrics (high noise regime) ------------------------------------------
-high_noise/kappa:
-  based_on: low_noise/kappa
-  select_and_combine:
-    subspace:
-      sigma:
-        idx: 2
-  helpers:
-    set_limits:
-      x: [ 1, 9 ]
-  smooth_kwargs:
-    sigma: 10
+      y: ' '
+  compute_only: []
+  style:
+    figure.figsize: [!dag_result full_width, !dag_result quarter_width]

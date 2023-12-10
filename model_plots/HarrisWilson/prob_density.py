@@ -1,156 +1,143 @@
-import logging
-from typing import Union
+import copy
+from typing import Sequence, Union
 
-import matplotlib.lines as mlines
-import matplotlib.pyplot as plt
 import scipy.ndimage
 import xarray as xr
+from dantro.plot.funcs._utils import plot_errorbar
+from dantro.plot.funcs.generic import make_facet_grid_plot
 
 from utopya.eval import PlotHelper, is_plot_func
 
-log = logging.getLogger(__name__)
 
-
-@is_plot_func(use_dag=True)
+@make_facet_grid_plot(
+    map_as="dataset",
+    encodings=("x", "y", "yerr", "hue", "col", "row", "alpha", "lw"),
+    supported_hue_styles=("discrete",),
+    hue_style="discrete",
+    add_guide=False,
+)
 def plot_prob_density(
-    data: xr.Dataset,
+    ds: xr.Dataset,
     hlpr: PlotHelper,
     *,
+    _is_facetgrid: bool,
     x: str,
     y: str,
     yerr: str = None,
     hue: str = None,
     label: str = None,
-    lw: Union[float, str, xr.DataArray] = None,
-    alpha: Union[float, str, xr.DataArray] = None,
-    suppress_labels: bool = False,
-    info_box_labels: dict = None,
+    add_legend: bool = True,
     smooth_kwargs: dict = {},
+    linestyle: Union[str, Sequence] = "solid",
     **plot_kwargs,
 ):
-    def _parse_plot_kwargs(param, coordinate) -> Union[float, None]:
+    """Probability density plot for estimated parameters, which combines line- and errorband functionality into a
+    single plot. Crucially, the x-value does not need to be a dataset coordinate. Is xarray facet_grid compatible.
 
-        if isinstance(param, float):
-            return param
-        elif isinstance(param, str):
-            return dset[param].sel({hue: coordinate})
-        elif isinstance(param, xr.DataArray):
-            return param.sel({hue: coordinate}).item()
+    :param ds: dataset to plot
+    :param hlpr: PlotHelper
+    :param _is_facetgrid: whether the plot is a facet_grid instance or not (determined by the decorator function)
+    :param x: coordinate or variable to use as the x-value
+    :param y: values to plot onto the y-axis
+    :param yerr (optional): variable to use for the errorbands. If None, no errorbands are plotted.
+    :param hue: (optional) variable to plot onto the hue dimension
+    :param label: (optional) label for the plot, if the hue dimension is unused
+    :param add_legend: whether to add a legend
+    :param smooth_kwargs: dictionary for the smoothing settings. Smoothing can be set for all parameters or by parameter
+    :param plot_kwargs: passed to the plot function
+    """
+
+    def _plot_1d(*, _x, _y, _yerr, _smooth_kwargs, _ax, _label=None, **_plot_kwargs):
+        """Plots a single parameter density and smooths the marginal. Returns the artists for the legend."""
+        smooth, sigma = _smooth_kwargs.pop("enabled", False), _smooth_kwargs.pop(
+            "smoothing", None
+        )
+        # Smooth the y values, if given
+        if smooth:
+            _y = scipy.ndimage.gaussian_filter1d(_y, sigma, **_smooth_kwargs)
+
+        # If no yerr is given, plot a single line
+        if _yerr is None:
+            (ebar,) = hlpr.ax.plot(_x, _y, label=_label, **_plot_kwargs)
+            return ebar
+
+        # Else, plot errorbands
         else:
-            return None
+            # Smooth the y error, if set
+            if smooth:
+                _yerr = scipy.ndimage.gaussian_filter1d(_yerr, sigma, **_smooth_kwargs)
 
-    """Plots the marginal probability densities for a collection of datasets consisting of *different*
-    x-values (param1) and associated probability values ('prob'). If specified, smooths the densities using
-    a Gaussian kernel."""
+            return plot_errorbar(
+                ax=_ax,
+                x=_x,
+                y=_y,
+                yerr=_yerr,
+                label=_label,
+                fill_between=True,
+                **_plot_kwargs,
+            )
 
-    # Get the 'data' !dag_tag
-    dset = data.pop("data") if isinstance(data, dict) else data
+    # Get the dataset and parameter name
+    if "parameter" in list(ds.coords):
+        pname = ds.coords["parameter"].values.item()
+    else:
+        for _c in ds.coords:
+            # Exclude 1D variables and the hue variable
+            if ds.coords[_c].shape == ():
+                continue
+            if hue is not None and _c == hue:
+                continue
+            pname = _c
 
-    # Get the smoothing properties
-    smooth, sigma = smooth_kwargs.pop("enabled", False), smooth_kwargs.pop(
-        "sigma", None
-    )
-
-    # Plot stacked lines
+    # Track the legend handles and labels
     _handles, _labels = [], []
     if hue:
-        for i, coord in enumerate(dset.coords[hue].values):
-
-            plot_kwargs.update(lw=_parse_plot_kwargs(lw, coord))
-            plot_kwargs.update(alpha=_parse_plot_kwargs(alpha, coord))
-
-            if x in dset.coords:
-                x_vals = dset.coords[x]
+        for i, coord in enumerate(ds.coords[hue].values):
+            if x in ds.coords:
+                x_vals = ds.coords[x]
             else:
-                x_vals = dset[x].sel({hue: coord})
+                x_vals = ds[x].sel({hue: coord})
 
-            y_vals = dset[y].sel({hue: coord})
+            y_vals = ds[y].sel({hue: coord})
+            yerr_vals = ds[yerr].sel({hue: coord}) if yerr is not None else None
 
-            # Select the errorbands, if set
-            y_vals_upper = (
-                y_vals + dset[yerr].sel({hue: coord}) if yerr is not None else None
+            handle = _plot_1d(
+                _x=x_vals,
+                _y=y_vals,
+                _yerr=yerr_vals,
+                _smooth_kwargs=copy.deepcopy(smooth_kwargs.get(pname, smooth_kwargs)),
+                _ax=hlpr.ax,
+                _label=f"{coord}",
+                linestyle=linestyle if isinstance(linestyle, str) else linestyle[i],
+                **plot_kwargs,
             )
-            y_vals_lower = (
-                y_vals - dset[yerr].sel({hue: coord}) if yerr is not None else None
-            )
 
-            # Smooth and normalise the probability distribution, if set
-            if smooth:
-                y_vals = scipy.ndimage.gaussian_filter1d(y_vals, sigma, **smooth_kwargs)
+            _handles.append(handle)
+            _labels.append(f"{coord}")
 
-                if yerr is not None:
-                    y_vals_upper = scipy.ndimage.gaussian_filter1d(
-                        y_vals_upper, sigma, **smooth_kwargs
-                    )
-                    y_vals_lower = scipy.ndimage.gaussian_filter1d(
-                        y_vals_lower, sigma, **smooth_kwargs
-                    )
-
-            # Plot the distribution
-            (ebar,) = hlpr.ax.plot(x_vals, y_vals, **plot_kwargs)
-
-            # Add errorbands, if given
-            if yerr is not None:
-                plot_kwargs.update(dict(alpha=0.5))
-                fb = hlpr.ax.fill_between(
-                    dset[x].sel({hue: coord}),
-                    y_vals_lower,
-                    y_vals_upper,
-                    linewidth=0,
-                    **plot_kwargs,
-                )
-
-            if not suppress_labels:
-                _labels.append(f"{hue} = {coord}")
-                _handles.append(ebar if yerr is None else (ebar, fb))
+        if not _is_facetgrid:
+            if add_legend:
+                hlpr.ax.legend(_handles, _labels, title=hue)
+        else:
+            hlpr.track_handles_labels(_handles, _labels)
+            if add_legend:
+                hlpr.provide_defaults("set_figlegend", title=hue)
 
     else:
+        if x in ds.coords:
+            x_vals = ds.coords[x]
+        else:
+            x_vals = ds[x]
+        y_vals = ds[y]
+        yerr_vals = ds[yerr] if yerr is not None else None
 
-        x_vals, y_vals = dset[x], dset[y]
-
-        # Select the errorbands, if set
-        y_vals_upper = y_vals + dset[yerr] if yerr is not None else None
-        y_vals_lower = y_vals - dset[yerr] if yerr is not None else None
-
-        # Smooth the probability distribution, if set
-        if smooth:
-            y_vals = scipy.ndimage.gaussian_filter1d(y_vals, sigma, **smooth_kwargs)
-            if yerr is not None:
-                y_vals_upper = scipy.ndimage.gaussian_filter1d(
-                    y_vals_upper, sigma, **smooth_kwargs
-                )
-                y_vals_lower = scipy.ndimage.gaussian_filter1d(
-                    y_vals_lower, sigma, **smooth_kwargs
-                )
-
-        # Plot the distribution
-        (ebar,) = hlpr.ax.plot(dset[x], y_vals, **plot_kwargs)
-
-        # Add errorbands, if given
-        if yerr is not None:
-            plot_kwargs.update(dict(alpha=0.5))
-            fb = hlpr.ax.fill_between(
-                dset[x], y_vals_lower, y_vals_upper, linewidth=0, **plot_kwargs
-            )
-
-        if label is not None:
-            _handles.append(ebar if yerr is None else (ebar, fb))
-            _labels.append(label)
-
-    hlpr.track_handles_labels(_handles, _labels)
-
-    # Plot the textbox, if given, using the remaining !dag_tags, which should be floats
-    if info_box_labels:
-        legend = hlpr.ax.legend(
-            [mlines.Line2D([], [], lw=0)] * len(data),
-            [
-                info_box_labels[key] + " = " + str(data[key])
-                for key in list(info_box_labels.keys())
-            ],
-            loc="best",
-            handlelength=0,
-            handleheight=0,
-            handletextpad=0,
-            **info_box_labels.get("info_box_kwargs", {}),
+        _plot_1d(
+            _x=x_vals,
+            _y=y_vals,
+            _yerr=yerr_vals,
+            _ax=hlpr.ax,
+            _smooth_kwargs=copy.deepcopy(smooth_kwargs.get(pname, smooth_kwargs)),
+            _label=label,
+            linestyle=linestyle,
+            **plot_kwargs,
         )
-        plt.gca().add_artist(legend)

@@ -1,31 +1,3 @@
-_:
-  colors:
-    yellow:           &yellow           '#F5DDA9'
-    darkblue:         &darkblue         '#2F7194'
-    red:              &red              '#ec7070'
-    skyblue:          &skyblue          '#97c3d0'
-    green:            &green            '#48675A'
-    lightbrown:       &lightbrown       '#C6BFA2'
-    orange:           &orange           '#EC9F7E'
-    lightgreen:       &lightgreen       '#AFD8BC'
-    grey:             &grey             '#3D4244'
-
-    color_p_i:        &color_p_i        '#ec7070'
-
-  # Page widths in inches for latex documents: ensures easy integration into latex documents
-  page_widths:
-    full_width:       &full_width       7.516
-    half_width:       &half_width       !expr 7.516 / 2
-    third_width:      &third_width      !expr 7.516 / 3
-    quarter_width:    &quarter_width    !expr 7.516 / 4
-
-  # True parameters
-  true_parameters:
-    p_infect:         &p_infect         0.2
-    t_infect:         &t_infect         30
-    sigma:            &sigma            0
-
-
 # ======================================================================================================================
 #  ╔═╗╦  ╔═╗╔╦╗╔═╗
 #  ╠═╝║  ║ ║ ║ ╚═╗
@@ -56,83 +28,108 @@ state:
       y:
         <<: *labels
 
-# Densities of agent types
-densities:
-  based_on: densities_comparison
-  x: time
-  col: type
-
 # Plot the evolution of the training loss
 loss:
   based_on: loss
   style:
-    figure.figsize: [ *full_width, *third_width ]
+    figure.figsize: [ !dag_result full_width, !dag_result third_width ]
 
 # Plot the evolution of the parameters
 predictions:
-  based_on: predictions
-  select:
-    data:
-      transform:
-        - .sel: [ !dag_prev , {time: !slice [~, ~, 100]}]
-  helpers:
-    setup_figure:
-      ncols: 3
-      nrows: 1
-    axis_specific:
-      p_infect:
-        axis: [0, 0]
-        set_hv_lines:
-          hlines:
-            - pos: *p_infect
-              color: *red
-              zorder: 10
-              linestyle: dotted
-      t_infect:
-        axis: [ 1, 0 ]
-        set_hv_lines:
-          hlines:
-            - pos: *t_infect
-              color: *red
-              zorder: 10
-              linestyle: dotted
-      sigma:
-        axis: [ 2, 0 ]
-        set_hv_lines:
-          hlines:
-            - pos: *sigma
-              color: *red
-              zorder: 10
-              linestyle: dotted
-    set_labels:
-      y: ' '
+  based_on: predictions_uni
 
 # Plot the marginals of all the parameters
-marginals: !pspace
-  based_on: marginals
-  dag_options:
-    define:
-      parameter_idx: !sweep
-        default: 0
-        range: [3]
+marginals:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.density
+  select:
+    parameters:
+      path: parameters
+      transform: [.data]
+    probabilities:
+      path: loss
+      transform: [neg_exp]
+  transform:
+    - broadcast: [!dag_tag parameters, !dag_tag probabilities]
+    - xr.DataArray:
+        data: [100, 100, 100]
+        dims: ['parameter']
+        coords: {parameter: [p_infect, t_infectious, sigma]}
+      tag: bins
+    - xr.DataArray:
+        data: [[[0, 1], [~, ~]], [[1, 30], [~, ~]], [[0, 1], [~, ~]]]
+        dims: ['parameter', 'dim1', 'dim0']
+        coords: {parameter: [p_infect, t_infectious, sigma]}
+      tag: ranges
+    - marginal_from_ds: [!dag_node -3, !dag_tag bins, !dag_tag ranges ]
+      kwargs:
+        x: x
+        y: loss
+        statistic: mean
+        exclude_dim: [parameter]
+      tag: data
+  x: x
+  y: y
+  sharex: False
+  sharey: False
+  col: parameter
+  smooth_kwargs:
+    enabled: False
+    smoothing: 20
+
+# Plot the densities obtained from the joint of the p_infect and t_infectious parameters
+# Generate densities by drawing from the joint distribution of the parameters
+densities_from_joint:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.errorbands
+    - .cycler_blue_orange_brown
+  select:
+    parameters:
+      path: parameters
+      transform: [.data]
+    probabilities:
+      path: loss
+      transform: [neg_exp]
+    true_data:
+      path: true_counts
+      transform: [.data]
+    cfg:
+      path: ../../cfg
+      transform:
+        - getitem: [!dag_prev , 'SIR']
+  transform:
+    # Get the normalized joint distribution
+    - joint_DD: [!dag_tag parameters, !dag_tag probabilities]
+      kwargs:
+        bins: 100
+        ranges: [[0, 1], [1, 30], [0, 0.5]]
+      tag: joint
+    - .fillna: [!dag_prev , 0]
+    - SIR_densities_from_joint: [!dag_prev ]
+      kwargs:
+        true_counts: !dag_tag true_data
+        cfg: !dag_tag cfg
+      file_cache:
+        read: False
+        write: False
+    - .sel: [!dag_prev , {type: [true data, mean prediction]}]
+      tag: data
+  x: time
+  y: mean
+  yerr: std
+  hue: type
+  col: kind
+  sharey: False
+  add_legend: False
+  figsize: [ !dag_result full_width, !dag_result third_width ]
   helpers:
     set_labels:
-      x: !coupled-sweep
-        default: '$p$'
-        values: ['$p$', '$\tau$', '$\sigma$']
-        target_name: parameter_idx
-      y: !coupled-sweep
-        default: '$\rho(p)$'
-        values: ['$\rho(p)$', '$\rho(\tau)$', '$\rho(\sigma)$']
-        target_name: parameter_idx
-    set_hv_lines:
-      vlines:
-        - pos: !coupled-sweep
-            default: *p_infect
-            values: [*p_infect, *t_infect, *sigma]
-            target_name: parameter_idx
-          color: *red
-          zorder: 1
-          linestyle: dotted
-  style:
-    figure.figsize: [*half_width, *quarter_width]
+      y: ' '
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_legend:
+          use_legend: True
+          gather_from_fig: True

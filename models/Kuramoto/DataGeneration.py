@@ -28,7 +28,6 @@ def get_data(
     seed: int,
     device: str,
 ) -> (torch.Tensor, Union[nx.Graph, None]):
-
     """Either loads data from an external file or synthetically generates Kuramoto data (including the network)
     from a configuration file.
 
@@ -49,20 +48,16 @@ def get_data(
     training_data, network, eigen_frequencies = None, None, None
 
     if load_from_dir.get("training_data", None) is not None:
-
         log.info("   Loading training data ...")
         with h5.File(load_from_dir["training_data"], "r") as f:
-
             # Load the training data
             training_data = torch.from_numpy(
                 np.array(f["training_data"]["phases"])
             ).float()
 
     if load_from_dir.get("network", None) is not None:
-
         log.info("   Loading network ... ")
         with h5.File(load_from_dir["network"], "r") as f:
-
             # Load the network
             GG = dantro.groups.GraphGroup(
                 name="true_network",
@@ -88,10 +83,8 @@ def get_data(
             network.add_weighted_edges_from(weighted_edges, "weight")
 
     if load_from_dir.get("eigen_frequencies", None) is not None:
-
         log.info("   Loading eigenfrequencies ... ")
         with h5.File(load_from_dir["eigen_frequencies"], "r") as f:
-
             # Load the network
             eigen_frequencies = torch.from_numpy(
                 np.array(f["training_data"]["eigen_frequencies"])
@@ -113,13 +106,11 @@ def get_data(
 
     # If network was not loaded, generate the network
     if network is None:
-
         log.info("   Generating graph ...")
         network: nx.Graph = base.generate_graph(N=N, **nw_cfg, seed=seed)
 
     # If eigenfrequencies were not loaded, generate
     if eigen_frequencies is None:
-
         log.info("   Generating eigenfrequencies  ...")
 
         num_steps: int = data_cfg.get("num_steps")
@@ -146,7 +137,6 @@ def get_data(
             )
     # If training data was not loaded, generate
     if training_data is None:
-
         log.info("   Generating training data ...")
         num_steps: int = data_cfg.get("num_steps")
         training_set_size = data_cfg.get("training_set_size")
@@ -159,7 +149,6 @@ def get_data(
         ABM = Kuramoto_ABM(**data_cfg, device=device)
 
         for idx in range(training_set_size):
-
             training_data[idx, 0, :, :] = base.random_tensor(
                 data_cfg.get("init_phases"), size=(N, 1), device=device
             )
@@ -175,7 +164,6 @@ def get_data(
 
             # Run the ABM for n iterations and write the data
             for i in range(t_0, num_steps):
-
                 training_data[idx, i + 1] = ABM.run_single(
                     current_phases=training_data[idx, i],
                     current_velocities=(
@@ -191,7 +179,6 @@ def get_data(
 
     # Save the data. If data was loaded, data can be copied if specified
     if load_from_dir.get("copy_data", True):
-
         # Create a graph group for the network and save it and its properties
         nw_group = h5file.create_group("true_network")
         nw_group.attrs["content"] = "graph"

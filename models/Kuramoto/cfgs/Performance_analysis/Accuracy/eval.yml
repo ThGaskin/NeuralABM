@@ -1,0 +1,90 @@
+# Compares the prediction performance of OLS regression, MCMC, and the neural scheme,
+# both for first and second-order Kuramoto
+accuracy_comparison: !pspace
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+    - .cycler_reds
+  dag_options:
+    define:
+      alpha: !sweep
+        default: 0
+        values: [0, 1]
+  select_and_combine:
+    fields:
+      regression_data:
+        path: regression_data/predictions
+        transform: [.data]
+      NN_prediction:
+        path: output_data/predictions
+        transform:
+          - .isel_with_drop: [!dag_prev , {batch: -1}]
+      true_values:
+        path: true_network/_adjacency_matrix
+        transform: [.data]
+  transform:
+
+    # Calculate the regression error
+    - sub: [!dag_tag regression_data, !dag_tag true_values]
+    - np.abs: [!dag_prev ]
+    - .sum: [!dag_prev , ['i', 'j']]
+    - .mean: [!dag_prev , 'seed']
+    - .std: [!dag_node -2 , 'seed']
+    - xr.Dataset:
+        - y: !dag_node -2
+          yerr: !dag_prev
+      tag: regression_error
+
+    # Calculate the neural error
+    - sub: [!dag_tag NN_prediction, !dag_tag true_values]
+    - np.abs: [!dag_prev ]
+    - .sum: [!dag_prev , ['i', 'j']]
+    - .mean: [!dag_prev , 'seed']
+    - .std: [!dag_node -2 , 'seed']
+    - xr.Dataset:
+        - y: !dag_node -2
+          yerr: !dag_prev
+      tag: neural_error
+
+    # Get the MCMC accuracy; these are pre-calculated to reduce compute times of this cfg set
+    - import_and_call: [ pandas, read_csv, 'data/Kuramoto/MCMC_data/accuracy_over_noise.csv']
+      kwargs:
+        index_col: [0, 1]
+    - .to_xarray: [!dag_prev ]
+      tag: MCMC_error
+    - concat_along: [[!dag_tag neural_error , !dag_tag regression_error, !dag_prev ], 'type', [ 'Neural', 'OLS', 'MALA' ] ]
+    - .isel_with_drop: [!dag_prev , {'alpha': !dag_tag alpha}]
+      tag: data
+  x: sigma
+  y: y
+  yerr: yerr
+  hue: type
+  helpers:
+    set_scales:
+      x: log
+      y: log
+    set_labels:
+      x: $\sigma$
+      y: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
+    set_legend:
+      use_legend: True
+      title: ~
+    set_title:
+      title: ~
+    set_tick_locators:
+      x:
+        major: { base: 10, name: LogLocator, numticks: 12 }
+        minor:
+          base: 10
+          name: LogLocator
+          numticks: 12
+          subs: [ 0.2, 0.4, 0.6, 0.8 ]
+      y:
+        major: { base: 10, name: LogLocator, numticks: 12 }
+        minor:
+          base: 10
+          name: LogLocator
+          numticks: 12
+          subs: [ 0.2, 0.4, 0.6, 0.8 ]
+  style:
+    figure.figsize: [ !dag_result third_width, !dag_result third_width ]
