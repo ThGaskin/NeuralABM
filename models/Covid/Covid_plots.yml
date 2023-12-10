@@ -1,0 +1,26 @@
+# Loss over time
+loss:
+  based_on: loss
+
+# Evolution of the parameter predictions
+parameter_predictions:
+  based_on: predictions_uni
+  col_wrap: auto
+  color: !dag_result c_darkblue
+
+# Plot the true data
+true_counts:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: true_counts
+  x: time
+  hue: kind
+  helpers:
+    set_scales:
+      y: log
+
+# Draw parameters from the predicted joint density and calculate time series
+densities_from_joint:
+  based_on: densities_from_joint_uni

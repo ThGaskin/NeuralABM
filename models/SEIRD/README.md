@@ -1,1 +1,0 @@
-# SEIRD+ model

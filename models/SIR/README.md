@@ -1,8 +1,5 @@
 # The SIR model of contagious diseases
 
-> **_Note_**: See the section on [Configuration sets](#configuration-sets) to see how to reproduce
-> the plots from the [PNAS publication](https://www.pnas.org/doi/10.1073/pnas.2216415120).
-
 ### Model description
 In the agent-based SIR model, ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DN)
 agents move around a square domain ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5B0,%20L%5D%5E2)

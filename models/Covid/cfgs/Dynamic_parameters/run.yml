@@ -1,0 +1,59 @@
+paths:
+  model_note: Dynamic_parameters
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 30
+    range: [5]
+  num_epochs: 100
+  write_start: 1
+  write_every: 1
+  Covid:
+    Data:
+      time_dependent_parameters:
+        k_E:
+          - [ 0, 60 ] # These start after the burn-in
+          - [ 60, 150 ]
+          - [ 150, 360 ]
+          - [ 360, 420 ]
+          - [ 420, ~ ]
+        k_SY:
+          - [ 0, 180 ]
+          - [ 180, 400 ]
+          - [ 400, ~ ]
+      synthetic_data:
+        type: smooth
+        k_S: 0.192
+        k_E:
+          - 1.9 # Initial wave
+          - 0.4 # Lockdown
+          - 2.5 # Summer
+          - 0.2 # Lockdown
+          - 1.8 # opening
+        k_I: 0.1
+        k_R: 0.6
+        k_SY:
+          - 0.35
+          - 0.4
+          - 0.45
+        k_H: 0.3
+        k_C: 0.2
+        k_D: 0.3
+        k_CT: 1.2
+        num_steps: 500
+        dt: 0.1
+        burn_in: 50
+    NeuralNet:
+      num_layers: 3
+      nodes_per_layer:
+        default: 20
+      biases:
+        default: ~
+      activation_funcs:
+        default: sigmoid
+        layer_specific:
+          -1: abs
+      learning_rate: 0.002
+      optimizer: Adam
+    Training:
+      batch_size: 50

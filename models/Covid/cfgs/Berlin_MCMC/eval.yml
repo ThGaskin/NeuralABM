@@ -1,0 +1,337 @@
+.plot_policy_intervals:
+  # Indicates the periods on which the k_E parameter does not change
+  helpers:
+    set_ticks:
+      x:
+        major:
+          locs: [ 0, 26, 35, 80, 120, 200, 254 ]
+          labels: [ 'Feb 16', '', 'Mar 13–22', 'May 6', 'June 15', 'Sep 3', 'Oct 27' ]
+          ha: right
+          rotation: 45
+    call:
+      functions:
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.1
+          zorder: -1
+          xmin: 0
+          xmax: 26
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.3
+          zorder: -1
+          xmin: 26
+          xmax: 35
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.6
+          zorder: -1
+          xmin: 35
+          xmax: 80
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.4
+          zorder: -1
+          xmin: 80
+          xmax: 120
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.2
+          zorder: -1
+          xmin: 120
+          xmax: 200
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_darkblue
+          alpha: 0.1
+          zorder: -1
+          xmin: 200
+          xmax: 254
+          lw: 0
+    set_hv_lines:
+      vlines:
+        - pos: 26
+          linestyle: dotted
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+        - pos: 35
+          linestyle: dotted
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+        - pos: 80
+          linestyle: dotted
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+        - pos: 120
+          linestyle: dotted
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+        - pos: 200
+          linestyle: solid
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+
+# Generate densities by sampling from the joint distribution
+# NOTE: it's ok to calculate the mean and mode this way because the whole point of sampling is that
+# we assume the frequency of each point in the dataset is proportional to its likelihood
+densities/all:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.with_auto_encoding
+    - .plot.facet_grid.errorbands
+    - .densities_cycler
+    - .plot_policy_intervals
+  select_and_combine:
+    fields:
+      parameters: ../langevin_data/parameters
+      loss:
+        path: ../langevin_data/loss
+        transform: [neg_exp]
+      true_data:
+        path: true_counts
+        transform: [.data]
+      cfg:
+        path: ../../cfg
+        transform:
+          - getitem: [!dag_prev , 'Covid']
+  dag_options:
+    define:
+      n_samples: 1000
+      kind: !range [8]
+  transform:
+
+    # Extract the cfg
+    - .data: [!dag_tag cfg]
+    - getitem: [!dag_prev , 0]
+      tag: cfg_flattened
+
+    # Flatten the true counts
+    - .isel: [!dag_tag true_data, {seed: 0}]
+      kwargs: {drop: True}
+      tag: true_data_flattened
+
+    # Flatten the parameters
+    - flatten_dims: [ !dag_tag parameters ]
+      kwargs: {dims: {sample: [seed, sample]}}
+      tag: parameters_flattened
+    - .coords: [!dag_prev , 'parameter']
+      tag: parameter_coords
+
+    # Flatten the loss
+    - flatten_dims: [ !dag_tag loss]
+      kwargs: {dims: {sample: [seed, sample]}}
+      tag: loss_flattened
+
+    # Calculate the mean prediction (get mean of marginals)
+    - hist: [!dag_tag parameters_flattened]
+      kwargs:
+        bins: 100
+        exclude_dim: [parameter]
+        dim: sample
+    - .rename: [!dag_prev , {parameters: 'y'}]
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: x
+        y: y
+        exclude_dim: [parameter]
+    - mean: [!dag_prev ]
+      kwargs: {x: x, y: y, exclude_dim: [parameter]}
+    - getitem: [!dag_prev , 'mean']
+    - .expand_dims: [!dag_prev , {sample: [0]}]
+      tag: expected_parameters
+    - xr.DataArray:
+        data: [1]
+        dims: sample
+        coords: {sample: [0]}
+    - Covid_densities_from_joint: [!dag_tag expected_parameters, !dag_prev ]
+      kwargs:
+        true_counts: !dag_tag true_data_flattened
+        cfg: !dag_tag cfg_flattened
+        combine:
+          quarantined: [quarantine_S, quarantine_E, quarantine_I]
+        drop:
+          - deceased
+          - contact_traced
+    - getitem: [!dag_prev , 'mean']
+    - .sel: [!dag_prev , {type: 'prediction_mean'}]
+      tag: mean
+
+    # Get n samples from the joint
+    # Get the sampling indices
+    - .coords: [!dag_tag parameters_flattened , 'sample']
+    - len: [!dag_prev ]
+    - np.randint: [0, !dag_prev , !dag_tag n_samples]
+      tag: sample_idx
+
+    - .isel: [!dag_tag parameters_flattened, {sample: !dag_tag sample_idx}]
+      tag: parameter_samples
+    - .isel: [!dag_tag loss_flattened, {sample: !dag_tag sample_idx}]
+    - mul: [!dag_prev , 0]
+    - neg_exp: [!dag_prev ]
+    - .sum: [!dag_prev ]
+    - tag: loss_samples
+      div: [!dag_node -2, !dag_prev ]
+
+    # Copy the loss for each parameter
+    - Covid_densities_from_joint: [!dag_tag parameter_samples, !dag_tag loss_samples ]
+      kwargs:
+        true_counts: !dag_tag true_data_flattened
+        cfg: !dag_tag cfg_flattened
+        combine:
+          quarantined: [quarantine_S, quarantine_E, quarantine_I]
+        drop:
+          - deceased
+          - contact_traced
+        mean: !dag_tag mean
+      file_cache:
+        read: True
+        write: True
+      tag: densities
+    - .sel: [!dag_tag densities , {type: [prediction_mean, true_counts]}]
+    - .isel: [!dag_prev , {kind: !dag_tag kind}]
+    - mul: [!dag_prev , 3574608] # Multiply by population of Berlin
+      tag: data
+  x: time
+  y: mean
+  yerr: std
+  col: kind
+  col_wrap: auto
+  hue: type
+  sharey: False
+
+# Plot the densities separately for each compartment
+densities/pub:
+  based_on: densities/all
+  dag_options:
+    define:
+      kind: !range [4, 7]
+  x: time
+  y: mean
+  row: kind
+  col: ~
+  col_wrap: ~
+  add_legend: False
+  helpers:
+    setup_figure:
+      nrows: 3
+      ncols: 1
+    set_title:
+      title: ''
+    set_labels:
+      x: ''
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_limits:
+          y: [-1000, 17000]
+        set_labels:
+          y: Symptomatic
+      1:
+        axis: [0, 1]
+        set_labels:
+          y: Hospitalised
+        set_limits:
+          y: [ -100, 1700 ]
+      2:
+        axis: [0, 2]
+        set_labels:
+          y: Critical
+        set_limits:
+          y: [ -50, 700 ]
+  figsize: [ !dag_result half_width, !dag_result two_thirds_width ]
+
+# Marginal densities on the parameters obtained from the MCMC
+marginals:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: ../langevin_data/parameters
+  transform:
+
+    # Flatten the parameters
+    - flatten_dims: [ !dag_tag parameters ]
+      kwargs: {dims: {sample: [seed, sample]}}
+      tag: params
+    - .coords: [!dag_prev , 'parameter']
+      tag: parameter_coords
+    - xr.DataArray:
+        data: 100
+    - .expand_dims: [!dag_prev , {parameter: !dag_node -2 }]
+    - hist: [!dag_tag params , !dag_prev ]
+      kwargs:
+        exclude_dim: [parameter]
+        normalize: True
+        dim: sample
+    - .rename: [!dag_prev , {parameters: 'y'}]
+      tag: data
+  x: x
+  y: y
+  col: parameter
+  col_wrap: 3
+  sharex: False
+  sharey: False
+  smooth_kwargs:
+    enabled: True
+    smoothing: 2
+
+# Calculate the Gelman-Rubin statistic for each parameter over time
+gelman_rubin:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.with_auto_encoding
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      parameters:
+        path: ../langevin_data/parameters
+        transform:
+          - .isel: [!dag_prev , {'sample': !slice [~, ~, 1]}]
+  transform:
+    - gelman_rubin: [!dag_tag parameters ]
+      kwargs:
+        along_dim: [sample, seed]
+        step_size: 10
+      file_cache:
+        read: False
+        write: False
+    - getitem: [!dag_prev , 'gelman_rubin']
+      tag: data
+  x: sample
+  hue: parameter
+  helpers:
+    set_scales:
+      y: log
+    set_title:
+      title: ''
+    set_labels:
+      x: sample
+      y: ''
+    set_ticks:
+      x:
+        major:
+          locs: [0, 200, 400, 600, 800]
+          labels: [0, 4000, 800, 12000, 16000]
+    set_legend:
+      ncol: 2
+      custom_labels: ['$\lambda_{\rm C}$', '$\lambda_{\rm CT}$', '$\lambda_{\rm D}$',
+                      '$\lambda_{\rm E, 0}$', '$\lambda_{\rm E, 1}$', '$\lambda_{\rm E, 2}$', '$\lambda_{\rm E, 3}$',
+                      '$\lambda_{\rm E, 4}$', '$\lambda_{\rm H}$', '$\lambda_{\rm I}$', '$\lambda_{\rm R}$',
+                      '$\lambda_{\rm S}$', '$\lambda_{\rm SY}$']
+    set_hv_lines:
+      hlines:
+        - pos: 1.2
+          linestyle: 'dashed'
+          color: !dag_result c_red
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]

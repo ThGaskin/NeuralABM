@@ -16,7 +16,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+import model_plots.Covid
 import model_plots.HarrisWilson
+import model_plots.Kuramoto
+import model_plots.SIR
 from utopya.eval import register_operation
 
 register_operation(name="pd.Index", func=pd.Index)
@@ -44,14 +47,9 @@ register_operation(name="list_of", func=lambda s: [s])
 register_operation(name="zip", func=zip)
 register_operation(name=".capitalize", func=lambda s: s.capitalize())
 register_operation(name="np.randint", func=np.random.randint)
-
-from model_plots.SEIRD.time_dependent_params import *
-
 register_operation(name=".to_xarray", func=lambda d, *a, **k: d.to_xarray(*a, **k))
 register_operation(name="np.nansum", func=np.nansum)
 register_operation(name="np.histogramdd", func=np.histogramdd)
 register_operation(name="np.ones", func=np.ones)
 from .data_ops import *
 from .nw_ops import *
-from .SEIRD_trajectories_from_densities import SEIRD_densities_from_joint
-from .SIR_trajectories_from_densities import *

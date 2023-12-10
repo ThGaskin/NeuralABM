@@ -1,6 +1,0 @@
-loss:
-  based_on: loss
-
-predictions:
-  based_on: predictions_uni
-  col_wrap: auto
