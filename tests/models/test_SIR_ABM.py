@@ -21,7 +21,6 @@ test_cfg = load_yml(CFG_FILENAME)
 
 
 def test_agent():
-
     """Test agent creation and movement"""
 
     agent = Agent(id=0, kind="some_kind", position=Vector(0, 0))
@@ -82,11 +81,9 @@ def test_agent():
 
 
 def test_ABM():
-
     """Test ABM initialisation"""
 
     for entry in test_cfg:
-
         ABM_cfg = test_cfg[entry]
         ABM = SIR.SIR_ABM(**ABM_cfg)
 
@@ -116,7 +113,6 @@ def test_ABM():
 
 
 def test_dynamics():
-
     """Test basic dynamics work"""
     cfg = test_cfg["dynamics"]
     ABM = SIR.SIR_ABM(**cfg)
@@ -136,7 +132,6 @@ def test_dynamics():
 
 
 def test_no_dynamics():
-
     """Test nothing happens when p_infect is 0 and t_infectious > num_steps"""
 
     cfg = test_cfg["no_dynamics"]
@@ -154,7 +149,6 @@ def test_no_dynamics():
 
 
 def test_full_recovery():
-
     """Test all agents make a full recovery"""
 
     cfg = test_cfg["full_recovery"]

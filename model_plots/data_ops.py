@@ -7,8 +7,7 @@ import xarray as xr
 
 from utopya.eval import is_operation
 
-from ._op_utils import (_get_hist_bins_ranges, _hist, _interpolate,
-                        apply_along_dim)
+from ._op_utils import _get_hist_bins_ranges, _hist, _interpolate, apply_along_dim
 
 # --- Custom DAG operations for the NeuralABM model --------------------------------------------------------------------
 

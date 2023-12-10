@@ -156,7 +156,6 @@ class Kuramoto_NN:
         self.dset_time.attrs["coords_mode__epoch"] = "trivial"
 
     def epoch(self):
-
         """Trains the model for a single epoch."""
 
         # Track the start time
@@ -175,9 +174,7 @@ class Kuramoto_NN:
 
         # Process the training data in batches
         for batch_no, batch_idx in enumerate(self.batches[:-1]):
-
             for i, dset in enumerate(self.training_data):
-
                 current_values = dset[batch_idx].clone()
                 current_values.requires_grad_(True)
 
@@ -187,7 +184,6 @@ class Kuramoto_NN:
                 ) / self.ABM.dt
 
                 for ele in range(batch_idx + 1, self.batches[batch_no + 1] + 1):
-
                     # Solve the ODE
                     new_values = self.ABM.run_single(
                         current_phases=current_values,
@@ -205,7 +201,6 @@ class Kuramoto_NN:
                     counter += 1
 
                     if counter % batch_size == 0:
-
                         # Enforce symmetry of the predicted adjacency matrix
                         symmetry_loss = self.loss_function(
                             predicted_adj_matrix,
@@ -266,7 +261,6 @@ class Kuramoto_NN:
                         current_values = dset[ele]
 
                     else:
-
                         # Update the velocities
                         current_velocities = (new_values - current_values) / self.ABM.dt
 
@@ -276,7 +270,6 @@ class Kuramoto_NN:
         self.dset_time[-1] = time.time() - start_time
 
     def write_data(self):
-
         """Write the current losses into the state dataset.
 
         In the case of HDF5 data writing that is used here, this requires to
@@ -292,7 +285,6 @@ class Kuramoto_NN:
             self._dset_loss[-1, 4] = self.current_prediction_error.cpu().numpy()
 
     def write_predictions(self, *, write_final: bool = False):
-
         """Write the current predicted adjacency matrix into the state dataset.
 
         In the case of HDF5 data writing that is used here, this requires to
@@ -319,7 +311,6 @@ class Kuramoto_NN:
 # ----------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
-
     cfg_file_path = sys.argv[1]
 
     log.note("   Preparing model run ...")
@@ -423,7 +414,6 @@ if __name__ == "__main__":
 
     # Train the neural net
     for i in range(num_epochs):
-
         model.epoch()
 
         # Print progress message
@@ -495,7 +485,6 @@ if __name__ == "__main__":
 
     # If specified, run a Langevin MCMC scheme on the training data
     if model_cfg.get("MCMC", {}).get("perform_sampling", False):
-
         log.info("   Performing Langevin sampling ... ")
 
         n_samples = model_cfg["MCMC"].get("n_samples")

@@ -48,7 +48,6 @@ def plot_prob_density(
     """
 
     def _plot_1d(*, _x, _y, _yerr, _smooth_kwargs, _ax, _label=None, **_plot_kwargs):
-
         """Plots a single parameter density and smooths the marginal. Returns the artists for the legend."""
         smooth, sigma = _smooth_kwargs.pop("enabled", False), _smooth_kwargs.pop(
             "smoothing", None
@@ -94,7 +93,6 @@ def plot_prob_density(
     _handles, _labels = [], []
     if hue:
         for i, coord in enumerate(ds.coords[hue].values):
-
             if x in ds.coords:
                 x_vals = ds.coords[x]
             else:
@@ -126,7 +124,6 @@ def plot_prob_density(
                 hlpr.provide_defaults("set_figlegend", title=hue)
 
     else:
-
         if x in ds.coords:
             x_vals = ds.coords[x]
         else:

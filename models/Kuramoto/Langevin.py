@@ -45,7 +45,6 @@ class Kuramoto_Langevin_sampler(base.MetropolisAdjustedLangevin):
         h5File: h5.File,
         **__,
     ):
-
         # Model parameters
         self.eigen_frequencies = eigen_frequencies
         self.N = N
@@ -62,7 +61,7 @@ class Kuramoto_Langevin_sampler(base.MetropolisAdjustedLangevin):
             else init_guess
         )
 
-        super(Kuramoto_Langevin_sampler, self).__init__(
+        super().__init__(
             true_data=true_data,
             init_guess=init_guess,
             lr=lr,
@@ -100,14 +99,12 @@ class Kuramoto_Langevin_sampler(base.MetropolisAdjustedLangevin):
         self.grad[1].data = self.grad[0].data
 
     def loss_function(self, nw):
-
         """Calculates the loss (negative log-likelihood) of an adjacency matrix via simulation."""
 
         nw = torch.reshape(nw, (self.N, self.N))
         loss = torch.tensor(0.0, requires_grad=True)
 
         for idx, training_dset in enumerate(self.true_data):
-
             ts = [training_dset[0]]
             idx_0 = 0
             if self.alpha != 0:
@@ -170,7 +167,6 @@ class Kuramoto_Langevin_sampler(base.MetropolisAdjustedLangevin):
         return loss
 
     def write_parameters(self):
-
         if self.time > self.write_start and self.time % self.write_every == 0:
             self.dset_prediction.resize(self.dset_prediction.shape[0] + 1, axis=0)
             self.dset_prediction[-1, :] = torch.reshape(

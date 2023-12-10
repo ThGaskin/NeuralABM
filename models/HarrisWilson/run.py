@@ -123,7 +123,6 @@ class HarrisWilson_NN:
         dt: float = None,
         **__,
     ):
-
         """Trains the model for a single epoch.
 
         :param epsilon: (optional) the epsilon value to use during training
@@ -168,7 +167,6 @@ class HarrisWilson_NN:
         data is always in the last row of the dataset.
         """
         if self._time >= self._write_start and (self._time % self._write_every == 0):
-
             self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
             self._dset_loss[-1] = self._current_loss
 
@@ -181,7 +179,6 @@ class HarrisWilson_NN:
 # ----------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
-
     cfg_file_path = sys.argv[1]
 
     log.note("   Preparing model run ...")

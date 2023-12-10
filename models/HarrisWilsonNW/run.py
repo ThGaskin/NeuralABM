@@ -136,7 +136,6 @@ class HarrisWilson_NN:
         self.batches = batches
 
     def epoch(self, *, epsilon: float = None, dt: float = None, **__):
-
         """Trains the model for a single epoch.
 
         :param epsilon: (optional) the epsilon value to use during training
@@ -157,14 +156,11 @@ class HarrisWilson_NN:
         loss = torch.tensor(0.0, requires_grad=True)
 
         for batch_no, batch_idx in enumerate(self.batches[:-1]):
-
             for i, dset in enumerate(self.training_data):
-
                 current_values = dset[batch_idx].clone()
                 current_values.requires_grad_(True)
 
                 for ele in range(batch_idx + 1, self.batches[batch_no + 1] + 1):
-
                     # Solve the ODE
                     current_values = self.ABM.run_single(
                         adjacency_matrix=pred_adj_matrix,
@@ -182,7 +178,6 @@ class HarrisWilson_NN:
                     counter += 1
 
                 if counter % batch_size == 0:
-
                     # Perform a gradient descent step
                     loss.backward()
                     self.neural_net.optimizer.step()
@@ -233,14 +228,12 @@ class HarrisWilson_NN:
         data is always in the last row of the dataset.
         """
         if self._time >= self._write_start:
-
             if self._time % self._write_every == 0:
                 self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
                 self._dset_loss[-1, 0] = self.current_loss.cpu().numpy()
                 self._dset_loss[-1, 1] = self.current_prediction_error.cpu().numpy()
 
     def write_predictions(self, *, write_final: bool = False):
-
         """Write the current predicted adjacency matrix into the state dataset.
 
         In the case of HDF5 data writing that is used here, this requires to
@@ -255,7 +248,6 @@ class HarrisWilson_NN:
                 self._time >= self._write_start
                 and self._time % self._write_predictions_every == 0
             ):
-
                 log.debug(f"    Writing prediction data ... ")
                 self._dset_predictions.resize(
                     self._dset_predictions.shape[0] + 1, axis=0
@@ -268,7 +260,6 @@ class HarrisWilson_NN:
 # ----------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
-
     cfg_file_path = sys.argv[1]
 
     log.note("   Preparing model run ...")
@@ -367,7 +358,6 @@ if __name__ == "__main__":
     log.info(f"   Now commencing training for {num_epochs} epochs ...")
 
     for i in range(num_epochs):
-
         model.epoch(**model_cfg["Training"])
 
         # Print progress message

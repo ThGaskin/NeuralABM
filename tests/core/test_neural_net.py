@@ -28,7 +28,6 @@ num_epochs = 10
 # Test initialisation of the layers with activation functions and bias
 def test_initialisation():
     for _, config in test_cfg.items():
-
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
         assert net
@@ -57,7 +56,6 @@ def test_initialisation():
 
         # Check layers have correct number of nodes
         for idx, layer in enumerate(hidden_layers):
-
             if idx in layer_specific_cfg.keys():
                 assert layer.in_features == layer_specific_cfg[idx]
                 checked[idx] = True
@@ -83,7 +81,6 @@ def test_initialisation():
         checked = {key: False for key in bias_layer_specific.keys()}
 
         for idx, layer in enumerate(net.layers):
-
             if idx in bias_layer_specific.keys():
                 if bias_layer_specific[idx] == "default":
                     assert layer.bias is not None
@@ -112,7 +109,6 @@ def test_initialisation():
 # Test the model forward pass
 def test_forward_pass():
     for _, config in test_cfg.items():
-
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
         activation_funcs: dict = config.get("activation_funcs")
@@ -131,11 +127,9 @@ def test_forward_pass():
 # Test the model trains using the optimizer
 def test_training():
     for _, config in test_cfg.items():
-
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
         for it in range(num_epochs):
-
             for idx, x in enumerate(train_data):
                 # Perform a single training step
                 loss = torch.tensor(0.0, requires_grad=True)
@@ -167,13 +161,11 @@ def test_training():
 # Test the model outputs values according to the prior
 def test_prior():
     def _test_entry(cfg, tensor):
-
         if cfg["distribution"] == "uniform":
             assert cfg["parameters"]["lower"] <= tensor <= cfg["parameters"]["upper"]
 
     tested = False
     for _, config in test_cfg.items():
-
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
         if net.prior_distribution is not None:

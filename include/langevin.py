@@ -38,13 +38,13 @@ class pSGLD(Optimizer):
                 Default is False.
         """
         if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
+            raise ValueError(f"Invalid learning rate: {lr}")
         if not 0.0 <= Lambda:
-            raise ValueError("Invalid epsilon value: {}".format(Lambda))
+            raise ValueError(f"Invalid epsilon value: {Lambda}")
         if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
         if not 0.0 <= beta:
-            raise ValueError("Invalid beta value: {}".format(beta))
+            raise ValueError(f"Invalid beta value: {beta}")
 
         defaults = dict(
             lr=lr,
@@ -53,10 +53,10 @@ class pSGLD(Optimizer):
             centered=centered,
             weight_decay=weight_decay,
         )
-        super(pSGLD, self).__init__(params, defaults)
+        super().__init__(params, defaults)
 
     def __setstate__(self, state):
-        super(pSGLD, self).__setstate__(state)
+        super().__setstate__(state)
         for group in self.param_groups:
             group.setdefault("centered", False)
 
@@ -121,7 +121,7 @@ class pSGLD(Optimizer):
         return G
 
 
-class MetropolisAdjustedLangevin(object):
+class MetropolisAdjustedLangevin:
     """
     A class implementing the Metropolis-Adjusted Langevin algorithm. Adapted from
     https://github.com/alisiahkoohi/Langevin-dynamics
@@ -152,8 +152,7 @@ class MetropolisAdjustedLangevin(object):
         h5File: h5.File,
         **__,
     ):
-
-        super(MetropolisAdjustedLangevin, self).__init__()
+        super().__init__()
 
         # Training data
         self.true_data = true_data
@@ -340,7 +339,6 @@ class MetropolisAdjustedLangevin(object):
         Write out the loss.
         """
         if self.time > self.write_start and self.time % self.write_every == 0:
-
             self.dset_loss.resize(self.dset_loss.shape[0] + 1, axis=0)
             self.dset_loss[-1] = self.loss[0].detach().numpy()
 

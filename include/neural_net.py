@@ -56,7 +56,6 @@ ACTIVATION_FUNCS = {
 def get_architecture(
     input_size: int, output_size: int, n_layers: int, cfg: dict
 ) -> List[int]:
-
     # Apply default to all hidden layers
     _nodes = [cfg.get("default")] * n_layers
 
@@ -69,7 +68,6 @@ def get_architecture(
 
 
 def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
-
     """Extracts the activation functions from the config. The config is a dictionary containing the
     default activation function, and a layer-specific entry detailing exceptions from the default. 'None' entries
     are interpreted as linear layers.
@@ -88,7 +86,6 @@ def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
     """
 
     def _single_layer_func(layer_cfg: Union[str, dict]) -> callable:
-
         """Return the activation function from an entry for a single layer"""
 
         # Entry is a single string
@@ -125,7 +122,6 @@ def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
 
 
 def get_bias(n_layers: int, cfg: dict) -> List[Any]:
-
     """Extracts the bias initialisation settings from the config. The config is a dictionary containing the
     default, and a layer-specific entry detailing exceptions from the default. 'None' entries
     are interpreted as unbiased layers.

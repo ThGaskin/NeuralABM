@@ -141,7 +141,6 @@ class SIR_NN:
         self._write_start = write_start
 
     def epoch(self):
-
         """
         An epoch is a pass over the entire dataset. The dataset is processed in batches, where B < L is the batch
         number. After each batch, the parameters of the neural network are updated. For example, if L = 100 and
@@ -153,7 +152,6 @@ class SIR_NN:
 
         # Process the training data in batches
         for batch_no, batch_idx in enumerate(self.batches[:-1]):
-
             predicted_parameters = self.neural_net(
                 torch.flatten(self.training_data[batch_idx])
             )
@@ -187,7 +185,6 @@ class SIR_NN:
             loss = torch.tensor(0.0, requires_grad=True)
 
             for ele in range(batch_idx + 1, self.batches[batch_no + 1] + 1):
-
                 # Recovery rate
                 tau = 1 / t * torch.sigmoid(1000 * (ele / t - 1))
 
@@ -252,7 +249,6 @@ class SIR_NN:
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-
     cfg_file_path = sys.argv[1]
 
     log.note("   Preparing model run ...")

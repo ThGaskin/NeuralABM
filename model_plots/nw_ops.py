@@ -101,7 +101,6 @@ def binned_nw_statistic(
 def sel_matrix_indices(
     A: xr.DataArray, indices: xr.Dataset, drop: bool = False
 ) -> xr.DataArray:
-
     """Selects entries from an adjacency matrix A given in ``indices``. If specified, coordinate labels
     are dropped.
 
