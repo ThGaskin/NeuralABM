@@ -4,33 +4,33 @@ index 17c3635..0000000
 --- a/data/Kuramoto/networks/_report.txt
 +++ /dev/null
 @@ -1,28 +0,0 @@
--Runtime Statistics 
-------------------- 
-- 
--The statistics below are calculated from all individual universe run times. 
-- 
--  # universes:  4 / 4 
-- 
--  total (CPU)   6.7s 
--  total (wall)  2.1s 
--  mean          1.7s 
--   (last 50%)   1.7s 
--   (last 20%)   1.9s 
--   (last 5%)    1.9s 
--  std           0.1s 
--  min           1.6s 
--  at 25%        1.6s 
--  median        1.6s 
--  at 75%        1.7s 
--  max           1.9s 
-- 
-- 
--Universe Runtimes 
------------------- 
-- 
--  uni1          1.7s 
--  uni2          1.6s 
--  uni3          1.6s 
+-Runtime Statistics
+-------------------
+-
+-The statistics below are calculated from all individual universe run times.
+-
+-  # universes:  4 / 4
+-
+-  total (CPU)   6.7s
+-  total (wall)  2.1s
+-  mean          1.7s
+-   (last 50%)   1.7s
+-   (last 20%)   1.9s
+-   (last 5%)    1.9s
+-  std           0.1s
+-  min           1.6s
+-  at 25%        1.6s
+-  median        1.6s
+-  at 75%        1.7s
+-  max           1.9s
+-
+-
+-Universe Runtimes
+------------------
+-
+-  uni1          1.7s
+-  uni2          1.6s
+-  uni3          1.6s
 -  uni4          1.9s
 \ No newline at end of file
 diff --git a/data/Kuramoto/networks/_sweep_info.txt b/data/Kuramoto/networks/_sweep_info.txt
@@ -673,12 +673,12 @@ index d6f917b..0000000
 -+++ b/model_plots/HarrisWilson/prob_density.py
 -@@ -94,7 +94,7 @@ def plot_prob_density(
 -             fb = hlpr.ax.fill_between(dset[x], y_vals_lower, y_vals_upper, linewidth=0, **plot_kwargs)
-- 
+-
 -         if label is not None:
 --            _handles.append(ebar[0] if yerr is None else (ebar, fb))
 -+            _handles.append(ebar if yerr is None else (ebar, fb))
 -             _labels.append(label)
-- 
+-
 -     hlpr.track_handles_labels(_handles, _labels)
 -diff --git a/model_plots/data_ops.py b/model_plots/data_ops.py
 -index cd7c757..8160584 100644
@@ -687,16 +687,16 @@ index d6f917b..0000000
 -@@ -288,7 +288,7 @@ def marginal_of_density(vals: xr.DataArray, loss: xr.DataArray, *, coords: dict
 -     hist_data = np.reshape(hist_data, (-1, n_bins))
 -     n_samples = np.shape(hist_data)[0]
-- 
+-
 --    loss_data = np.repeat(np.reshape(loss.data, (n_samples, 1)), n_bins, 1)
 -+    loss_data = np.repeat(np.reshape(np.exp(-loss.data), (n_samples, 1)), n_bins, 1)
 -     loss_data = loss_data / np.sum(loss_data, axis=0)
-- 
+-
 -     # Calculate the mean of each bin
 -@@ -303,9 +303,13 @@ def marginal_of_density(vals: xr.DataArray, loss: xr.DataArray, *, coords: dict
 -     std = std/(np.sum(means) * dx)
 -     coords.update(dict(bin_idx=np.arange(n_bins)))
-- 
+-
 -+    MLE = hist_data[np.argmin(np.reshape(loss.data, (n_samples, 1)), axis=0)[0]]
 -+    MLE = MLE / (np.sum(MLE) * dx)
 -+
@@ -716,7 +716,7 @@ index d6f917b..0000000
 -@@ -127,6 +127,12 @@
 -     - .plot.multiplot
 -   compute_only: []
-- 
+-
 -+.multiplot_multiverse:
 -+  based_on:
 -+    - .creator.multiverse
@@ -729,7 +729,7 @@ index d6f917b..0000000
 -@@ -140,6 +146,59 @@
 -       1: *darkblue
 -     continuous: true
-- 
+-
 -+.plot.prob_density:
 -+  module: model_plots.HarrisWilson
 -+  plot_func: plot_prob_density
@@ -816,7 +816,7 @@ index d6f917b..0000000
 -@@ -560,10 +614,11 @@ accuracy_on_false_edges:
 -     - xr.where: [!dag_prev ^= 0, !dag_tag l1_accuracy, 0]
 -       tag: data
-- 
+-
 --marginals_uni:
 --  based_on: .creator.universe
 --  module: model_plots.HarrisWilson
@@ -832,7 +832,7 @@ index d6f917b..0000000
 -@@ -597,156 +652,39 @@ marginals_uni:
 -           linestyle: dashed
 -           color: gray
-- 
+-
 -+# Marginal density on a distribution
 - marginals_density_uni:
 -   based_on:
@@ -989,7 +989,7 @@ index d6f917b..0000000
 --  smooth_kwargs:
 --    enabled: True
 --    sigma: 2
-- 
+-
 - # ======================================================================================================================
 - #  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
 -@@ -770,3 +708,46 @@ loss_stacked:
@@ -1086,7 +1086,7 @@ index d6f917b..0000000
 ---- a/models/Kuramoto/cfgs/Noisy_run/eval.yml
 -+++ b/models/Kuramoto/cfgs/Noisy_run/eval.yml
 -@@ -12,47 +12,191 @@
-- 
+-
 -   # Page widths in inches for latex documents: ensures easy integration into latex documents
 -   page_widths:
 --    full_width:         &full_width         7.5
@@ -1102,7 +1102,7 @@ index d6f917b..0000000
 -+    quarter_width:  &quarter_width      !expr 7.5 / 4
 -+    fifth_width:    &fifth_width        !expr 7.5 / 5
 -+    eighth_width:    &eighth_width      !expr 7.5 / 8
-- 
+-
 --.matrix_defaults:
 -+# ======================================================================================================================
 -+
@@ -1153,7 +1153,7 @@ index d6f917b..0000000
 -+      y: Frobenius error $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_\mathrm{Fr}$
 -+    set_legend:
 -+      use_legend: False
-- 
+-
 --graphs/true_graph:
 --  based_on: graph
 -+# Network size comparison
@@ -1203,7 +1203,7 @@ index d6f917b..0000000
 -+  x: Noise
 -+  style:
 -+    figure.figsize: [ *half_width, *third_width ]
-- 
+-
 --graphs/prediction:
 --  based_on: graph
 --  select:
@@ -1250,7 +1250,7 @@ index d6f917b..0000000
 -+      y: log
 -+    set_labels:
 -+      y: Average edge weight on $E_\wedge$
-- 
+-
 --marginals/degree_distribution:
 --  based_on: marginals_density_uni
 -+loss_compared:
@@ -1314,7 +1314,7 @@ index d6f917b..0000000
 -@@ -66,66 +210,27 @@ marginals/degree_distribution:
 -   style:
 -     figure.figsize: [*half_width, *third_width]
-- 
+-
 --marginals/clustering:
 --  based_on: marginals_density_uni
 --  dag_options:
@@ -1480,18 +1480,18 @@ index d6f917b..0000000
 ---- a/models/Kuramoto/cfgs/Sample_run/eval.yml
 -+++ b/models/Kuramoto/cfgs/Sample_run/eval.yml
 -@@ -45,14 +45,16 @@
-- 
+-
 - graphs/true_graph:
 -   based_on: graph
 -+  universes:
 -+    seed: 0
-- 
+-
 - graphs/prediction:
 --  based_on: graph
 -+  based_on: graphs/true_graph
 -   select:
 -     graph_group: predicted_network
-- 
+-
 - marginals/degree_distribution:
 --  based_on: marginals_density_uni
 -+  based_on: marginals_density_mv
@@ -1500,7 +1500,7 @@ index d6f917b..0000000
 -       n_bins: 200
 -@@ -67,7 +69,7 @@ marginals/degree_distribution:
 -     figure.figsize: [*half_width, *third_width]
-- 
+-
 - marginals/clustering:
 --  based_on: marginals_density_uni
 -+  based_on: marginals_density_mv
@@ -1659,7 +1659,7 @@ index d6f917b..0000000
 -@@ -43,13 +43,61 @@
 -       y: [max, min]
 -       x: [min, max]
-- 
+-
 --graphs/true_graph:
 --  based_on: graph
 -+frobenius_loss:
@@ -1671,7 +1671,7 @@ index d6f917b..0000000
 -+  helpers:
 -+    set_scales:
 -+      y: log
-- 
+-
 --graphs/prediction:
 --  based_on: graph
 -+loss:
@@ -1720,7 +1720,7 @@ index d6f917b..0000000
 -+  vmax: ~
 -+  cbar_kwargs:
 -+    label: $\Vert \hat{\mathbf{A}} - \mathbf{A} \Vert_1$
-- 
+-
 - marginals/degree_distribution:
 -   based_on: marginals_density_uni
 -@@ -92,48 +140,4 @@ marginals/clustering:
@@ -1869,7 +1869,7 @@ index d6f917b..0000000
 -         self._write_start = write_start
 -         self._num_steps = num_steps
 --        self._write_time = write_time
-- 
+-
 -         # Current training loss, Frobenius error, and current predictions
 -         self.current_loss = torch.tensor(0.0)
 -@@ -129,7 +126,7 @@ class Kuramoto_NN:
@@ -1889,7 +1889,7 @@ index d6f917b..0000000
 -+            self._write_predictions_every,
 -         ]
 -         self._dset_edge_weights.attrs["coords_mode__edge_idx"] = "trivial"
-- 
+-
 -         # In-degree
 -         self._dset_in_degree = predicted_nw_group.create_dataset(
 -             "_in_degree",
@@ -1946,22 +1946,22 @@ index d6f917b..0000000
 -@@ -331,7 +328,7 @@ class Kuramoto_NN:
 -                 # Penalise the trace (cannot be learned)
 -                 loss = loss + torch.trace(pred_adj_matrix)
-- 
+-
 --                loss = loss + torch.nn.MSELoss()(
 -+                loss = loss + self.loss_function(
 -                     pred_adj_matrix, torch.transpose(pred_adj_matrix, 0, 1)
 -                 )
-- 
+-
 -@@ -351,9 +348,8 @@ class Kuramoto_NN:
 -                 self.write_data()
 -                 self.write_predictions()
-- 
+-
 --        if self._write_time:
 --            self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
 --            self.dset_time[-1, :] = time.time() - start_time
 -+        self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
 -+        self.dset_time[-1, :] = time.time() - start_time
-- 
+-
 -     def write_data(self):
 -         """Write the current loss and predicted network size into the state dataset.
 -@@ -384,16 +380,13 @@ class Kuramoto_NN:
@@ -1971,13 +1971,13 @@ index d6f917b..0000000
 --
 -         if self._write_predictions_every == -1 and not write_final:
 -             pass
-- 
+-
 --        elif self._write_predictions_every != -1:
 --            if self._time % self._write_predictions_every != 0:
 --                pass
 -+        else:
 -+            if self._time >= self._write_start and self._time % self._write_predictions_every == 0:
-- 
+-
 --            else:
 --                log.info("    Writing prediction data ... ")
 -+                log.debug(f"    Writing prediction data ... ")
@@ -1985,7 +1985,7 @@ index d6f917b..0000000
 -                     self._dset_predictions.shape[0] + 1, axis=0
 -                 )
 -@@ -401,7 +394,6 @@ class Kuramoto_NN:
-- 
+-
 -                 # Write predicted network structure and edge weights, corresponding to the probability of that
 -                 # edge existing. Write topological properties.
 --
@@ -2000,18 +2000,18 @@ index d6f917b..0000000
 --        write_time=model_cfg.get("write_time", False),
 -+        write_start=cfg["write_start"]
 -     )
-- 
+-
 -     log.info(f"   Initialized model '{model_name}'.")
 -@@ -574,7 +565,10 @@ if __name__ == "__main__":
 -             f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}"
 -         )
-- 
+-
 --    model.write_predictions(write_final=write_predictions_every == -1)
 -+    if write_predictions_every == -1:
 -+        model.write_predictions(write_final=True)
 -+
 -+    print(len(model._dset_in_degree), len(model._dset_loss))
-- 
+-
 -     log.info("   Simulation run finished.")
 -     log.info("   Wrapping up ...")
 \ No newline at end of file
@@ -2719,8 +2719,8 @@ index 62ed135..5a7bfaf 100644
  import h5py as h5
 +import networkx as nx
 +import numpy as np
- 
- 
+
+
  def save_nw(
 diff --git a/include/regression.py b/include/regression.py
 index 5b62226..d6ce116 100644
@@ -2734,8 +2734,8 @@ index 5b62226..d6ce116 100644
 +import h5py as h5
  import numpy as np
 +import torch
- 
- 
+
+
  def Kuramoto_regression(
 -        training_data: torch.Tensor,
 -        eigenfrequencies: torch.Tensor,
@@ -2754,7 +2754,7 @@ index 5b62226..d6ce116 100644
 -    """ Estimates the network from first- or second-order dynamics via an OLS-regression, and stores the predictions in
 +    """Estimates the network from first- or second-order dynamics via an OLS-regression, and stores the predictions in
      an h5.File.
- 
+
      :param training_data: the training data from which to estimate the network
 @@ -20,6 +22,7 @@ def Kuramoto_regression(
      :param h5file: the h5 file to write the predictions to
@@ -2762,7 +2762,7 @@ index 5b62226..d6ce116 100644
      :param second_order: whether to use second order dynamics
 +    :param gamma: the coefficient of the first derivative used in the second-order dynamics
      """
- 
+
      # Extract the number of nodes from the training data
 @@ -29,7 +32,8 @@ def Kuramoto_regression(
          # Stack the observations into a matrix for each node
@@ -2775,7 +2775,7 @@ index 5b62226..d6ce116 100644
              0,
              1,
 @@ -37,7 +41,10 @@ def Kuramoto_regression(
- 
+
          # Stack the sine-couplings into a matrix for each node
          G = torch.zeros(
 -            training_data.shape[0], training_data.shape[1] - 1, training_data.shape[2], N
@@ -2784,10 +2784,10 @@ index 5b62226..d6ce116 100644
 +            training_data.shape[2],
 +            N,
          )
- 
+
      else:
 @@ -45,13 +52,19 @@ def Kuramoto_regression(
- 
+
          X = torch.transpose(
              torch.reshape(
 -                torch.diff(velocities, dim=1) / dt + velocities[:, :-1, :, :] - eigenfrequencies, (-1, N)
@@ -2806,7 +2806,7 @@ index 5b62226..d6ce116 100644
 +            training_data.shape[2],
 +            N,
          )
- 
+
      for dset in range(G.shape[0]):
 diff --git a/model_plots/HarrisWilson/prob_density.py b/model_plots/HarrisWilson/prob_density.py
 index 5e37737..20383af 100644
@@ -2887,11 +2887,11 @@ index c302dfb..1fdf19d 100644
 +++ b/model_plots/__init__.py
 @@ -18,6 +18,7 @@ import pandas as pd
  import xarray as xr
- 
+
  import model_plots.HarrisWilson
 +import model_plots.Kuramoto
  from utopya.eval import register_operation
- 
+
  register_operation(name="pd.Index", func=pd.Index)
 @@ -35,4 +36,8 @@ register_operation(name="np.nonzero", func=np.nonzero)
  register_operation(name="xr.where", func=xr.where)
@@ -2909,7 +2909,7 @@ index cf28b46..e593b75 100644
 @@ -335,6 +335,16 @@ def marginal_of_density(
      error: str = "standard",
  ) -> xr.Dataset:
- 
+
 +    """Calculates the marginal density over a family of distributions.
 +
 +    :param vals: the family of distributions
@@ -2921,16 +2921,16 @@ index cf28b46..e593b75 100644
 +    """
 +
      n_samples, n_bins = list(vals.sizes.values())[:]
- 
+
      # Calculate the mean of each bin
 @@ -368,8 +378,53 @@ def marginal_of_density(
          coords=coords,
      )
- 
+
 +
  @is_operation("NeuralABM.triangles")
  def triangles(ds: xr.DataArray, *args, **kwargs):
- 
+
 +    """Calculates the number of triangles on each node, given an adjacency matrix"""
      res = xr.apply_ufunc(np.linalg.matrix_power, ds, 3, *args, **kwargs)
 -    return xr.apply_ufunc(np.diagonal, res, 0, 1, 2, input_core_dims=[['j'], [], [], []])
@@ -3003,11 +3003,11 @@ index 1d20970..64b2ac5 100644
 +                origins = np.array(f["HarrisWilson"]["origin_sizes"])
                  training_data = np.array(f["HarrisWilson"]["training_data"])
                  nw = np.array(f["network"]["_edge_weights"])
- 
+
 @@ -52,23 +52,14 @@ def load_from_dir(dir) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
          ).to_numpy()
          nw = pd.read_csv(dir["network"], header=0, index_col=0).to_numpy()
- 
+
 -    # Reshape the origin zone sizes
 -    or_sizes = torch.tensor(origins, dtype=torch.float)
 -    N_origin = len(or_sizes)
@@ -3026,17 +3026,17 @@ index 1d20970..64b2ac5 100644
 +    nw = torch.reshape(
 +        torch.from_numpy(nw).float(), (origins.shape[0], training_data.shape[1])
      )
- 
+
 -    # Return all three datasets
 -    return or_sizes, time_series, network
 +    # Return the data as torch tensors
 +    return origins, training_data, nw
- 
- 
+
+
  def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
 @@ -87,7 +78,13 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
      num_steps = data_cfg["num_steps"]
- 
+
      # Generate the initial origin sizes
 -    or_sizes = torch.abs(torch.normal(0.1, 0.01, size=(N_origin, 1)))
 +    or_sizes = torch.abs(
@@ -3046,11 +3046,11 @@ index 1d20970..64b2ac5 100644
 +            size=(N_origin, 1),
 +        )
 +    )
- 
+
      # Generate the edge weights
      network = torch.exp(
 @@ -103,7 +100,11 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
- 
+
      # Generate the initial destination zone sizes
      init_dest_sizes = torch.abs(
 -        torch.normal(0.1, 0.01, size=(data_cfg["N_destination"], 1))
@@ -3060,15 +3060,15 @@ index 1d20970..64b2ac5 100644
 +            size=(data_cfg["N_destination"], 1),
 +        )
      )
- 
+
      # Extract the underlying parameters from the config
 @@ -149,38 +150,38 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
      :return: the origin zone sizes, the training data, and the network
      """
- 
+
 -    data_dir = cfg.pop("load_from_dir", None)
 +    data_dir = cfg.get("load_from_dir", {})
- 
+
      # Get the origin sizes, time series, and network data
      or_sizes, dest_sizes, network = (
 -        load_from_dir(data_dir)
@@ -3076,11 +3076,11 @@ index 1d20970..64b2ac5 100644
 -        else generate_synthetic_data(cfg=cfg)
 +        load_from_dir(data_dir) if data_dir else generate_synthetic_data(cfg=cfg)
      )
- 
+
 -    N_origin = or_sizes.shape[0]
 -    N_destination = dest_sizes.shape[1]
 +    N_origin, N_destination = or_sizes.shape[0], dest_sizes.shape[1]
- 
+
      # Only save individual time frames
 -    synthetic_data = cfg.pop("synthetic_data", None)
 -    if synthetic_data is not None:
@@ -3093,7 +3093,7 @@ index 1d20970..64b2ac5 100644
          time_series = dest_sizes[write_start::write_every]
      else:
          time_series = dest_sizes
- 
+
      # If time series has a single frame, double it to enable visualisation.
      # This does not affect the training data
 -    training_data_size = cfg.pop("training_data_size", len(time_series))
@@ -3105,7 +3105,7 @@ index 1d20970..64b2ac5 100644
 +
 +    # Extract the training data from the time series data
 +    training_data = dest_sizes[-training_data_size:]
- 
+
      # Set up dataset for complete synthetic time series
      dset_time_series = h5group.create_dataset(
          "time_series",
@@ -3118,11 +3118,11 @@ index 1d20970..64b2ac5 100644
      )
 @@ -193,13 +194,13 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
      )
- 
+
      # Write the time series data
 -    dset_time_series[:, :] = torch.flatten(time_series, start_dim=1)
 +    dset_time_series[:, :] = torch.flatten(time_series, start_dim=-2)
- 
+
 -    # Training time series
 +    # Save the training time series
      dset_training_data = h5group.create_dataset(
@@ -3143,7 +3143,7 @@ index 1d20970..64b2ac5 100644
 -    training_data = dest_sizes[-training_data_size:]
 -    dset_training_data[:, :] = torch.flatten(training_data, start_dim=1)
 +    dset_training_data[:, :] = torch.flatten(training_data, start_dim=-2)
- 
+
      # Set up chunked dataset to store the state data in
      # Origin zone sizes
      dset_origin_sizes = h5group.create_dataset(
@@ -3162,7 +3162,7 @@ index 1d20970..64b2ac5 100644
 +    dset_origin_sizes.attrs["dim_names"] = ["zone_id"]
 +    dset_origin_sizes.attrs["coords_mode__zone_id"] = "trivial"
 +    dset_origin_sizes[:] = torch.flatten(or_sizes)
- 
+
      # Create a network group
      nw_group = h5file.create_group("network")
 @@ -237,30 +234,29 @@ def get_HW_data(cfg, h5file: h5.File, h5group: h5.Group, *, device: str):
@@ -3183,7 +3183,7 @@ index 1d20970..64b2ac5 100644
 -    vertices[0, :] = np.arange(0, N_origin + N_destination, 1)
 +    vertices[:] = np.arange(0, N_origin + N_destination, 1)
      vertices.attrs["node_type"] = [0] * N_origin + [1] * N_destination
- 
+
      # Add edges. The network is a complete bipartite graph
 -    # TODO: allow more general network topologies?
      edges = nw_group.create_dataset(
@@ -3220,7 +3220,7 @@ index 1d20970..64b2ac5 100644
      edge_weights.attrs["coords_mode__edge_idx"] = "trivial"
 -    edge_weights[0, :] = torch.reshape(network, (N_origin * N_destination,))
 +    edge_weights[:] = torch.reshape(network, (N_origin * N_destination,))
- 
+
      return or_sizes.to(device), training_data.to(device), network.to(device)
 diff --git a/models/HarrisWilson/HarrisWilson_cfg.yml b/models/HarrisWilson/HarrisWilson_cfg.yml
 index 8ded54f..426d439 100644
@@ -3264,7 +3264,7 @@ index 8ded54f..426d439 100644
    device: cpu
 +  epsilon: 1
 +
- 
+
  # Whether to write out the computation time for each epoch
  write_time: False
 diff --git a/models/HarrisWilson/README.md b/models/HarrisWilson/README.md
@@ -3273,10 +3273,10 @@ index 6cf539d..b1bf44b 100644
 +++ b/models/HarrisWilson/README.md
 @@ -1,5 +1,6 @@
  # The Harris-Wilson model
- 
+
 +To do
  ## How to load data
- 
+
  WIP
 diff --git a/models/HarrisWilson/cfgs/London_dataset/run.yml b/models/HarrisWilson/cfgs/London_dataset/run.yml
 index 517da14..2a8db3a 100644
@@ -3334,7 +3334,7 @@ index e1b4d7c..be24a00 100755
      ):
          """Initialize the model instance with a previously constructed RNG and
          HDF5 group to write the output data to.
- 
+
          Args:
 -            name (str): The name of this model instance
              rng (np.random.Generator): The shared RNG
@@ -3350,7 +3350,7 @@ index e1b4d7c..be24a00 100755
 -        self._time = 0
          self._h5group = h5group
          self._rng = rng
- 
+
 +        # The numerical solver
          self._ABM = ABM
 +
@@ -3379,7 +3379,7 @@ index e1b4d7c..be24a00 100755
 +        self._dset_loss.attrs["dim_names"] = ["time"]
          self._dset_loss.attrs["coords_mode__time"] = "start_and_step"
          self._dset_loss.attrs["coords__time"] = [write_start, write_every]
- 
+
 -        if write_time:
 -            self.dset_time = self._h5group.create_dataset(
 -                "computation_time",
@@ -3400,7 +3400,7 @@ index e1b4d7c..be24a00 100755
 +        )
 +        self.dset_time.attrs["dim_names"] = ["epoch"]
 +        self.dset_time.attrs["coords_mode__epoch"] = "trivial"
- 
+
          dset_predictions = []
          for p_name in to_learn:
              dset = self._h5group.create_dataset(
@@ -3411,7 +3411,7 @@ index e1b4d7c..be24a00 100755
 +            dset.attrs["dim_names"] = ["time"]
              dset.attrs["coords_mode__time"] = "start_and_step"
              dset.attrs["coords__time"] = [write_start, write_every]
- 
+
              dset_predictions.append(dset)
 -
          self._dset_predictions = dset_predictions
@@ -3421,7 +3421,7 @@ index e1b4d7c..be24a00 100755
          self._write_every = write_every
          self._write_start = write_start
 -        self._write_time = write_time
- 
+
      def epoch(
          self,
          *,
@@ -3435,9 +3435,9 @@ index e1b4d7c..be24a00 100755
 +        dt: float = None,
 +        **__,
      ):
- 
+
          """Trains the model for a single epoch.
- 
+
          :param training_data: the training data
 -        :param batch_size: (optional) the number of passes (batches) over the training data before conducting a gradient descent
 +        :param batch_size: the number of time series elements to process before conducting a gradient descent
@@ -3446,32 +3446,32 @@ index e1b4d7c..be24a00 100755
          :param dt: (optional) the time differential to use during training
 +        :param __: other parameters (ignored)
          """
- 
+
 +        # Track the epoch training time
          start_time = time.time()
- 
+
 +        # Track the training loss
          loss = torch.tensor(0.0, requires_grad=True)
- 
+
 +        # Count the number of batch items processed
 +        n_processed_steps = 0
 +
 +        # Process the training set elementwise, updating the loss after batch_size steps
          for t, sample in enumerate(training_data):
- 
+
              predicted_parameters = self._neural_net(torch.flatten(sample))
 @@ -147,26 +150,28 @@ class HarrisWilson_NN:
                  requires_grad=True,
              )
- 
+
 -            loss = loss + self.loss_function(predicted_data, sample) / batch_size
 +            loss = loss + self.loss_function(predicted_data, sample)
- 
+
 -            self._current_loss = loss.clone().detach().cpu().numpy().item()
 -            self._current_predictions = predicted_parameters.clone().detach().cpu()
 -            self.write_data()
 +            n_processed_steps += 1
- 
+
              # Update the model parameters after every batch and clear the loss
              if t % batch_size == 0 or t == len(training_data) - 1:
                  loss.backward()
@@ -3486,7 +3486,7 @@ index e1b4d7c..be24a00 100755
                  del loss
                  loss = torch.tensor(0.0, requires_grad=True)
 +                n_processed_steps = 0
- 
+
 -            self._time += 1
 -
 -        # Write the training time (wall clock time)
@@ -3496,21 +3496,21 @@ index e1b4d7c..be24a00 100755
 +        # Write the epoch training time (wall clock time)
 +        self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
 +        self.dset_time[-1] = time.time() - start_time
- 
+
      def write_data(self):
          """Write the current state into the state dataset.
 @@ -178,7 +183,7 @@ class HarrisWilson_NN:
          if self._time >= self._write_start and (self._time % self._write_every == 0):
- 
+
              self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
 -            self._dset_loss[-1, :] = self._current_loss
 +            self._dset_loss[-1] = self._current_loss
- 
+
              for idx, dset in enumerate(self._dset_predictions):
                  dset.resize(dset.shape[0] + 1, axis=0)
 @@ -202,7 +207,7 @@ if __name__ == "__main__":
      model_cfg = cfg[model_name]
- 
+
      # Select the training device and number of threads to use
 -    device = model_cfg["Training"].get("device", None)
 +    device = model_cfg["Training"].pop("device", None)
@@ -3522,7 +3522,7 @@ index e1b4d7c..be24a00 100755
          device=device,
      )
 -    write_time = model_cfg.get("write_time", False)
- 
+
      model = HarrisWilson_NN(
 -        model_name,
          rng=rng,
@@ -3538,25 +3538,25 @@ index e1b4d7c..be24a00 100755
 -        write_time=write_time,
      )
      log.info(f"   Initialized model '{model_name}'.")
- 
+
 @@ -273,9 +275,7 @@ if __name__ == "__main__":
- 
+
      for _ in range(num_epochs):
- 
+
 -        model.epoch(
 -            training_data=dest_sizes, batch_size=model_cfg["Training"]["batch_size"]
 -        )
 +        model.epoch(training_data=dest_sizes, **model_cfg["Training"])
- 
+
          log.progress(f"   Completed epoch {_+1} / {num_epochs}.")
- 
+
 diff --git a/models/HarrisWilsonNW/ABM.py b/models/HarrisWilsonNW/ABM.py
 index d06f890..41b546e 100644
 --- a/models/HarrisWilsonNW/ABM.py
 +++ b/models/HarrisWilsonNW/ABM.py
 @@ -33,12 +33,12 @@ class HarrisWilsonABM:
          self.M = M
- 
+
          # Model parameters
 -        self.alpha = torch.tensor(alpha).to(device)
 -        self.beta = torch.tensor(beta).to(device)
@@ -3571,7 +3571,7 @@ index d06f890..41b546e 100644
 +        self.epsilon = torch.tensor(epsilon, dtype=torch.float).to(device)
 +        self.dt = torch.tensor(dt, dtype=torch.float).to(device)
          self.device = device
- 
+
      # ... Model run functions ..........................................................................................
 diff --git a/models/HarrisWilsonNW/DataGeneration.py b/models/HarrisWilsonNW/DataGeneration.py
 index f6bfd7c..e353c29 100644
@@ -3580,7 +3580,7 @@ index f6bfd7c..e353c29 100644
 @@ -71,6 +71,25 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
      :returns the origin sizes, network, and the time series
      """
- 
+
 +    def _distributed_values(*, distribution: str, parameters: dict, size: tuple, **__):
 +
 +        """Generates random variables"""
@@ -3601,7 +3601,7 @@ index f6bfd7c..e353c29 100644
 +            raise ValueError(f"  Unrecognised distribution type {distribution}!")
 +
      log.note("   Generating synthetic data ...")
- 
+
      # Get run configuration properties
 @@ -82,17 +101,15 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
      network: torch.tensor = torch.exp(
@@ -3618,12 +3618,12 @@ index f6bfd7c..e353c29 100644
      )
 -    network = network * torch.bernoulli(network)
 +    network = network * torch.bernoulli(network)  # what if we turn this off?
- 
+
      # Normalise the rowsums
 -    norms = torch.sum(network, axis=1, keepdim=True)
 +    norms = torch.sum(network, dim=1, keepdim=True)
      network /= torch.where(norms != 0, norms, 1)
- 
+
      # Extract the underlying parameters from the config
 @@ -110,7 +127,7 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
          M=data_cfg["N_destination"],
@@ -3633,9 +3633,9 @@ index f6bfd7c..e353c29 100644
 +        **true_parameters,
      )
      origin_sizes, dest_sizes = [], []
- 
+
 @@ -118,11 +135,17 @@ def generate_synthetic_data(*, cfg) -> Tuple[torch.tensor, torch.tensor, torch.t
- 
+
          # Generate the initial destination zone sizes
          init_dest_sizes = torch.abs(
 -            torch.normal(1, 0.1, size=(data_cfg["N_destination"], 1))
@@ -3643,7 +3643,7 @@ index f6bfd7c..e353c29 100644
 +                **data_cfg.get("init_dest_sizes"), size=(data_cfg["N_destination"], 1)
 +            )
          )
- 
+
          # Generate the origin sizes time series
 -        or_sizes = torch.abs(torch.normal(1, 0.1, size=(1, N_origin, 1)))
 +        or_sizes = torch.abs(
@@ -3651,7 +3651,7 @@ index f6bfd7c..e353c29 100644
 +                **data_cfg.get("init_origin_sizes"), size=(1, N_origin, 1)
 +            )
 +        )
- 
+
          if data_cfg["origin_size_std"] == 0:
              or_sizes = or_sizes.repeat(num_steps, 1, 1)
 diff --git a/models/HarrisWilsonNW/HarrisWilsonNW_base_plots.yml b/models/HarrisWilsonNW/HarrisWilsonNW_base_plots.yml
@@ -3664,13 +3664,13 @@ index b1e358e..b9b4f77 100644
        dpi: 900
 -  file_ext: png
 +  file_ext: pdf
- 
+
  .calculate_clustering_coefficient:
    dag_options:
 @@ -222,6 +222,28 @@ loss:
      set_scales:
        y: log
- 
+
 +losses_combined:
 +  based_on: .line_universe
 +  select:
@@ -3740,7 +3740,7 @@ index 416be81..7cb2009 100644
 +
 +  # Number of independently training sets to use
    training_data_size: 1
- 
+
  # Settings for the neural net architecture
 diff --git a/models/HarrisWilsonNW/cfgs/N_750_example/run.yml b/models/HarrisWilsonNW/cfgs/N_750_example/run.yml
 index 1f7fd15..ac43232 100644
@@ -3773,7 +3773,7 @@ index 382cc7d..c9724db 100644
 +          locs: [0, 200, 400]
 +          labels: ['', '', '']
 +
- 
+
  origin_sizes:
    based_on: training_data
 @@ -34,4 +43,160 @@ origin_sizes:
@@ -3998,7 +3998,7 @@ index b98cb27..7cc3730 100755
 @@ -174,19 +174,24 @@ class HarrisWilson_NN:
              if batches[-1] != training_data.shape[1] - 1:
                  batches = np.append(batches, training_data.shape[1] - 1)
- 
+
 +        # Track the number of gradient descent updates
 +        counter = 0
 +
@@ -4011,24 +4011,24 @@ index b98cb27..7cc3730 100755
 +        loss = torch.tensor(0.0, requires_grad=True)
 +
          for batch_no, batch_idx in enumerate(batches[:-1]):
- 
+
              for i, dset in enumerate(training_data):
- 
+
 -                predicted_parameters = self.neural_net(torch.flatten(dset[batch_idx]))
 -                pred_adj_matrix = torch.reshape(
 -                    predicted_parameters, (self.n_origin, self.n_dest)
 -                )
                  current_values = dset[batch_idx].clone()
                  current_values.requires_grad_(True)
- 
+
 -                loss = torch.tensor(0.0, requires_grad=True)
 -
                  for ele in range(batch_idx + 1, batches[batch_no + 1] + 1):
- 
+
                      # Solve the ODE
 @@ -199,27 +204,43 @@ class HarrisWilson_NN:
                      )
- 
+
                      # Calculate the loss
 -                    loss = loss + (
 -                        self.loss_function(current_values, dset[ele])
@@ -4088,7 +4088,7 @@ index b98cb27..7cc3730 100755
 +
 +                    del loss
 +                    loss = torch.tensor(0.0, requires_grad=True)
- 
+
          self._time += 1
          self.write_data()
 diff --git a/models/Kuramoto/ABM.py b/models/Kuramoto/ABM.py
@@ -4099,7 +4099,7 @@ index c690208..9499211 100644
 +import logging
 +
  import torch
- 
+
  """ The Kuramoto model of synchronised oscillation """
 @@ -5,14 +7,7 @@ import torch
  # --- The Kuramoto ABM ------------------------------------------------------------------------------------------
@@ -4115,7 +4115,7 @@ index c690208..9499211 100644
 -        **__
 +        self, *, N: int, sigma: float, dt: float, gamma: float, device: str, **__
      ):
- 
+
          """The Kuramoto model numerical solver, for first and second-order dynamics.
 @@ -21,7 +16,6 @@ class Kuramoto_ABM:
          :param sigma: the default noise variance
@@ -4124,10 +4124,10 @@ index c690208..9499211 100644
 -        :param eigen_frequencies: the eigenfrequencies of the oscillators
          :param **__: other kwargs (ignored)
          """
- 
+
 @@ -29,12 +23,11 @@ class Kuramoto_ABM:
          self.N = N
- 
+
          # Scalar parameter: noise variance
 -        self.sigma = sigma
 -        self.dt = dt
@@ -4135,11 +4135,11 @@ index c690208..9499211 100644
 +        self.sigma = torch.tensor(sigma, device=device, dtype=torch.float)
 +        self.dt = torch.tensor(dt, device=device, dtype=torch.float)
 +        self.gamma = torch.tensor(gamma, device=device, dtype=torch.float)
- 
+
 -        # Initialise the opinions uniformly at random on the unit interval
 -        self.eigen_frequencies = eigen_frequencies
 +        self.device = device
- 
+
      def run_single(
          self,
 @@ -42,6 +35,7 @@ class Kuramoto_ABM:
@@ -4152,13 +4152,13 @@ index c690208..9499211 100644
      ):
 @@ -59,35 +53,43 @@ class Kuramoto_ABM:
          """
- 
+
          sigma = self.sigma if sigma is None else sigma
 -
          new_phases = current_phases.clone().detach().requires_grad_(requires_grad)
 +
          diffs = torch.sin(current_phases - torch.reshape(current_phases, (self.N,)))
- 
+
          # First-order dynamics
          if current_velocities is None:
 +
@@ -4175,7 +4175,7 @@ index c690208..9499211 100644
 -                + torch.normal(0.0, sigma, (self.N, 1))
 +                + torch.normal(0.0, sigma, (self.N, 1), device=self.device)
              )
- 
+
          # Second-order dynamics
          else:
 +
@@ -4201,15 +4201,15 @@ index c690208..9499211 100644
 +                * self.dt
 +                + torch.normal(0.0, sigma, (self.N, 1))
              )
- 
+
          return new_phases
 diff --git a/models/Kuramoto/DataGeneration.py b/models/Kuramoto/DataGeneration.py
 index 662309a..aff39a6 100644
 --- a/models/Kuramoto/DataGeneration.py
 +++ b/models/Kuramoto/DataGeneration.py
 @@ -21,10 +21,16 @@ log = logging.getLogger(__name__)
- 
- 
+
+
  def get_data(
 -    cfg, h5file: h5.File, h5group: h5.Group, *, seed: int, device: str, second_order: bool,
 +    cfg,
@@ -4220,11 +4220,11 @@ index 662309a..aff39a6 100644
 +    device: str,
 +    second_order: bool,
  ) -> (torch.Tensor, Union[nx.Graph, None]):
- 
+
 -    """ Either loads data from an external file or synthetically generates Kuramoto data (including the network)
 +    """Either loads data from an external file or synthetically generates Kuramoto data (including the network)
      from a configuration file.
- 
+
      :param cfg: The configuration file containing either the paths to files to be loaded or the configuration settings
 @@ -35,6 +41,28 @@ def get_data(
      :param device: the training device to which to move the data
@@ -4254,30 +4254,30 @@ index 662309a..aff39a6 100644
 +
      load_from_dir = cfg.pop("load_from_dir", {})
      write_adjacency_matrix = cfg.pop("write_adjacency_matrix", load_from_dir == {})
- 
+
 @@ -47,7 +75,7 @@ def get_data(
- 
+
              # Load the training data
              training_data = torch.from_numpy(
 -                np.array(f["training_data"]["training_data"])
 +                np.array(f["training_data"]["phases"])
              ).float()
- 
+
      if load_from_dir.get("network", None) is not None:
 @@ -82,17 +110,23 @@ def get_data(
      if load_from_dir.get("eigen_frequencies", None) is not None:
- 
+
          log.info("   Loading eigenfrequencies")
 -        with h5.File(load_from_dir["eigen_frequencies"], "r") as f:
 +        with h5.File(load_from_dir["training_data"], "r") as f:
- 
+
              # Load the network
              eigen_frequencies = torch.from_numpy(
 -                np.array(f["true_network"]["_eigen_frequencies"])
 +                np.array(f["training_data"]["eigen_frequencies"])
              ).float()
 -            eigen_frequencies = torch.reshape(eigen_frequencies, (-1, 1))
- 
+
      # Get the config and number of agents
 +    dt = cfg.get("dt")
 +    gamma = cfg.get("gamma", 1)
@@ -4289,14 +4289,14 @@ index 662309a..aff39a6 100644
 +        cfg.update(dict(N=network.number_of_nodes()))
 +    cfg.update(dict(dt=dt, gamma=gamma))
      N: int = cfg["N"]
- 
+
      # If network was not loaded, generate the network
 @@ -105,13 +139,21 @@ def get_data(
      if eigen_frequencies is None:
- 
+
          log.info("   Generating eigenfrequencies  ...")
 -        eigen_frequencies = 2 * torch.rand((N, 1), dtype=torch.float) + 1
- 
+
 -    nx.set_node_attributes(
 -        network,
 -        {idx: val for idx, val in enumerate(eigen_frequencies)},
@@ -4316,7 +4316,7 @@ index 662309a..aff39a6 100644
 +            eigen_frequencies = _distributed_values(
 +                **cfg.get("eigen_frequencies"), size=(1, 1, N, 1), device=device
 +            ).repeat(training_set_size, num_steps + 1, 1, 1)
- 
+
      # If training data was not loaded, generate
      if training_data is None:
 @@ -119,35 +161,46 @@ def get_data(
@@ -4327,21 +4327,21 @@ index 662309a..aff39a6 100644
 +        training_data = torch.empty(
 +            (training_set_size, num_steps + 1, N, 1), device=device
 +        )
- 
+
 -        adj_matrix = torch.from_numpy(nx.to_numpy_matrix(network)).float()
 +        adj_matrix = torch.from_numpy(nx.to_numpy_matrix(network)).float().to(device)
- 
+
 -        ABM = Kuramoto_ABM(**cfg, eigen_frequencies=eigen_frequencies)
 +        ABM = Kuramoto_ABM(**cfg, device=device)
- 
+
          for idx in range(training_set_size):
- 
+
 -            training_data[idx, 0, :, :] = 2 * torch.pi * torch.rand(N, 1)
 -            i_0 = 0
 +            training_data[idx, 0, :, :] = _distributed_values(
 +                **cfg.get("init_phases"), size=(N, 1), device=device
 +            )
- 
+
              # For the second-order dynamics, the initial velocities must also be given
              if second_order:
 -                training_data[idx, 1, :, :] = training_data[idx, 0, :, :] + torch.rand(N, 1)
@@ -4352,7 +4352,7 @@ index 662309a..aff39a6 100644
 +
 +            # Second order dynamics require an additional initial condition and so start one step later
 +            t_0 = 0 if not second_order else 1
- 
+
              # Run the ABM for n iterations and write the data
 -            for i in range(i_0, num_steps):
 +            for i in range(t_0, num_steps):
@@ -4369,14 +4369,14 @@ index 662309a..aff39a6 100644
 +                    eigen_frequencies=eigen_frequencies[idx, i],
                      requires_grad=False,
                  )
- 
+
          log.info("   Training data generated.")
- 
+
 -        del ABM
 -
      # Save the data. If data was loaded, data can be copied if specified
      if load_from_dir.get("copy_data", True):
- 
+
 @@ -156,49 +209,54 @@ def get_data(
          nw_group.attrs["content"] = "graph"
          nw_group.attrs["allows_parallel"] = False
@@ -4385,7 +4385,7 @@ index 662309a..aff39a6 100644
 -        # Save the network
          base.save_nw(network, nw_group, write_adjacency_matrix)
 +        log.info("   Network generated and saved.")
- 
+
 -        # Vertex properties: eigenfrequencies
 -        eigen_frequencies = nw_group.create_dataset(
 -            "_eigen_frequencies",
@@ -4422,7 +4422,7 @@ index 662309a..aff39a6 100644
 +        dset_eigen_frequencies.attrs["coords_mode__vertex_idx"] = "values"
 +        dset_eigen_frequencies.attrs["coords__vertex_idx"] = network.nodes()
 +        dset_eigen_frequencies[:, :] = eigen_frequencies.cpu()
- 
+
          # Save training data
 -        dset_training_data = h5group.create_dataset(
 -            "training_data",
@@ -4451,10 +4451,10 @@ index 662309a..aff39a6 100644
 +        ]
 +        dset_phases.attrs["coords_mode__vertex_idx"] = "values"
 +        dset_phases.attrs["coords__vertex_idx"] = network.nodes()
- 
+
 -        dset_training_data[:, :] = training_data
 +        dset_phases[:, :] = training_data.cpu()
- 
+
      # Return the training data and the network
 -    return training_data.to(device), network
 -
@@ -4469,13 +4469,13 @@ index cb4573a..118e8c5 100644
        facecolor: None
 -  file_ext: png
 +  file_ext: pdf
- 
- 
+
+
  # ======================================================================================================================
 @@ -126,89 +126,26 @@
    module: model_plots.HarrisWilson
    plot_func: plot_prob_density
- 
+
 -.marginals_density:
 -  dag_options:
 -    define:
@@ -4534,7 +4534,7 @@ index cb4573a..118e8c5 100644
 +.marginals:
 +  module: model_plots.HarrisWilson
 +  plot_func: plot_prob_density
- 
+
  # ======================================================================================================================
  #  ╦ ╦╔╗╔╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
  #  ║ ║║║║║╚╗╔╝║╣ ╠╦╝╚═╗║╣   ╠═╝║  ║ ║ ║ ╚═╗
@@ -4570,7 +4570,7 @@ index cb4573a..118e8c5 100644
 @@ -220,172 +157,6 @@ losses_combined:
      set_scales:
        y: log
- 
+
 -density:
 -  based_on: .line_universe
 -  select:
@@ -4764,7 +4764,7 @@ index cb4573a..118e8c5 100644
 @@ -466,6 +237,41 @@ phases_lines:
      set_legend:
        use_legend: False
- 
+
 +oscillations:
 +  based_on:
 +    - .creator.universe
@@ -4820,7 +4820,7 @@ index cb4573a..118e8c5 100644
 @@ -656,40 +465,6 @@ marginals_parameter_uni:
            linestyle: dashed
            color: gray
- 
+
 -# Marginal density on a distribution
 -marginals_density_uni:
 -  based_on:
@@ -4855,7 +4855,7 @@ index cb4573a..118e8c5 100644
 -      kwargs:
 -        loss: !dag_tag loss
 -      tag: data
- 
+
  # ======================================================================================================================
  #  ╔╦╗╦ ╦╦ ╔╦╗╦╦  ╦╔═╗╦═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔╦╗╔═╗
 diff --git a/models/Kuramoto/Kuramoto_cfg.yml b/models/Kuramoto/Kuramoto_cfg.yml
@@ -4899,9 +4899,9 @@ index 2835845..f03c8ee 100644
 +    training_set_size: !is-positive-int 40
 +  dt: !is-positive 0.01
 +  gamma: !is-positive 1
- 
+
  second_order: !is-bool False
- 
+
  # Neural net configuration
  NeuralNet:
 -  num_layers: !is-positive-int 1
@@ -4917,7 +4917,7 @@ index 2835845..f03c8ee 100644
      default: ~
    learning_rate: !is-positive 0.002
 +  optimizer: Adam
- 
+
  Training:
 +  device: cpu
    batch_size: !is-positive-int 1
@@ -5013,7 +5013,7 @@ index 785736c..cf53fe8 100644
 +#
  matrices/true_adjacency_matrix:
    based_on: adjacency_matrix
- 
+
 @@ -71,40 +27,40 @@ matrices/prediction:
        path: output_data/predictions
        transform:
@@ -5337,7 +5337,7 @@ index 8153a36..4228249 100644
 @@ -60,31 +60,24 @@ losses:
    based_on: losses_combined
    figsize: [*half_width, *third_width]
- 
+
 -# Plot the true and predicted adjacency matrices
 -matrix_comparison:
 +# Plot the true adjacency matrix
@@ -5375,7 +5375,7 @@ index 8153a36..4228249 100644
    cbar_kwargs:
 -    label: ~
 +    label: Predicted edge weight $\hat{a}_{ij}$
- 
+
  # Plot the prediction error on the matrices
  error:
 @@ -96,13 +89,14 @@ error:
@@ -5389,7 +5389,7 @@ index 8153a36..4228249 100644
        0: white
        0.5: *yellow
        1: *red
- 
+
 +# Plot the degree distribution with uncertainty
  degree:
    based_on: .multiplot_universe
@@ -5429,7 +5429,7 @@ index 8153a36..4228249 100644
 @@ -213,7 +192,7 @@ degree:
    style:
      figure.figsize: [*half_width, *quarter_width]
- 
+
 -
 +# Plot the triangle distribution with uncertainty
  triangles:
@@ -5985,18 +5985,18 @@ index fff1d1d..2a9a35b 100755
 --- a/models/Kuramoto/run.py
 +++ b/models/Kuramoto/run.py
 @@ -83,8 +83,7 @@ class Kuramoto_NN:
- 
+
          # Current training loss, Frobenius error, and current predictions
          self.current_loss = torch.tensor(0.0)
 -        self.current_frob_error = torch.tensor(0.0)
 -        self.current_predictions = torch.zeros(self.nw_size)
 +        self.current_prediction_error = torch.tensor(0.0)
          self.current_adjacency_matrix = torch.zeros(self.num_agents, self.num_agents)
- 
+
          # Store the neural net training loss
 @@ -100,16 +99,16 @@ class Kuramoto_NN:
          self._dset_loss.attrs["coords__time"] = [write_start, write_every]
- 
+
          # Store the prediction error
 -        self._dset_frob_error = self._output_data_group.create_dataset(
 -            "Frobenius error",
@@ -6015,7 +6015,7 @@ index fff1d1d..2a9a35b 100755
 +        self._dset_prediction_error.attrs["dim_names"] = ["time"]
 +        self._dset_prediction_error.attrs["coords_mode__time"] = "start_and_step"
 +        self._dset_prediction_error.attrs["coords__time"] = [write_start, write_every]
- 
+
          # Store the neural net output, possibly less regularly than the loss
          self._dset_predictions = self._output_data_group.create_dataset(
 @@ -131,22 +130,25 @@ class Kuramoto_NN:
@@ -6033,26 +6033,26 @@ index fff1d1d..2a9a35b 100755
 +        self.dset_time.attrs["dim_names"] = ["epoch"]
          self.dset_time.attrs["coords_mode__epoch"] = "trivial"
 -        self.dset_time.attrs["coords_mode__training_time"] = "trivial"
- 
+
 -    def epoch(self, *, training_data, batch_size: int, second_order: bool):
 +    def epoch(
 +        self, *, training_data, eigen_frequencies, batch_size: int, second_order: bool
 +    ):
- 
+
          """Trains the model for a single epoch.
- 
+
          :param training_data: the training data to use
 +        :param eigen_frequencies: the time series of the nodes' eigenfrequencies
          :param batch_size: the number of training data time frames to process before updating the neural net
              parameters
 +        :param second_order: whether the dynamics are second order
          """
- 
+
          # Track the start time
 @@ -160,22 +162,27 @@ class Kuramoto_NN:
              if batches[-1] != training_data.shape[1] - 1:
                  batches = np.append(batches, training_data.shape[1] - 1)
- 
+
 +        # Track the total number of processed time series frames
 +        counter = 0
 +
@@ -6065,25 +6065,25 @@ index fff1d1d..2a9a35b 100755
 +
          # Process the training data in batches
          for batch_no, batch_idx in enumerate(batches[:-1]):
- 
+
              for i, dset in enumerate(training_data):
- 
+
 -                predicted_parameters = self.neural_net(torch.flatten(dset[batch_idx]))
 -                pred_adj_matrix = torch.reshape(
 -                    predicted_parameters, (self.num_agents, self.num_agents)
 -                )
                  current_values = dset[batch_idx].clone()
                  current_values.requires_grad_(True)
- 
+
                  # Calculate the current velocities if the dynamics are second order
 -                current_velocities = (dset[batch_idx].clone() - dset[batch_idx - 1].clone()) / self.ABM.dt if second_order else None
 -
 -                loss = torch.tensor(0.0, requires_grad=True)
 +                current_velocities = (dset[batch_idx].clone() - dset[
 +                    batch_idx - 1].clone()) / self.ABM.dt if second_order else None
- 
+
                  for ele in range(batch_idx + 1, batches[batch_no + 1] + 1):
- 
+
 @@ -183,50 +190,68 @@ class Kuramoto_NN:
                      new_values = self.ABM.run_single(
                          current_phases=current_values,
@@ -6093,26 +6093,26 @@ index fff1d1d..2a9a35b 100755
 +                        eigen_frequencies=eigen_frequencies[i, ele-1],
                          requires_grad=True,
                      )
- 
+
                      # Calculate loss
                      loss = loss + self.loss_function(new_values, dset[ele]) / (
 -                        batches[batch_no + 1] - batch_idx
 +                            batches[batch_no + 1] - batch_idx
                      )
- 
+
 -                    # Update the velocities, if required
 -                    if second_order:
 -                        current_velocities = (new_values - current_values)/self.ABM.dt
 +                    counter += 1
- 
+
 -                    current_values = new_values.clone().detach()
 +                    if counter % batch_size == 0:
- 
+
 -                # Penalise the trace (which cannot be learned)
 -                loss = loss + torch.trace(pred_adj_matrix)
 +                        # Penalise the trace (which cannot be learned)
 +                        loss = loss + torch.trace(predicted_adj_matrix)
- 
+
 -                # Enforce symmetry of the predicted adjacency matrix
 -                loss = loss + self.loss_function(
 -                    pred_adj_matrix, torch.transpose(pred_adj_matrix, 0, 1)
@@ -6121,7 +6121,7 @@ index fff1d1d..2a9a35b 100755
 +                        loss = loss + self.loss_function(
 +                            predicted_adj_matrix, torch.transpose(predicted_adj_matrix, 0, 1)
 +                        )
- 
+
 -                # Perform a gradient descent step
 -                loss.backward()
 -                self.neural_net.optimizer.step()
@@ -6130,7 +6130,7 @@ index fff1d1d..2a9a35b 100755
 +                        loss.backward()
 +                        self.neural_net.optimizer.step()
 +                        self.neural_net.optimizer.zero_grad()
- 
+
 -                # Write the data
 -                self.current_loss = loss.clone().detach().numpy().item()
 -                self.current_frob_error = (
@@ -6176,43 +6176,43 @@ index fff1d1d..2a9a35b 100755
 +                            current_velocities = (new_values - current_values) / self.ABM.dt
 +
 +                        current_values = new_values.clone().detach()
- 
+
          self.dset_time.resize(self.dset_time.shape[0] + 1, axis=0)
 -        self.dset_time[-1, :] = time.time() - start_time
 +        self.dset_time[-1] = time.time() - start_time
- 
+
      def write_data(self):
- 
+
 @@ -240,10 +265,10 @@ class Kuramoto_NN:
- 
+
              if self._time % self._write_every == 0:
                  self._dset_loss.resize(self._dset_loss.shape[0] + 1, axis=0)
 -                self._dset_loss[-1] = self.current_loss
 +                self._dset_loss[-1] = self.current_loss.cpu().numpy()
- 
+
 -                self._dset_frob_error.resize(self._dset_frob_error.shape[0] + 1, axis=0)
 -                self._dset_frob_error[-1] = self.current_frob_error
 +                self._dset_prediction_error.resize(self._dset_prediction_error.shape[0] + 1, axis=0)
 +                self._dset_prediction_error[-1] = self.current_prediction_error
- 
+
      def write_predictions(self, *, write_final: bool = False):
- 
+
 @@ -266,7 +291,7 @@ class Kuramoto_NN:
                  self._dset_predictions.resize(
                      self._dset_predictions.shape[0] + 1, axis=0
                  )
 -                self._dset_predictions[-1, :] = self.current_adjacency_matrix
 +                self._dset_predictions[-1, :] = self.current_adjacency_matrix.cpu()
- 
- 
+
+
  # ----------------------------------------------------------------------------------------------------------------------
 @@ -318,29 +343,35 @@ if __name__ == "__main__":
      training_data_group = h5file.create_group("training_data")
      output_data_group = h5file.create_group("output_data")
- 
+
 -    second_order = model_cfg.get('second_order', False)
 +    second_order = model_cfg.get("second_order", False)
- 
+
      # Get the training data and the network, if synthetic data is used
      log.info("   Generating training data ...")
 -    training_data, network = Kuramoto.DataGeneration.get_data(
@@ -6225,7 +6225,7 @@ index fff1d1d..2a9a35b 100755
 +        device=device,
 +        second_order=second_order,
      )
- 
+
 -    # Get the eigen frequencies of the nodes
 -    eigen_frequencies = torch.stack(
 -        list(nx.get_node_attributes(network, "eigen_frequency").values())
@@ -6235,7 +6235,7 @@ index fff1d1d..2a9a35b 100755
 +    # Initialise the neural net
      num_agents = training_data.shape[2]
      output_size = num_agents**2
- 
+
      log.info(
          f"   Initializing the neural net; input size: {num_agents}, output size: {output_size} ..."
      )
@@ -6249,7 +6249,7 @@ index fff1d1d..2a9a35b 100755
 +    if model_cfg["NeuralNet"].get("initial_state", None) is not None:
 +        net.load_state_dict(torch.load(model_cfg["NeuralNet"].get("initial_state")))
 +        net.eval()
- 
+
      # Get the true parameters
      true_parameters = model_cfg["Training"]["true_parameters"]
 @@ -348,9 +379,10 @@ if __name__ == "__main__":
@@ -6264,15 +6264,15 @@ index fff1d1d..2a9a35b 100755
 +        **true_parameters,
 +        device=device,
      )
- 
+
      # Calculate the frequency with which to write out the model predictions
 @@ -374,19 +406,26 @@ if __name__ == "__main__":
          write_start=cfg["write_start"],
      )
- 
+
 -    log.info(f"   Initialized model '{model_name}'.")
 +    log.info(f"   Initialized model '{model_name}'. Now commencing training for {num_epochs} epochs ...")
- 
+
      # Train the neural net
 -    log.info(f"   Now commencing training for {num_epochs} epochs ...")
 -
@@ -6284,20 +6284,20 @@ index fff1d1d..2a9a35b 100755
 +            batch_size=batch_size,
 +            second_order=second_order,
 +        )
- 
+
          log.progress(
              f"   Completed epoch {i + 1} / {num_epochs}; current loss: {model.current_loss}; "
 -            f"current Frobenius error: {model.current_frob_error}"
 +            f"current L1 prediction error: {model.current_prediction_error}"
          )
- 
+
 +        # Save neural net, if specified
 +        if model_cfg["NeuralNet"].get("save_to", None) is not None:
 +            torch.save(net.state_dict(), model_cfg["NeuralNet"].get("save_to"))
 +
      if write_predictions_every == -1:
          model.write_predictions(write_final=True)
- 
+
 @@ -400,7 +439,8 @@ if __name__ == "__main__":
              eigen_frequencies,
              h5file,
@@ -6306,7 +6306,7 @@ index fff1d1d..2a9a35b 100755
 +            second_order=second_order,
 +            gamma=model_cfg["Data"]["gamma"]
          )
- 
+
      log.info("   Wrapping up ...")
 diff --git a/models/SIR/cfgs/ABM_data/run.yml b/models/SIR/cfgs/ABM_data/run.yml
 index 2896bb7..e2636e6 100644

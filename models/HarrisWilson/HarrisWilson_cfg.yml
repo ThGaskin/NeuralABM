@@ -55,15 +55,15 @@ Data:
 
 # Settings for the neural net architecture
 NeuralNet:
-  num_layers: 1
+  num_layers: 3
   nodes_per_layer:
     default: !is-positive-int 20
   activation_funcs:
-    default: linear
+    default: sigmoid
     layer_specific:
-      1: abs
+      -1: abs
   biases:
-    default: [0, 4]
+    default: ~
   learning_rate: !is-positive 0.002
 
 # Settings for the neural net training
@@ -71,6 +71,8 @@ Training:
   to_learn: [alpha, beta, kappa, sigma]
   loss_function:
     name: MSELoss
+    kwargs:
+      reduction: sum
   batch_size: !is-positive-int 1
   device: cpu
   epsilon: 1

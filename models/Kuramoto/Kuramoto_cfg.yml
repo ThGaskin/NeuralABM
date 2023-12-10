@@ -77,6 +77,8 @@ Training:
   batch_size: !is-positive-int 1
   loss_function:
     name: MSELoss
+    kwargs:
+      reduction: sum
   true_parameters:
     # Noise variance to use for the numerical solver during training
     sigma: !is-positive-or-zero 0.0

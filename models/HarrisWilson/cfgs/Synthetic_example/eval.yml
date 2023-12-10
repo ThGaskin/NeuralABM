@@ -1,0 +1,262 @@
+# Plot the negative log-loss potentials of the individual parameters
+loss_potential_1d:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.scatter
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss:
+        path: loss
+        transform:
+          - np.maximum: [!dag_prev , 1e-17]
+          - log10: [!dag_prev ]
+          - mul: [!dag_prev , -1]
+  transform:
+    - flatten_dims: [!dag_tag parameters]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+    - flatten_dims: [!dag_tag loss]
+      kwargs:
+        dims: { sample: [epoch, seed] }
+    - broadcast: [!dag_node -2, !dag_prev ]
+      tag: data
+  col: parameter
+  x: x
+  y: loss
+  hue: loss
+  s: 4
+  alpha: 1
+  linewidths: 0
+  sharex: False
+  norm:
+    name: LogNorm
+  cmap: &cmap
+    continuous: true
+    from_values:
+      0: !dag_result c_yellow
+      1: !dag_result c_darkblue
+  cbar_kwargs:
+    label: $-\log_{10} J$
+  helpers:
+    set_scales:
+      y: log
+    set_limits:
+      x: [min, max]
+      y: [min, max] # Why is this necessary?
+    set_labels:
+      x: ' '
+      y: $-\log_{10} J$
+  figsize: [!dag_result full_width, !dag_result third_width]
+
+# Plot the 2-dimensional loss landscape over alpha and beta
+loss_potential_2d:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.scatter3d
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .sel: [!dag_prev , {parameter: [alpha, beta]}]
+      loss:
+        path: loss
+        transform:
+          - np.maximum: [!dag_prev , 1e-17]
+          - log10: [!dag_prev ]
+          - mul: [!dag_prev , -1]
+  transform:
+    - flatten_dims: [!dag_tag parameters]
+      kwargs:
+        dims: {sample: [seed, epoch]}
+    - .sel: [!dag_prev , {parameter: beta}]
+      kwargs: {drop: True}
+      tag: x
+    - .sel: [!dag_node -2, {parameter: alpha}]
+      kwargs: { drop: True }
+      tag: y
+    - flatten_dims: [!dag_tag loss]
+      kwargs:
+        dims: { sample: [seed, epoch] }
+    - xr.Dataset:
+        - x: !dag_tag x
+          y: !dag_tag y
+          z: !dag_prev
+      tag: data
+
+    # Draw a sample trajectory
+    - .isel: [ !dag_tag data, {sample: !slice [~, 1000] } ]
+    - getitem: [!dag_prev , x]
+      tag: path_x
+    - getitem: [ !dag_node -2 , y ]
+      tag: path_y
+    - getitem: [ !dag_node -3 , z ]
+      tag: path_z
+
+  x: x
+  y: y
+  z: z
+  hue: z
+  s: 4
+  alpha: 0.2
+  linewidths: 0
+  add_colorbar: False
+  norm:
+    name: LogNorm
+  cmap:
+    <<: *cmap
+  helpers:
+    setup_figure:
+      subplot_kw:
+        elev: 22
+        azim: -313
+    set_labels:
+      x: '$\beta$'
+      y: '$\alpha$'
+      z:
+        label: '$-\log_{10} J$'
+        rotation: 90
+      rotate_z_label: False
+    set_limits:
+      x: [0, 8]
+      y: [0, 5]
+      z: [0, ~]
+    call:
+      functions:
+
+        # Adjust the zoom to make z label visible (why is this necessary?)
+        - function: [mpl_toolkits.mplot3d.axes3d, Axes3D.set_box_aspect]
+          pass_axis_object_as: self
+          aspect: ~
+          zoom: 0.75
+
+        # Mark the non-trivial maximum
+        - function: [matplotlib, pyplot.plot]
+          args:
+            - [4, 4]
+            - [1.2, 1.2]
+            - [0, 19]
+          color: !dag_result c_red
+          linestyle: dotted
+
+        # Mark the trivial maximum
+        - function: [matplotlib, pyplot.plot]
+          args:
+            - [0, 0]
+            - [1, 1]
+            - [0, 19]
+          color: !dag_result c_darkgreen
+          linestyle: dotted
+
+        # Plot a sample trajectory
+        - function: [matplotlib, pyplot.plot]
+          args:
+            - !dag_result path_x
+            - !dag_result path_y
+            - !dag_result path_z
+          zorder: 10000
+          color: black
+          linestyle: dotted
+          linewidth: 0.5
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]
+
+# Plot the initial value distribution
+initial_values:
+  based_on:
+    - .creator.multiverse
+    - .plot.multiplot
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .isel: [!dag_prev , {epoch: 0}]
+  transform:
+    - .isel: [!dag_tag parameters, {parameter: 0}]
+      tag: a
+    - .isel: [!dag_tag parameters, {parameter: 1}]
+      tag: b
+    - .isel: [!dag_tag parameters, {parameter: 2}]
+      tag: k
+  to_plot:
+    [0, 0]:
+      - function: sns.histplot
+        data: !dag_result a
+    [1, 0]:
+      - function: sns.histplot
+        data: !dag_result b
+    [2, 0]:
+      - function: sns.histplot
+        data: !dag_result k
+  color: !dag_result c_darkblue
+  linewidth: 0.5
+  helpers:
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_labels:
+          x: $\alpha$
+      1:
+        axis: [ 1, 0 ]
+        set_labels:
+          x: $\beta$
+      2:
+        axis: [ 2, 0 ]
+        set_labels:
+          x: $\kappa$
+    setup_figure:
+      nrows: 1
+      ncols: 3
+    set_labels:
+      y: ' '
+  compute_only: []
+  style:
+    figure.figsize: [!dag_result full_width, !dag_result quarter_width]
+
+# Plot the marginals in a single facet_grid plot
+marginals:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss: loss
+  transform:
+
+    # Divide the loss by the median value: this is necessary to prevent numerical underflow
+    # arising from very small values of J
+    - .median: [ !dag_tag loss , [ 'epoch', 'seed'] ]
+    - div: [ !dag_tag loss, !dag_prev ]
+    - mul: [ !dag_prev , -1 ]
+    - np.exp: [ !dag_prev ]
+
+    # Flatten the prob and parameter samples into a single dimension
+    # Reassign metric coordinates for easier selection
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+      tag: params
+
+    # Broadcast the parameter and probabilities into a common dataset
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev ]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter]
+      tag: data
+  x: x
+  y: y
+  col: parameter
+  sharex: False
+  sharey: False
+  c: !dag_result c_darkblue

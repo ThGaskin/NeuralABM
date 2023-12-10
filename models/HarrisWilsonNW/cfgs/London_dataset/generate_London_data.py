@@ -18,7 +18,7 @@ HW = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="HarrisWilso
 np.random.seed(0)
 torch.random.manual_seed(0)
 
-with open("models/HarrisWilsonNW/cfgs/London_dataset/run.yml", "r") as cfg_file:
+with open("models/HarrisWilsonNW/cfgs/London_dataset/run.yml") as cfg_file:
     cfg = yaml.load(cfg_file, Loader=yaml.Loader)
 
 data_cfg = (
@@ -92,7 +92,6 @@ ABM = HW.HarrisWilsonABM(
 )
 
 for __ in range(1, num_steps):
-
     origin_sizes[__, :, :] = origin_sizes[__ - 1, :, :] + torch.normal(
         0, origin_size_std, size=(N_origin, 1)
     )
@@ -143,9 +142,7 @@ dset_dest_zones.attrs["coords__zone_id"] = np.arange(
 )
 
 # Write the time series data
-dset_dest_zones[
-    :,
-] = destination_sizes
+dset_dest_zones[:,] = destination_sizes
 
 # Set up chunked dataset to store the state data in
 # Origin zone sizes
@@ -166,9 +163,7 @@ dset_origin_sizes.attrs["coords_mode__training_set"] = "trivial"
 dset_origin_sizes.attrs["coords_mode__time"] = "trivial"
 dset_origin_sizes.attrs["coords_mode__zone_id"] = "values"
 dset_origin_sizes.attrs["coords__zone_id"] = np.arange(0, N_origin, 1)
-dset_origin_sizes[
-    :,
-] = origin_sizes
+dset_origin_sizes[:,] = origin_sizes
 
 # Create a network group
 nw_group = h5file.create_group("true_network")

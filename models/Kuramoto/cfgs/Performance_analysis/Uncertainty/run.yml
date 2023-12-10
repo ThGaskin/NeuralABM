@@ -1,0 +1,28 @@
+---
+# This configuration set sweeps over the noise in the training data
+# and compares the uncertainties on the network distributions (degrees and triangles)
+perform_sweep: True
+paths:
+  model_note: Uncertainty
+parameter_space:
+  seed: !sweep
+    default: 2
+    range: [10]
+  num_epochs: 50
+  write_every: 10
+  write_start: 15
+  write_predictions_every: 10
+  Kuramoto:
+    Data:
+      write_adjacency_matrix: True
+      load_from_dir:
+        copy_data: True
+        network: data/Kuramoto/synthetic_networks/N_100/data/uni0/data.h5
+      synthetic_data:
+        num_steps: 5
+        training_set_size: 500
+        sigma: !sweep
+          default: 0.0
+          values: [0.0, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 2e-2, 4e-2, 6e-2, 8e-2, 1e-1]
+    Training:
+      batch_size: 5

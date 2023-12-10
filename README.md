@@ -24,6 +24,10 @@ overview of the Utopia syntax. You can find a complete guide on running models w
 > - T. Gaskin, M. Girolami, G. Pavliotis. *Inferring networks from time series: a neural approach.* https://arxiv.org/abs/2303.18059
 > (`Kuramoto` and `HarrisWilsonNW` models)
 
+> **_Note_**: Since the code is continously
+> being reworked and improved, the plots produced by the current version may quantatively differ from the publication
+> plots. Versions below `v2.0.0` will reproduce the PNAS publication plots.
+
 > **_Note_**: If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
 
 ### Contents of this README
@@ -96,16 +100,14 @@ For both operating systems, also run the following command from within the virtu
 ```commandline
 pip install latex
 ```
-Thereafter, set the plots to use latex by default by basing the `.default_style`
-base plot on `.latex_on` in the `<model_name>/base_plots.yml` file; for instance, in `models/Kuramoto/Kuramoto_base_plots.yml`,
-change the following entry:
+Thereafter, set the plots to use latex by changing the following entry in the `base_plots.yaml` file of the model:
 ```yaml
 .default_style:
-  based_on:
-    - .latex_on  
+  style:
+    text.usetex: True
   # Keep everything else unchanged
 ```
-Latex will then be used in *all* Kuramoto plots. You can also change this individually for each plot.
+Latex will then be used in *all* model plots. You can also change this individually for each plot.
 
 #### 5. (Optional) Download the datasets, which are stored using git lfs
 There are a number of datasets available, both real and synthetic, you can use in order to test the model.

@@ -1,28 +1,43 @@
-perform_sweep: true
 paths:
-  model_note: Predictions
+  model_note: Likelihood_neural
+perform_sweep: true
 parameter_space:
   seed: !sweep
     default: 1
-    range: [20]
-  num_epochs: 60
+    range: [300]
+  num_epochs: 100
   write_start: 1
   write_every: 1
   SIR:
     Data:
-      load_from_dir: data/SIR/ABM_data/data/uni0/data.h5
+      load_from_dir: data/SIR/true_data_grid_search/data.h5
     NeuralNet:
-      num_layers: 1
+      num_layers: 2
       nodes_per_layer:
         default: 20
-      biases:
-        default: [0, 1]
+      prior:
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 1
+        # tau is scaled by 10
+        - distribution: uniform
+          parameters:
+            lower: 0.1
+            upper: 3.1
+        # Distribution on alpha
+#        - distribution: uniform
+#          parameters:
+#            lower: 0
+#            upper: 1.0
       activation_funcs:
-        default: linear
+        default: tanh
         layer_specific:
           -1: abs
       learning_rate: 0.002
       optimizer: Adam
     Training:
-      batch_size: 90
-      to_learn: [p_infect, t_infectious, sigma]
+      batch_size: 100
+      to_learn: [p_infect, t_infectious] #, alpha]
+      true_parameters:
+        sigma: 0

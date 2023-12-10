@@ -4,6 +4,7 @@ import torch
 
 """ The Kuramoto model of synchronised oscillation """
 
+
 # --- The Kuramoto ABM ------------------------------------------------------------------------------------------
 class Kuramoto_ABM:
     def __init__(
@@ -18,7 +19,6 @@ class Kuramoto_ABM:
         device: str,
         **__,
     ):
-
         """The Kuramoto model numerical solver, for first and second-order dynamics.
 
         :param N: the number of nodes in the network
@@ -81,7 +81,6 @@ class Kuramoto_ABM:
 
         # First-order dynamics
         if self.alpha == 0:
-
             new_phases = (
                 new_phases
                 + 1
@@ -99,7 +98,6 @@ class Kuramoto_ABM:
 
         # Second-order dynamics
         else:
-
             new_phases = (
                 new_phases
                 + (

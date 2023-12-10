@@ -1,0 +1,110 @@
+# Joint distribution from data sweep (unnormalised)
+joint:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.pcolormesh
+  select_and_combine:
+    fields:
+      counts: true_counts
+  transform:
+    - .sel: [!dag_tag counts , {p_infect: 0.2, t_infectious: 14}]
+      kwargs:
+        method: nearest
+    - sub: [!dag_prev , !dag_tag counts ]
+    - pow: [!dag_prev , 2]
+    - .sum: [!dag_prev , ['kind', 'time']]
+    - mul: [!dag_prev , -1]
+    - np.exp: [!dag_prev ]
+    - .squeeze: [!dag_prev ]
+      kwargs: {drop: true}
+      file_cache:
+        read: True
+        write: True
+      tag: data
+  x: p_infect
+  y: t_infectious
+  helpers:
+    set_limits:
+      x: [0, 1]
+      y: [1, 31]
+    set_labels:
+      x: $\beta$
+      y: $\tau$
+  cmap:
+    continuous: true
+    from_values:
+      0: !dag_result c_darkblue
+      1: !dag_result c_yellow
+  cbar_kwargs:
+    label: ~
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]
+
+# Marginals on the parameters from sweep
+marginals:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      counts: true_counts
+  transform:
+    - import_and_call: [pandas, read_csv, 'data/SIR/true_data_grid_search/data.csv']
+      kwargs: {index_col: [0, 1]}
+    - .to_xarray: [!dag_prev ]
+      tag: true_data
+    - sub: [!dag_prev , !dag_tag counts ]
+    - pow: [!dag_prev , 2]
+    - .sum: [!dag_prev , ['kind', 'time']]
+    - neg_exp: [!dag_prev ]
+    - .squeeze: [!dag_prev ]
+    - getitem: [!dag_prev , 'true_counts']
+      tag: likelihood
+    - marginal_from_joint: [!dag_prev ]
+      kwargs: {parameter: 'p_infect'}
+      tag: p_infect
+    - marginal_from_joint: [!dag_tag likelihood]
+      kwargs: {parameter: 't_infectious'}
+      tag: t_infectious
+    - concat_along: [[!dag_tag p_infect, !dag_tag t_infectious], 'parameter', ['p_infect', 't_infectious']]
+#    - to_csv: [!dag_prev , 'data/SIR/ground_truth.csv']
+      tag: data
+  x: x
+  y: y
+  col: parameter
+  sharex: False
+  sharey: False
+  c: !dag_result c_darkgrey
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]
+  file_ext: pdf
+
+# Plot the true data
+true_data:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+    - .cycler_green_red_green
+  universes:
+    p_infect: 0.0
+    t_infectious: 1.0
+  transform:
+    - import_and_call: [ pandas, read_csv, 'data/SIR/true_data_grid_search/data.csv' ]
+      kwargs: { index_col: [ 0, 1 ] }
+    - .to_xarray: [ !dag_prev ]
+    - .to_array: [!dag_prev ]
+    - .squeeze_with_drop: [!dag_prev ]
+    - .sel: [!dag_prev , {kind: ['susceptible', 'infected', 'recovered']}]
+      tag: data
+  x: time
+  hue: kind
+  add_legend: true
+  linewidth: 1.5
+  figsize: [ !dag_result half_width, !dag_result quarter_width ]
+  helpers:
+    set_labels:
+      x: time
+      y: ' '
+    set_legend:
+      use_legend: False
+  file_ext: pdf

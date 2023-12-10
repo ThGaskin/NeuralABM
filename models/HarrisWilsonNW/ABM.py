@@ -17,7 +17,6 @@ class HarrisWilsonABM:
         dt: float,
         device: str
     ):
-
         """The Harris and Wilson model of economic activity.
 
         :param N: the number of origin zones
@@ -53,7 +52,6 @@ class HarrisWilsonABM:
         dt: float = None,
         origin_sizes: torch.tensor
     ):
-
         """Runs the model for a single iteration.
 
         :param curr_vals: the current values which to take as initial data.
@@ -130,7 +128,6 @@ class HarrisWilsonABM:
         origin_sizes: torch.tensor,
         generate_time_series: bool = False
     ) -> torch.tensor:
-
         """Runs the model for n_iterations.
 
         :param init_data: the initial destination zone size values

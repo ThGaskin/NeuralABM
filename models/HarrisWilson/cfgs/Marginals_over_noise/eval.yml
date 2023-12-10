@@ -1,0 +1,180 @@
+# Plot the marginal distributions over the parameters
+marginals:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss: loss
+
+  transform:
+
+    # Determine the bins for each parameter
+    - xr.DataArray:
+        data: [[100, 1000], [100, 1000], [100, 1000], [100, 1000]]
+        dims: ['parameter', 'idx']
+        coords: {parameter: ['alpha', 'beta', 'kappa', 'sigma']}
+    - .expand_dims: [!dag_prev , {noise: [1e-05, 0.001, 0.01, 0.02, 0.03, 0.05, 0.1]}]
+      tag: bins
+
+    # Get the ranges for each parameter
+    - xr.DataArray:
+        data: [[[0, 2], [~, ~]], [[0, 6], [~, ~]], [[1, 3], [~, ~]], [[0, 0.5], [~, ~]]]
+        dims: [ 'parameter', 'item', 'idx' ]
+        coords: { parameter: [ 'alpha', 'beta', 'kappa', 'sigma' ] }
+    - .expand_dims: [!dag_prev , {noise: [1e-05, 0.001, 0.01, 0.02, 0.03, 0.05, 0.1]}]
+      tag: ranges
+
+    # Scale the loss values by the median; this is necessary to prevent
+    # numerical underflow arising from the exponentiation of very small values
+    # Broadcast loss and parameters into a common dataset
+    - .median: [!dag_tag loss , ['seed', 'epoch']]
+    - div: [!dag_tag loss, !dag_prev ]
+    - mul: [!dag_prev , -1]
+    - np.exp: [!dag_prev ]
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+      tag: params
+    - broadcast: [!dag_tag params, !dag_tag prob ]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev , !dag_tag bins, !dag_tag ranges]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter, noise]
+      tag: data
+
+  c: !dag_result c_darkblue
+  x: x
+  y: y
+  col: parameter
+  sharex: False
+  sharey: False
+  row: noise
+  figsize: [!dag_result full_width, !dag_result full_width]
+  helpers:
+    set_labels:
+      y: ' '
+      x: ' '
+
+# Plot the widths of the marginal distributions as a function of the noise.
+distribution_widths:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss: loss
+  transform:
+    # Determine the bins for each parameter
+    - xr.DataArray:
+        data: [[100, 1000], [100, 1000], [100, 1000], [100, 1000]]
+        dims: ['parameter', 'idx']
+        coords: {parameter: ['alpha', 'beta', 'kappa', 'sigma']}
+    - .expand_dims: [!dag_prev , {noise: [1e-05, 0.001, 0.01, 0.02, 0.03, 0.05, 0.1]}]
+      tag: bins
+
+    # Get the ranges for each parameter
+    - xr.DataArray:
+        data: [[[0, 2], [~, ~]], [[0, 6], [~, ~]], [[1, 3], [~, ~]], [[0, 0.5], [~, ~]]]
+        dims: [ 'parameter', 'item', 'idx' ]
+        coords: { parameter: [ 'alpha', 'beta', 'kappa', 'sigma' ] }
+    - .expand_dims: [!dag_prev , {noise: [1e-05, 0.001, 0.01, 0.02, 0.03, 0.05, 0.1]}]
+      tag: ranges
+
+    # Scale the loss values by the median; this is necessary to prevent
+    # numerical underflow arising from the exponentiation of very small values
+    # Broadcast loss and parameters into a common dataset
+    - .median: [!dag_tag loss , ['seed', 'epoch']]
+    - div: [!dag_tag loss, !dag_prev ]
+    - mul: [!dag_prev , -1]
+    - np.exp: [!dag_prev ]
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+      tag: prob
+    - flatten_dims: [!dag_tag parameters ]
+      kwargs:
+        dims: {sample: [epoch, seed]}
+      tag: params
+    - broadcast: [!dag_tag params, !dag_tag prob ]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev , !dag_tag bins, !dag_tag ranges]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter, noise]
+    - std: [!dag_prev ]
+      kwargs:
+        exclude_dim: [parameter, noise]
+        x: 'x'
+        y: 'y'
+    - getitem: [!dag_prev , 'std']
+      tag: std
+    - iqr: [!dag_node -3 ]
+      kwargs:
+        exclude_dim: [parameter, noise]
+        x: 'x'
+        y: 'y'
+    - getitem: [!dag_prev , 'iqr']
+    - concat_along: [[!dag_tag std, !dag_prev ], 'type', ['Standard deviation', 'Interquartile Range']]
+      tag: data
+  x: noise
+  hue: type
+  col: parameter
+  sharey: False
+  col_wrap: 2
+
+# Plot the predictions of the parameters, colour-coded by loss
+predictions:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.scatter
+  add_legend: False
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform: [.data]
+      loss:
+        path: loss
+        transform: [.data]
+  transform:
+    - broadcast: [!dag_tag parameters, !dag_tag loss]
+      kwargs:
+        exclude_dim: ['seed', 'noise']
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {'iteration': ['epoch', 'seed']}
+      tag: data
+  col: parameter
+  row: noise
+  x: iteration
+  y: x
+  hue: loss
+  s: 1
+  sharey: False # Seems to have no effect?
+  norm:
+    name: LogNorm
+  cmap:
+    continuous: true
+    from_values:
+      0: !dag_result c_darkblue
+      1: !dag_result c_yellow
+  helpers:
+    set_limits:
+      x: [0, max]
+      y: [0, max] # Why is this necessary?
