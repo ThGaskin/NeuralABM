@@ -66,7 +66,6 @@ def get_data(
 
     # If origin sizes were not loaded, generate them
     if origin_sizes is None:
-
         log.info("   Generating origin sizes  ...")
         num_steps: int = data_cfg.get("num_steps")
         training_set_size: int = cfg.get("training_set_size")
@@ -76,7 +75,6 @@ def get_data(
         )
 
         for idx in range(training_set_size):
-
             origin_sizes[idx, 0, :, :] = torch.abs(
                 base.random_tensor(
                     data_cfg.get("init_origin_sizes"), size=(1, N_origin, 1)
@@ -91,7 +89,6 @@ def get_data(
 
     # If network was not loaded, generate the network
     if network is None:
-
         # Generate the network
         network: torch.tensor = torch.exp(
             -1
@@ -110,7 +107,6 @@ def get_data(
 
     # If time series was not loaded, generate
     if destination_sizes is None:
-
         # Extract the underlying parameters from the config
         true_parameters = {
             "alpha": data_cfg["alpha"],
@@ -173,9 +169,7 @@ def get_data(
     )
 
     # Write the time series data
-    dset_dest_zones[
-        :,
-    ] = destination_sizes
+    dset_dest_zones[:,] = destination_sizes
 
     # Training time series
     # Extract the training data from the time series data and save
@@ -224,9 +218,7 @@ def get_data(
     dset_origin_sizes.attrs["coords_mode__time"] = "trivial"
     dset_origin_sizes.attrs["coords_mode__zone_id"] = "values"
     dset_origin_sizes.attrs["coords__zone_id"] = np.arange(0, N_origin, 1)
-    dset_origin_sizes[
-        :,
-    ] = origin_sizes
+    dset_origin_sizes[:,] = origin_sizes
 
     # Create a network group
     nw_group = h5file.create_group("true_network")

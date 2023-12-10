@@ -1,0 +1,65 @@
+---
+perform_sweep: True
+paths:
+  model_note: Marginals_over_noise
+parameter_space:
+  seed: !sweep
+    default: 4
+    range: [16]
+  write_every: 1
+  write_start: 1
+  num_epochs: 2000
+  HarrisWilson:
+    Data:
+      synthetic_data:
+        N_destination: 100
+        N_origin: 1000
+        alpha: 1.2
+        beta: 4.0
+        dt: 0.002
+        epsilon: 10
+        init_weights: { mean: 1.2, std: 1.2 }
+        kappa: 2.0
+        num_steps: 5000
+        sigma: !sweep
+          default: 0
+          values: [1e-5, 1e-3, 1e-2, 2e-2, 3e-2, 5e-2, 1e-1]
+          name: noise
+      training_data_size: 4
+    NeuralNet:
+      num_layers: 3
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: sigmoid
+        layer_specific:
+          -1: abs
+      biases:
+        default: ~
+
+      # Prior distribution on all parameters
+      prior:
+        # Prior on alpha: [0, 4]
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 2
+        # Prior on beta: [0, 6]
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 6
+        # Prior on kappa: [1, 3]
+        - distribution: uniform
+          parameters:
+            lower: 1
+            upper: 3
+        # Prior on sigma: [0, 0.5]
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 1
+      learning_rate: 0.002
+      optimizer: Adam
+    Training:
+      to_learn: [alpha, beta, kappa, sigma]

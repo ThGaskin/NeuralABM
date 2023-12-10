@@ -46,7 +46,6 @@ def random_tensor(
     def _random_tensor_1d(
         *, distribution: str, parameters: dict, s: tuple = (1,), **__
     ) -> torch.Tensor:
-
         """Generates a random tensor according to a distribution.
 
         :param distribution: the type of distribution. Can be 'uniform' or 'normal'.
@@ -56,7 +55,6 @@ def random_tensor(
 
         # Uniform distribution in an interval
         if distribution == "uniform":
-
             l, u = parameters.get("lower"), parameters.get("upper")
             if l > u:
                 raise ValueError(

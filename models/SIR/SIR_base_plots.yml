@@ -1,59 +1,114 @@
 ---
+# ======================================================================================================================
+#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
+#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
+#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+# ======================================================================================================================
 .variables:
   base_path:        &base_path    data/SIR
-  loss_limit:       &loss_limit   1e-15
 
-  colors: &colors
-    yellow:         &yellow           '#F5DDA9'
-    darkblue:       &darkblue         '#2F7194'
-    red:            &red              '#ec7070'
-    skyblue:        &skyblue          '#97c3d0'
-    darkgreen:      &darkgreen        '#48675A'
-    lightbrown:     &lightbrown       '#C6BFA2'
-    orange:         &orange           '#EC9F7E'
-    lightgreen:     &lightgreen       '#AFD8BC'
-    grey:           &grey             '#3D4244'
-
-  page_widths:
-    full_width:     &full_width       7.516
-    half_width:     &half_width       !expr 7.516 / 2
-    third_width:    &third_width      !expr 7.516 / 3
-    quarter_width:  &quarter_width    !expr 7.516 / 4
-    fifth_width:    &fifth_width      !expr 7.516 / 5
-
-.latex_off:
-  style:
-    text.usetex: False
-
-.latex_on:
-  style:
-    text.usetex: True
-    mathtext.fontset: cm
-    font.family: serif
-    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
+.meta_ops:
+  dag_options:
+    meta_operations:
+      neg_exp:
+        - mul: [!arg 0 , -1]
+        - np.exp: [!dag_prev ]
 
 .default_style:
-  based_on:
-    - .latex_off    # Change this to .latex_on to use latex
+  dag_visualization:
+    enabled: False
+  dag_options:
+    define: &colors
+
+      # Make colors and page widths accessible across all plots
+      c_yellow: '#F5DDA9'
+      c_orange: '#EC9F7E'
+      c_red: '#ec7070'
+      c_pink: '#F8A6A6'
+      c_purple: '#A07CB0'
+      c_lightblue: '#97c3d0'
+      c_darkblue: '#2F7194'
+      c_lightgreen: '#AFD8BC'
+      c_darkgreen: '#48675A'
+      c_lightbrown: '#C6BFA2'
+      c_lightgrey: '#AFC1B9'
+      c_darkgrey: '#3D4244'
+
+      # Set the page width of the document to allow for easy integration
+      _page_width: 7.5
+
+      # These are available for all plots and can be used to adjust the figure size or generate new sizes as needed
+      full_width: !dag_tag _page_width
+      half_width:
+        - div: [!dag_tag _page_width, 2]
+      third_width:
+        - div: [!dag_tag _page_width, 3]
+      quarter_width:
+        - div: [!dag_tag _page_width, 4]
+      fifth_width:
+        - div: [!dag_tag _page_width, 5]
+
   style:
-    font.size:          &fontsize 9
+    text.usetex:        True   # Set to 'True' to use latex
+    mathtext.fontset:   cm
+    font.family:        serif
+    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
+
+    # Set the label fontsize
+    font.size:          &fontsize 8
     axes.titlesize:     *fontsize
     axes.labelsize:     *fontsize
     xtick.labelsize:    *fontsize
     ytick.labelsize:    *fontsize
+    legend.fontsize:    *fontsize
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[lightgreen]:}', '{colors[red]:}', '{colors[darkgreen]:}'])"
-      colors: *colors
+      fstr: "cycler('color', ['{colors[c_darkblue]:}',
+                              'black',
+                              '{colors[c_darkgreen]:}',
+                              '{colors[c_lightgreen]:}',
+                              '{colors[c_red]:}',
+                              '{colors[c_lightblue]:}',
+                              '{colors[c_lightbrown]:}',
+                              '{colors[c_orange]:}',
+                              '{colors[c_yellow]:}',
+                              '{colors[c_darkgrey]:}',
+                              '{colors[c_pink]:}',
+                              '{colors[c_purple]:}',
+                              '{colors[c_lightgrey]:}'
+                              ])"
+      colors:
+        <<: *colors
     axes.grid:          True
     axes.spines.top:    False
     axes.spines.right:  False
-    legend.fontsize: 9
+
   helpers:
     save_figure:
       dpi: 900
-  file_ext: png
+  file_ext: pdf
+
+.cycler_marginals:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_darkblue]:}', '{colors[c_pink]:}'])"
+      colors:
+        <<: *colors
+
+.cycler_green_red_green:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_lightgreen]:}', '{colors[c_red]:}', '{colors[c_darkgreen]:}',])"
+      colors:
+        <<: *colors
+
+.cycler_blue_orange_brown:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_darkblue]:}', '{colors[c_orange]:}', '{colors[c_lightbrown]:}'])"
+      colors:
+        <<: *colors
 
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
@@ -66,6 +121,7 @@
   based_on:
     - .creator.universe
     - .default_style
+    - .meta_ops
 
   dag_options:
     select_path_prefix: *base_path
@@ -74,9 +130,15 @@
   based_on:
     - .creator.multiverse
     - .default_style
+    - .meta_ops
 
   select_and_combine:
     base_path: *base_path
+
+# Base function for probability densities
+.plot.facet_grid.density:
+  module: model_plots.HarrisWilson
+  plot_func: plot_prob_density
 
 # ======================================================================================================================
 #  ╔═╗╦  ╔═╗╔╦╗╔═╗
@@ -94,7 +156,7 @@ loss:
   color: black
   helpers:
     set_labels:
-      x: iteration
+      x: Batch
       y: Training loss
     set_scales:
       y: log
@@ -136,9 +198,9 @@ state:
   to_plot:
     data:
       cmap:
-        susceptible: *lightgreen
-        infected: *red
-        recovered: *darkgreen
+        susceptible: !dag_result c_lightgreen
+        infected: !dag_result c_red
+        recovered: !dag_result c_darkgreen
       vmin: 0
       vmax: 2
       size_scale: 0.0005
@@ -148,9 +210,9 @@ state:
   frames: time
   # Colorbar settings
   cmap:
-    susceptible: *lightgreen
-    infected: *red
-    recovered: *darkgreen
+    susceptible: !dag_result c_lightgreen
+    infected: !dag_result c_red
+    recovered: !dag_result c_darkgreen
   cbar_kwargs:
     shrink: 0.8
   style:
@@ -160,29 +222,8 @@ state:
     axes.spines.right: True
   # Animation control
 
-
-# -- Comparison of predicted and true densities ------------------------------------------------------------------------
-densities_comparison:
-  based_on:
-    - .creator.universe
-    - .plot.facet_grid.line
-  select:
-    pred_counts:
-      path: true_counts
-      transform:
-        - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
-    true_counts:
-      path: true_counts
-      transform:
-        - .sel: [ !dag_prev , { kind: [ 'susceptible', 'infected', 'recovered' ] } ]
-  transform:
-    - concat_along: [ [ !dag_tag true_counts, !dag_tag pred_counts ], 'type', [ 'true', 'predicted' ] ]
-      tag: data
-  x: time
-  col: type
-
 # -- Plot of the parameter predictions  --------------------------------------------------------------------------------
-predictions:
+predictions_uni:
   based_on:
     - .creator.universe
     - .plot.facet_grid.line
@@ -191,224 +232,24 @@ predictions:
       path: parameters
       transform:
         - .data: [ !dag_prev ]
-  x: time
   col: parameter
   sharey: False
   style:
-    figure.figsize: [ *half_width, *half_width ]
-  helpers:
-    set_labels:
-      x: iteration
+    figure.figsize: [ !dag_result half_width, !dag_result half_width ]
 
-# Two-dimensional density
-loss_density:
+predictions_mv:
   based_on:
-    - .creator.universe
-    - .plot.facet_grid.scatter
-  style:
-    figure.figsize: [ *half_width, *fifth_width ]
-  dag_options:
-    define:
-      parameter_idx: 0
-  select:
-    parameter:
-      path: parameters
-      transform:
-        - .isel: [!dag_prev , {parameter: !dag_tag parameter_idx}]
-        - .squeeze_with_drop: [!dag_prev ]
-    loss:
-      path: loss
-      transform:
-        - np.maximum: [!dag_prev , *loss_limit]
-        - log10: [!dag_prev ]
-        - mul: [!dag_prev , -1]
-  transform:
-    - xr.Dataset:
-      kwargs:
-        data_vars:
-          parameter: !dag_tag parameter
-          loss: !dag_tag loss
-      tag: data
-  x: parameter
-  hue: loss
-  y: loss
-  s: 1
-  add_colorbar: False
-  cmap:
-    continuous: true
-    from_values:
-      0: *yellow
-      1: *darkblue
-  helpers:
-    set_labels:
-      y: &loss_label '$-\log_{10}(J)$'
-
-marginals:
-  based_on: .creator.universe
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
-  style:
-    figure.figsize: [ *half_width, *half_width ]
-  dag_options:
-    define:
-      parameter_idx: 0
-  select:
-    param:
-      path: parameters
-      transform:
-        - .isel: [ !dag_prev , { 'parameter': !dag_tag parameter_idx } ]
-        - .squeeze_with_drop: [ !dag_prev ]
-    loss:
-      path: loss
-      transform:
-        - np.maximum: [ !dag_prev , *loss_limit ]
-        - log10: [ !dag_prev ]
-        - mul: [ !dag_prev , -1 ]
-        - np.exp: [!dag_prev ]
-    true_values:
-      path: ../../cfg
-      transform:
-        - recursive_getitem: [ !dag_prev , ['SIR', 'Data', 'synthetic_data' ] ]
-  transform:
-    - .coords: [!dag_tag param, 'parameter']
-    - .item: [!dag_prev ]
-      tag: parameter_name
-    - getitem: [!dag_prev , !slice [2, ~]]
-      tag: compartment
-    - xr.Dataset:
-      - x: !dag_tag param
-        p: !dag_tag loss
-    - compute_marginals: [ !dag_prev ]
-      kwargs:
-        bins: 200
-        x: x
-        p: p
-      tag: data
-    - mode: [ !dag_tag data]
-      kwargs:
-        p: p
-    - getitem: [!dag_prev , 'x']
-    - .format: [ '{:.2f}', !dag_prev ]
-      tag: mode
-    - mean: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'mean']
-      tag: mean
-    - std: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'std']
-    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
-      tag: info_str
-    - getitem: [!dag_tag true_values, !dag_tag parameter_name]
-      allow_failure: silent
-      fallback: -1
-      tag: true_val
-  x: x
-  y: p
-  color: *darkblue
-  smooth_kwargs:
-    enabled: true
-    sigma: 3.0
-  info_box_labels:
-    info_str: '$\mathrm{mean}$'
-    mode: '$\mathrm{mode}$'
-  helpers:
-    set_labels:
-      x: !dag_result parameter_name
-    set_hv_lines:
-      vlines:
-        - pos: !dag_result true_val
-          color: *red
-          linestyle: dotted
-
-# Multiverse marginals, sweeping over seed
-marginals_mv:
-  expected_multiverse_ndim: [1]
-  based_on: .creator.multiverse
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
-  compute_only: [data, info_str, mode, true_val]
-  file_ext: pdf
-  dag_options:
-    define:
-      parameter_idx: 0
+    - .creator.multiverse
+    - .plot.facet_grid.line
   select_and_combine:
     fields:
-      true_val_dict:
-        path: ../../cfg
-        transform:
-          - recursive_getitem: [!dag_prev , ['SIR', 'Data', 'synthetic_data']]
-        subspace:
-          seed: [0]
-      param:
+      data:
         path: parameters
         transform:
-          - .isel: [!dag_prev , {'parameter': !dag_tag parameter_idx}]
-          - .squeeze_with_drop: [!dag_prev ]
-      loss:
-        path: loss
-        transform:
-          - np.maximum: [ !dag_prev , *loss_limit ]
-          - log10: [ !dag_prev ]
-          - mul: [ !dag_prev , -1 ]
-          - np.exp: [!dag_prev ]
-  transform:
-    - getitem: [!dag_tag true_val_dict, 0]
-    - .item: [!dag_prev ]
-      tag: true_values
-    - .coords: [!dag_tag param, 'parameter']
-    - .item: [!dag_prev ]
-      tag: parameter_name
-    - xr.Dataset:
-      - x: !dag_tag param
-        p: !dag_tag loss
-    - compute_marginals: [ !dag_prev ]
-      kwargs:
-        bins: 200
-        x: x
-        p: p
-      tag: data
-    - mode: [ !dag_tag data]
-      kwargs:
-        p: p
-    - getitem: [!dag_prev , 'x']
-    - .format: [ '{:.2f}', !dag_prev ]
-      tag: mode
-    - mean: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'mean']
-      tag: mean
-    - std: [ !dag_tag data ]
-      kwargs:
-        x: x
-        p: p
-    - getitem: [!dag_prev , 'std']
-    - .format: [ '{:.2f} ± {:.2f}', !dag_tag mean, !dag_prev ]
-      tag: info_str
-    - getitem: [!dag_tag true_values, !dag_tag parameter_name]
-      allow_failure: silent
-      fallback: -1
-      tag: true_val
-  x: x
-  y: p
-  color: *darkblue
-  smooth_kwargs:
-    enabled: true
-    sigma: 3.0
-  info_box_labels:
-    info_str: '$\mathrm{mean}$'
-    mode: '$\mathrm{mode}$'
-  helpers:
-    set_labels:
-      x: !dag_result parameter_name
-    set_hv_lines:
-      vlines:
-        - pos: !dag_result true_val
-          color: *red
-          linestyle: dotted
+          - .data: [ !dag_prev ]
+  col: parameter
+  x: batch
+  add_legend: False
+  sharey: False
+  style:
+    figure.figsize: [ !dag_result half_width, !dag_result half_width ]

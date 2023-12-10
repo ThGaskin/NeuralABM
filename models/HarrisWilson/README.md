@@ -168,13 +168,9 @@ inequality parameter ![equation](https://latex.codecogs.com/gif.image?%5Cinline%
 the publication
 - `London_dataset`: loads the London datasets, sweeps over two network metrics, and plots the marginal densities on the
 parameters (fig. 10 in the publication)
-- `Loss_landscape`: trains the model on synthetic data from multiple initialisations, and plots the resulting
-loss landscape (fig. 6)
-- `Marginals`: Plots the marginals and their peak widths for different levels of the noise in the
-data (fig. 7 & 8)
-- `Performance_analysis`: plots the time to run one epoch and the loss after 6000 epochs as a function
-of the origin size ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DN)
-- `Sample_run`: runs and fits a small toy example
+- `Synthetic_example`: trains the model on synthetic data from multiple initialisations, and plots the resulting
+loss landscape (fig. 6), marginal plots, joint distributions, and initial value distribution
+- `Marginals_over_noise`: Plots the marginals for different levels of the noise in the data
 
 You can run these sets simply by calling
 

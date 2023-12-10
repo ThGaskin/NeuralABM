@@ -5,7 +5,7 @@ parameter_space:
   seed: !sweep
     default: 2
     range: [20]
-  num_epochs: 10000
+  num_epochs: 1000
   write_start: 1
   write_every: 1
   HarrisWilson:
@@ -19,15 +19,27 @@ parameter_space:
         origin_zones: data/HarrisWilson/London_data/origin_sizes.csv
         destination_zones: data/HarrisWilson/London_data/dest_sizes.csv
     NeuralNet:
-      biases:
-        default: [ 0, 4 ]
-      num_layers: 1
+      num_layers: 3
       nodes_per_layer:
         default: 20
       optimizer: Adam
       learning_rate: 0.002
+      prior:
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 2
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 2
+        - distribution: uniform
+          parameters:
+            lower: 1
+            upper: 10
     Training:
       to_learn: [alpha, beta, kappa]
+      n_iterations: 1
       true_parameters:
         sigma: !sweep
           default: 0

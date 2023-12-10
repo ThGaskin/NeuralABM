@@ -10,7 +10,6 @@ to compare the model predictions to the ground truths.
 The `synthetic_data` folder contains synthetically generated networks, origin sizes, and destination sizes. The name of the
 folder indicates the network size, i.e. `N_100_M_10` means N=100 and M=10.
 The specific configurations for each dataset are given by the `config.yml` files in the folders.
-There are noiseless and noisy datasets.
 
 ## London data
 The `London_data` folder contains datasets of economic activity across Greater London. The `GLA_data` folder

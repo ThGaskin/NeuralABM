@@ -26,7 +26,6 @@ def test_vector():
     """Tests the Vector class"""
 
     for v in vectors:
-
         assert v == v
         assert v != Vector(-1, -1)
         assert v + zero_vector == v

@@ -21,7 +21,6 @@ test_cfg = load_yml(CFG_FILENAME)
 
 def test_data_loading():
     for _, config in test_cfg.items():
-
         # Get the model type
         model_name = config.pop("model")
 

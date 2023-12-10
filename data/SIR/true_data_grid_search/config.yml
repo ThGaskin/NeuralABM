@@ -1,0 +1,41 @@
+---
+SIR:
+  Data:
+    synthetic_data:
+      N: 150
+      is_periodic: true
+      num_steps: 100
+      p_infect: 0.20202020202020204
+      r_infectious: 0.3
+      sigma: 0.1
+      sigma_i: 0.01
+      sigma_r: 0.02
+      sigma_s: 0.02
+      space: [10, 10]
+      t_infectious: 14
+      type: smooth
+  NeuralNet:
+    activation_funcs:
+      default: linear
+      layer_specific: {-1: abs}
+    biases:
+      default: [0, 1]
+    learning_rate: 0.002
+    nodes_per_layer: {default: 20}
+    num_layers: 1
+  Training:
+    batch_size: 1
+    device: cpu
+    loss_function: {name: MSELoss}
+    num_threads: null
+    to_learn: [p_infect, t_infectious, sigma]
+log_levels: {backend: warning, model: info}
+monitor_emit_interval: 2.0
+num_epochs: 0
+num_steps: 3
+output_dir: /Users/thomasgaskin/utopya_output/SIR/230921-172034_Likelihood/data/uni0644
+output_path: /Users/thomasgaskin/utopya_output/SIR/230921-172034_Likelihood/data/uni0644/data.h5
+root_model_name: SIR
+seed: 2
+write_every: 1
+write_start: 1

@@ -20,12 +20,10 @@ test_cfg = load_yml(CFG_FILENAME)
 
 # Test that ABM data and smooth data are generated
 def test_data_generation(tmpdir):
-
     # Create an h5File in the temporary directory for the
     h5dir = tmpdir.mkdir("hdf5_data")
 
     for name, config in test_cfg.items():
-
         h5file = h5.File(h5dir.join(f"test_{name}.h5"), "w")
         h5group = h5file.create_group("SIR")
 
