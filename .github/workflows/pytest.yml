@@ -46,6 +46,7 @@ jobs:
         utopya run SIR --pp num_epochs=10 --po loss
         utopya run Kuramoto --pp num_epochs=10 --po loss
         utopya run HarrisWilsonNW --pp num_epochs=10 --po loss
+        utopya run Covid --pp num_epochs=10 --po loss
 
     # Create a coverage badge
     - name: Coverage Badge

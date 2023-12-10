@@ -1,0 +1,39 @@
+# An example manifest file that contains model information and can be used
+# to register a model in the utopya model registry
+#
+# NOTE Updating the information in this file does NOT automatically update the
+#      corresponding entries in the model registry! Call
+#
+#           utopya models register from-manifest [MANIFEST_FILE]...
+#
+#      for updating information in the model registry.
+---
+# -- General information and options
+model_name: Covid
+project_name: NeuralABM
+
+# -- Path information, interpreted relative to this file
+paths:
+  executable: run.py
+  source_dir: ./
+  default_cfg: Covid_cfg.yml
+  default_plots: Covid_plots.yml
+  base_plots: Covid_base_plots.yml
+  py_plots_dir: ../../model_plots/Covid
+
+# -- Metadata
+metadata:
+  description: Covid model with Neural core
+  long_description: >
+    This model is based on the MODUS Covid ODE model.
+
+  version: "0.1"
+  author: Thomas Gaskin
+  license: LGPLv3+
+  language: python3
+  requirements:
+    - ruamel.yaml
+    - numpy
+    - h5py
+    - torch
+  utopya_compatibility: ">=1.0.0a1"
