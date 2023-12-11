@@ -1,0 +1,95 @@
+paths:
+  model_note: Berlin_MCMC
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 2
+    range: [10]
+  num_epochs: 0
+  write_start: 1
+  write_every: 5
+  Covid:
+    Data:
+      load_from_dir: data/Covid/Berlin_data/data.h5
+      time_dependent_parameters:
+        k_E:
+          - [ 0, 26 ]
+          - [ 26, 35]
+          - [ 35, 80 ]
+          - [ 80, 120 ]
+          - [ 120, ~ ]
+      synthetic_data:
+        dt: 0.1
+      training_data_size: !slice [0, 200]
+    MCMC:
+      perform_sampling: True
+      write_start: 1000
+      n_samples: 20000
+      write_every: 20
+      batch_size: 199
+      lr: 0.02
+      prior:
+        # kS
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 2
+        # kE
+        - distribution: uniform
+          parameters:
+            lower: 10
+            upper: 16
+        - distribution: uniform
+          parameters:
+            lower: 2
+            upper: 6
+        - distribution: uniform
+          parameters:
+            lower: 2
+            upper: 6
+        - distribution: uniform
+          parameters:
+            lower: 2
+            upper: 6
+        - distribution: uniform
+          parameters:
+            lower: 2
+            upper: 6
+        # kI
+        - distribution: uniform
+          parameters:
+            lower: 1
+            upper: 5
+        # kR
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 1
+        # kSY
+        - distribution: uniform
+          parameters:
+            lower: 2
+            upper: 6
+        # kH
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 0.5
+        # kC
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 2
+        # kD
+        - distribution: uniform
+          parameters:
+            lower: 0
+            upper: 0.5
+        # kCT
+        - distribution: uniform
+          parameters:
+            lower: 1
+            upper: 6
+      Berlin_data_loss: True
+    Training:
+      to_learn: [ k_S, k_E, k_I, k_R, k_SY, k_H, k_C, k_D, k_CT]
