@@ -4,7 +4,7 @@ matplotlib
 numpy
 pandas
 pytest
-ruamel.yaml<0.18
+ruamel.yaml
 ruamel.base
 scipy
 setuptools
