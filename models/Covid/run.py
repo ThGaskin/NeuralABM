@@ -24,13 +24,13 @@ coloredlogs.install(fmt="%(levelname)s %(message)s", level="INFO", logger=log)
 # ----------------------------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
-
     cfg_file_path = sys.argv[1]
 
     log.note("   Preparing model run ...")
     log.note(f"   Loading config file:\n        {cfg_file_path}")
+    yamlc = yaml.YAML(typ="safe")
     with open(cfg_file_path) as cfg_file:
-        cfg = yaml.load(cfg_file, Loader=yaml.Loader)
+        cfg = yamlc.load(cfg_file)
     model_name = cfg.get("root_model_name", "Covid")
     log.note(f"   Model name:  {model_name}")
     model_cfg = cfg[model_name]
@@ -121,7 +121,6 @@ if __name__ == "__main__":
 
     # Perform MCMC sampling, if specified
     if model_cfg.get("MCMC", {}).pop("perform_sampling", False):
-
         log.info("   Performing MCMC sampling ... ")
         Covid.perform_sampling(h5file, training_data, model_cfg)
 
