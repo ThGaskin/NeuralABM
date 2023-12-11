@@ -1,0 +1,40 @@
+paths:
+  model_note: Static_parameters
+perform_sweep: True
+parameter_space:
+  seed: !sweep
+    default: 30
+    range: [10]
+  num_epochs: 2000
+  write_start: 1
+  write_every: 1
+  Covid:
+    Data:
+      synthetic_data:
+        type: smooth
+        k_S: 0.192
+        k_E: 1.69
+        k_I: 0.08
+        k_R: 0.03
+        k_SY: 0.645
+        k_H: 0.01
+        k_C: 0.173
+        k_D: 0.3
+        k_CT: 1.2
+        num_steps: 500
+        dt: 0.1
+        burn_in: 100
+    NeuralNet:
+      num_layers: 2
+      nodes_per_layer:
+        default: 20
+      biases:
+        default: ~
+      activation_funcs:
+        default: sigmoid
+        layer_specific:
+          -1: abs
+      learning_rate: 0.002
+      optimizer: Adam
+    Training:
+      batch_size: 50

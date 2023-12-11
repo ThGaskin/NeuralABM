@@ -21,10 +21,12 @@ overview of the Utopia syntax. You can find a complete guide on running models w
 > publications, once you have completed installation.
 > - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
 > https://doi.org/10.1073/pnas.2216415120 (`HarrisWilson` and `SIR` models)
-> - T. Gaskin, M. Girolami, G. Pavliotis. *Inferring networks from time series: a neural approach.* https://arxiv.org/abs/2303.18059
+> - T. Gaskin, G. Pavliotis, M. Girolami, . *Inferring networks from time series: a neural approach.* https://arxiv.org/abs/2303.18059
 > (`Kuramoto` and `HarrisWilsonNW` models)
+> - T. Gaskin, T. Conrad, G. Pavliotis, C. Schütte. *Neural parameter calibration and uncertainty quantification for epidemic
+> forecasting*. https://arxiv.org/abs/2312.03147 (`SIR` and `Covid` models)
 
-> **_Note_**: Since the code is continously
+> **_Note_**: Since the code is continuously
 > being reworked and improved, the plots produced by the current version may quantatively differ from the publication
 > plots. Versions below `v2.0.0` will reproduce the PNAS publication plots.
 
