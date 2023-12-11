@@ -315,8 +315,9 @@ if __name__ == "__main__":
 
     log.note("   Preparing model run ...")
     log.note(f"   Loading config file:\n        {cfg_file_path}")
+    yamlc = yaml.YAML(typ='safe')   # default, if not specfied, is 'rt' (round-trip)
     with open(cfg_file_path) as cfg_file:
-        cfg = yaml.load(cfg_file, Loader=yaml.Loader)
+        cfg = yamlc.load(cfg_file)
     model_name = cfg.get("root_model_name", "Kuramoto")
     log.note(f"   Model name:  {model_name}")
     model_cfg = cfg[model_name]
