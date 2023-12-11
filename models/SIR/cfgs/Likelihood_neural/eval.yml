@@ -152,7 +152,7 @@ marginals_all:
       tag: data
   c: !dag_result c_darkblue
   x: x
-  y: marginal
+  y: y
   col: parameter
   sharex: False
   sharey: False

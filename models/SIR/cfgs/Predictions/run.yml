@@ -25,11 +25,6 @@ parameter_space:
           parameters:
             lower: 0.1
             upper: 3.1
-        # Distribution on alpha
-#        - distribution: uniform
-#          parameters:
-#            lower: 0
-#            upper: 1.0
       activation_funcs:
         default: tanh
         layer_specific:
@@ -38,6 +33,6 @@ parameter_space:
       optimizer: Adam
     Training:
       batch_size: 100
-      to_learn: [p_infect, t_infectious] #, alpha]
+      to_learn: [p_infect, t_infectious]
       true_parameters:
         sigma: 0
