@@ -562,6 +562,8 @@ def joint_2D(
                 ranges[idx] = (
                     [np.min(x), np.max(x)] if idx == 0 else [np.min(y), np.max(y)]
                 )
+    else:
+        ranges = kwargs.pop('range', None)
 
     # Get the statistics and bin edges
     stat, x_edge, y_edge, _ = scipy.stats.binned_statistic_2d(
@@ -658,7 +660,7 @@ def marginal_from_joint(
     integration_coord = [c for c in list(joint.coords) if c != parameter][0]
 
     # Marginalise over the integration coordinate
-    marginal = []
+    marginal = np.array([])
     for p in joint.coords[parameter]:
         _y, _x = joint.sel({parameter: p}).data, joint.coords[integration_coord]
         if scale_y_bins and not np.isnan(_y).all():
@@ -666,7 +668,7 @@ def marginal_from_joint(
             _f = 1.0 / _f if _f != 0 else 1.0
         else:
             _f = 1.0
-        marginal.append(
+        marginal = np.append(marginal,
             _f * scipy.integrate.trapezoid(_y[~np.isnan(_y)], _x[~np.isnan(_y)])
         )
 
@@ -788,6 +790,8 @@ def joint_DD(
         for idx in range(len(ranges)):
             if None in ranges[idx]:
                 ranges[idx] = [np.min(sample.coords[idx]), np.max(sample.coords[idx])]
+    else:
+        ranges = kwargs.pop('range', None)
 
     # Get the statistics and bin edges
     stat, bin_edges, _ = scipy.stats.binned_statistic_dd(
@@ -797,7 +801,7 @@ def joint_DD(
     return xr.DataArray(
         data=stat,
         dims=dim_names,
-        coords={dim_names[i]: 0.5 * b[1:] + b[:-1] for i, b in enumerate(bin_edges)},
+        coords={dim_names[i]: 0.5 * (b[1:] + b[:-1]) for i, b in enumerate(bin_edges)},
         name="joint",
     )
 
