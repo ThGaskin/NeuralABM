@@ -6,4 +6,5 @@ __pycache__/
 .ipynb_checkpoints
 .pytest_cache/
 .coverage
+coverage
 coverage.json

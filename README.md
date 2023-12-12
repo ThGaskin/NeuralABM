@@ -3,8 +3,8 @@
 
 ---
 
-![example workflow](https://github.com/ThGaskin/NeuralABM/actions/workflows/pytest.yml/badge.svg)
-![coverage badge](./coverage.svg)
+[![CI](https://github.com/ThGaskin/NeuralABM/actions/workflows/pytest.yml/badge.svg)](https://github.com/ThGaskin/NeuralABM/actions/workflows/pytest.yml)
+[![coverage badge](https://thgaskin.github.io/NeuralABM/coverage-badge.svg)](https://thgaskin.github.io/NeuralABM)
 [![Python 3.6](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
 This project combines multi-agent models with a neural core to estimate marginal densities on ODE parameters
