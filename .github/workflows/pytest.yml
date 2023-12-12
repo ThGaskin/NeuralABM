@@ -12,65 +12,76 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  pages: write      # to deploy to Pages
+  id-token: write   # to verify the deployment originates from an appropriate source
 
 jobs:
-  tests:
-    name: Tests
+  test:
+    name: test
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-        cache: 'pip' # caching pip dependencies
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-    - name: Test with pytest
-      run: |
-        utopya projects register . --with-models --exists-action overwrite
-        coverage run -m pytest tests/ && coverage report -m && coverage json -o ./coverage/coverage-summary.json
-        utopya run HarrisWilson --pp num_epochs=100 --po loss
-        utopya run SIR --pp num_epochs=10 --po loss
-        utopya run Kuramoto --pp num_epochs=10 --po loss
-        utopya run HarrisWilsonNW --pp num_epochs=10 --po loss
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip' # caching pip dependencies
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Test with pytest
+        run: |
+          utopya projects register . --with-models --exists-action overwrite
+          coverage run -m pytest tests/
+      - name: Generate Coverage Report
+        run: |  
+          coverage report -m && coverage json -o ./coverage/coverage-summary.json && coverage html -d ./coverage
+      - name: Run models
+        run: |
+          utopya run HarrisWilson --pp num_epochs=100 --po loss
+          utopya run SIR --pp num_epochs=10 --po loss
+          utopya run Kuramoto --pp num_epochs=10 --po loss
+          utopya run HarrisWilsonNW --pp num_epochs=10 --po loss
+          utopya run Covid --pp num_epochs=10 --po loss
 
-#    # Create a coverage badge
-#    - name: Coverage Badge
-#      uses: tj-actions/coverage-badge-py@v2
-#
-#    # Check if changed and if so, update coverage badge
-#    - name: Verify Changed files
-#      uses: tj-actions/verify-changed-files@v9
-#      id: changed_files
-#      with:
-#        files: coverage.svg
-#    - name: Commit coverage banner
-#      if: steps.changed_files.outputs.files_changed == 'true'
-#      run: |
-#        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-#        git config --local user.name "github-actions[bot]"
-#        git add coverage.svg
-#        git commit -m "Updated coverage.svg"
-#    - uses: actions/checkout@v3
-#      with:
-#        fetch-depth: 0
-#    - name: Push changes
-#      if: steps.changed_files.outputs.files_changed == 'true'
-#      uses: ad-m/github-push-action@master
-#      with:
-#        github_token: ${{ secrets.GITHUB_TOKEN }}
-#        branch: ${{ github.head_ref }}
+      # Create a coverage badge
+      - name: Create coverage badge
+        if: github.ref == 'refs/heads/main'
+        uses: jaywcjlove/coverage-badges-cli@main
+        with:
+          style: classic
+          source: ./coverage/coverage-summary.json
+          output: ./coverage/coverage-badge.svg
+          jsonPath: totals.percent_covered #_display
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: './coverage'
+
+  # Deploy coverage result to GitHub Pages
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+
+      - name: Deploy coverage report
+        uses: actions/deploy-pages@v2
+        id: deployment
+
