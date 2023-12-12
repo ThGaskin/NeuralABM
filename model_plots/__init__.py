@@ -48,6 +48,6 @@ register_operation(name=".to_xarray", func=lambda d, *a, **k: d.to_xarray(*a, **
 register_operation(name="np.nansum", func=np.nansum)
 register_operation(name="np.histogramdd", func=np.histogramdd)
 register_operation(name="np.ones", func=np.ones)
+from .bar import bar, hist
 from .data_ops import *
 from .nw_ops import *
-from .bar import bar, hist

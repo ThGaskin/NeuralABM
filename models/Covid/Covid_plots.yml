@@ -76,4 +76,3 @@ marginals:
   smooth_kwargs:
     enabled: True
     smoothing: 3
-

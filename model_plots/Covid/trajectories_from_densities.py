@@ -1,11 +1,11 @@
 import logging
 from typing import Union
-from tqdm import trange
-from tqdm.contrib.logging import logging_redirect_tqdm
 
 import numpy as np
 import torch
 import xarray as xr
+from tqdm import trange
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from models.Covid import generate_smooth_data
 from utopya.eval import is_operation
@@ -125,9 +125,10 @@ def densities_from_joint(
     res = []
 
     with logging_redirect_tqdm():
-
         for s in (pbar := trange(len(parameters.coords[sample_dim]))):
-            pbar.set_description(f"Drawing {len(parameters.coords[sample_dim])} samples from joint distribution: ")
+            pbar.set_description(
+                f"Drawing {len(parameters.coords[sample_dim])} samples from joint distribution: "
+            )
 
             # Construct the configuration, taking time-dependent parameters into account
             sample = parameters.isel({sample_dim: s}, drop=True)
@@ -152,7 +153,9 @@ def densities_from_joint(
                     data=[[generated_data]],
                     dims=[sample_dim, "type", "time", "kind", "dim_name__0"],
                     coords=dict(
-                        **{sample_dim: [s]}, type=["prediction_mean"], **true_counts.coords
+                        **{sample_dim: [s]},
+                        type=["prediction_mean"],
+                        **true_counts.coords,
                     ),
                 ).squeeze(["dim_name__0"], drop=True)
             )

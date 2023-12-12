@@ -535,4 +535,3 @@ marginals/lower:
 # Plot the distribution of the initial values of the parameters
 initial_values:
   based_on: initial_values
-

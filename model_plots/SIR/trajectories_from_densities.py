@@ -1,9 +1,10 @@
 import logging
-from tqdm import trange
-from tqdm.contrib.logging import logging_redirect_tqdm
+
 import numpy as np
 import torch
 import xarray as xr
+from tqdm import trange
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from models.SIR import generate_smooth_data
 from utopya.eval import is_operation
@@ -66,9 +67,10 @@ def densities_from_joint(
     sample_cfg = cfg["Data"]["synthetic_data"]
 
     with logging_redirect_tqdm():
-
         for s in (pbar := trange(len(joint.coords["sample"]))):
-            pbar.set_description(f"Drawing {len(joint.coords['sample'])} samples from joint distribution: ")
+            pbar.set_description(
+                f"Drawing {len(joint.coords['sample'])} samples from joint distribution: "
+            )
 
             # Get the sample
             sample = joint.isel({"sample": [s]})

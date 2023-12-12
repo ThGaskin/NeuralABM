@@ -176,26 +176,21 @@ class Covid_NN:
         # Get the scaling factors
         self.scaling_factors = torch.tensor(
             list(
-                dict(
-                    (
-                        key,
-                        torch.tensor(scaling_factors[key], dtype=torch.float)
-                        if key in scaling_factors.keys()
-                        else torch.tensor(1.0, dtype=torch.float),
-                    )
+                {
+                    key: torch.tensor(scaling_factors[key], dtype=torch.float)
+                    if key in scaling_factors.keys()
+                    else torch.tensor(1.0, dtype=torch.float)
                     for key in self.to_learn.keys()
-                ).values()
+                }.values()
             ),
             dtype=torch.float,
         )
 
     def epoch(self):
-
         """Trains the model for a single epoch"""
 
         # Process the training data in batches
         for batch_no, batch_idx in enumerate(self.batches[:-1]):
-
             # Make a prediction
             predicted_parameters = self.neural_net(
                 torch.flatten(self.training_data[batch_idx])
@@ -217,7 +212,6 @@ class Covid_NN:
 
             # Integrate the ODE for B steps
             for ele in range(batch_idx + 1, self.batches[batch_no + 1] + 1):
-
                 # Adjust for time-dependency
                 for key, ranges in self.time_dependent_parameters.items():
                     for idx, r in enumerate(ranges):
@@ -287,7 +281,6 @@ class Covid_NN:
             densities = torch.stack(densities[1:])
 
             if self.Berlin_data_loss:
-
                 # For the Berlin dataset, combine the quarantine compartments and drop the deceased compartment,
                 # which is not present in the ABM data
                 densities = torch.cat(

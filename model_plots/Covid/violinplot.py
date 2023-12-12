@@ -33,7 +33,6 @@ def violin_plot(
     smooth_kwargs: dict = {},
     **plot_kwargs,
 ):
-
     """Plots a violinplot of different datasets. The ``hue`` dimension is plotted in an alternating
     fashion on the left and right sides of the plot, although this renders the plot somewhat pointless if the length
     of the ``hue`` dimension is greater than 2. Means and modes of the modes can also be shown as discrete points.
@@ -47,7 +46,7 @@ def violin_plot(
     :param show_means: (optional) whether to show the means of the distributions
     :param show_modes: (optional) whether to show the modes of the distribution
     :param format_y_label: (optional) whether to format the y-labels to match the Berlin SEIRD publication style
-        ``$\lambda_{\rm X}$``.
+        ``$\\lambda_{\rm X}$``.
     :param mean_kwargs: plot_kwargs for the mean dots, passed to ``ax.scatter``
     :param mode_kwargs plot_kwargs for the mean dots, passed to ``ax.scatter``
     :param plot_kwargs: plot_kwargs for the distribution, passed to ``ax.fillbetweenx``
@@ -56,7 +55,6 @@ def violin_plot(
     def _plot_1d(
         _x, _y, _yfactor, *, _smooth_kwargs: dict = {}, label: str, **_plot_kwargs
     ):
-
         """Plots a single parameter density and smooths the marginal. Returns the artists for the legend."""
         smooth, sigma = _smooth_kwargs.pop("enabled", False), _smooth_kwargs.pop(
             "smoothing", None

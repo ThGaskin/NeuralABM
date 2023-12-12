@@ -563,7 +563,7 @@ def joint_2D(
                     [np.min(x), np.max(x)] if idx == 0 else [np.min(y), np.max(y)]
                 )
     else:
-        ranges = kwargs.pop('range', None)
+        ranges = kwargs.pop("range", None)
 
     # Get the statistics and bin edges
     stat, x_edge, y_edge, _ = scipy.stats.binned_statistic_2d(
@@ -668,8 +668,9 @@ def marginal_from_joint(
             _f = 1.0 / _f if _f != 0 else 1.0
         else:
             _f = 1.0
-        marginal = np.append(marginal,
-            _f * scipy.integrate.trapezoid(_y[~np.isnan(_y)], _x[~np.isnan(_y)])
+        marginal = np.append(
+            marginal,
+            _f * scipy.integrate.trapezoid(_y[~np.isnan(_y)], _x[~np.isnan(_y)]),
         )
 
     # Normalise, if given
@@ -791,7 +792,7 @@ def joint_DD(
             if None in ranges[idx]:
                 ranges[idx] = [np.min(sample.coords[idx]), np.max(sample.coords[idx])]
     else:
-        ranges = kwargs.pop('range', None)
+        ranges = kwargs.pop("range", None)
 
     # Get the statistics and bin edges
     stat, bin_edges, _ = scipy.stats.binned_statistic_dd(

@@ -44,7 +44,6 @@ class Covid_Langevin_sampler(base.MetropolisAdjustedLangevin):
         h5File: h5.File,
         **__,
     ):
-
         # Parameters to learn
         self.to_learn = {key: idx for idx, key in enumerate(to_learn)}
         self.time_dependent_parameters = (
@@ -69,7 +68,7 @@ class Covid_Langevin_sampler(base.MetropolisAdjustedLangevin):
         )
 
         # Initialise the parent class with the initial values
-        super(Covid_Langevin_sampler, self).__init__(
+        super().__init__(
             true_data=true_data,
             init_guess=init_guess,
             lr=lr,
@@ -118,8 +117,7 @@ class Covid_Langevin_sampler(base.MetropolisAdjustedLangevin):
         self.grad[1].data = self.grad[0].data
 
     def loss_function(self, input):
-
-        """Calculates the loss (negative log-likelihood function) of a vector of parameters via simulation.
+        r"""Calculates the loss (negative log-likelihood function) of a vector of parameters via simulation.
 
         :param parameters: the vector of parameters
         :return: likelihood || \hat{T}(\hat{Lambda}) - T ||_2
@@ -142,7 +140,6 @@ class Covid_Langevin_sampler(base.MetropolisAdjustedLangevin):
         }
 
         for t in range(start, start + self.batch_size - 1):
-
             for key, ranges in self.time_dependent_parameters.items():
                 for idx, r in enumerate(ranges):
                     if not r[1]:
@@ -246,7 +243,6 @@ class Covid_Langevin_sampler(base.MetropolisAdjustedLangevin):
         return loss
 
     def write_parameters(self):
-
         if self.time > self.write_start and self.time % self.write_every == 0:
             self.dset_parameters.resize(self.dset_parameters.shape[0] + 1, axis=0)
             self.dset_parameters[-1, :] = torch.flatten(self.x[0].detach()).numpy()
