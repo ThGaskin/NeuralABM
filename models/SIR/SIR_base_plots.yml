@@ -13,6 +13,12 @@
       neg_exp:
         - mul: [!arg 0 , -1]
         - np.exp: [!dag_prev ]
+      .isel_with_drop:
+        - .isel: [!arg 0, !arg 1]
+          kwargs: {drop: True}
+      .sel_with_drop:
+        - .sel: [!arg 0, !arg 1]
+          kwargs: {drop: True}
 
 .default_style:
   dag_visualization:
@@ -43,19 +49,22 @@
         - div: [!dag_tag _page_width, 2]
       third_width:
         - div: [!dag_tag _page_width, 3]
+      two_thirds_width:
+        - div: [!dag_tag _page_width, 3]
+        - mul: [!dag_prev , 2]
       quarter_width:
         - div: [!dag_tag _page_width, 4]
       fifth_width:
         - div: [!dag_tag _page_width, 5]
 
   style:
-    text.usetex:        True   # Set to 'True' to use latex
+    text.usetex: False   # Set to 'True' to use latex
+    font.family: 'Arial' # Set to a font family of your choice, e.g. Helvetica
     mathtext.fontset:   cm
-    font.family:        serif
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
     # Set the label fontsize
-    font.size:          &fontsize 8
+    font.size:          &fontsize 7
     axes.titlesize:     *fontsize
     axes.labelsize:     *fontsize
     xtick.labelsize:    *fontsize
@@ -110,6 +119,13 @@
       colors:
         <<: *colors
 
+.cycler_blue_pink_grey:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[c_darkblue]:}', '{colors[c_pink]:}', '{colors[c_darkgrey]:}'])"
+      colors:
+        <<: *colors
+
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
@@ -139,6 +155,11 @@
 .plot.facet_grid.density:
   module: model_plots.HarrisWilson
   plot_func: plot_prob_density
+
+# Base function for barplots
+.plot.facet_grid.bar:
+  based_on: .plot.facet_grid
+  kind: bar
 
 # ======================================================================================================================
 #  ╔═╗╦  ╔═╗╔╦╗╔═╗
@@ -253,3 +274,31 @@ predictions_mv:
   sharey: False
   style:
     figure.figsize: [ !dag_result half_width, !dag_result half_width ]
+
+# Distribution of the initial values (multiverse plot)
+initial_values:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.bar
+  select_and_combine:
+    fields:
+      values:
+        path: parameters
+        transform:
+          - .isel_with_drop: [!dag_prev , {batch: 0}]
+  transform:
+    - hist: [!dag_tag values]
+      kwargs:
+        dim: 'seed'
+        exclude_dim: [parameter]
+        bins: 100
+      tag: data
+  col: parameter
+  x: x
+  y: parameters
+  color: !dag_result c_darkblue
+  sharex: False
+  helpers:
+    set_labels:
+      x: ''
+      y: ''

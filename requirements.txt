@@ -14,3 +14,4 @@ xarray
 coloredlogs
 pre-commit
 coverage
+tqdm
