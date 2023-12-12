@@ -49,12 +49,12 @@ def test_random_tensor():
                         _test_entry(cfg[_], t[_])
 
         if not _raises and not _warns:
-            _ = utils.random_tensor(cfg, size=(1,))
+            utils.random_tensor(cfg, size=(1,))
 
         elif _warns and not _raises:
             with pytest.warns(_exp_warning, match=_match):
-                _ = utils.random_tensor(cfg, size=(1,))
+                utils.random_tensor(cfg, size=(1,))
 
         elif _raises and not _warns:
             with pytest.raises(_exp_exc, match=_match):
-                _ = utils.random_tensor(cfg, size=(1,))
+                utils.random_tensor(cfg, size=(1,))
