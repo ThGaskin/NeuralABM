@@ -1,12 +1,13 @@
-# Neural ODEs for Multi-Agent models
+# Neural parameter calibration of multi-agent models
 ### Thomas Gaskin
 
 ---
 
 ![example workflow](https://github.com/ThGaskin/NeuralABM/actions/workflows/pytest.yml/badge.svg)
 ![coverage badge](./coverage.svg)
+[![Python 3.6](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
-This project combines multi-agent models with a neural core, in order to estimate densities on ODE parameters
+This project combines multi-agent models with a neural core to estimate marginal densities on ODE parameters
 (including adjacency matrices) from data. The project
 uses the [utopya package](https://docs.utopia-project.org/html/index.html) to handle simulation configuration, data management,
 and plotting.
@@ -15,16 +16,18 @@ This README gives a brief introduction to installation and running a model, as w
 overview of the Utopia syntax. You can find a complete guide on running models with Utopia/utopya
 [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial).
 
-> **_Warning_**: utopya is currently only supported on Unix systems (macOS and Ubuntu).
+> **_Warning_**: This package requires `Python >= 3.11`. utopya is also currently only supported on Unix systems (macOS and Ubuntu).
 
 > **_Note_**: See the section on [configuration sets](#running-a-model-using-configuration-sets) for guidance on how to reproduce the plots from the
 > publications, once you have completed installation.
 > - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
 > https://doi.org/10.1073/pnas.2216415120 (`HarrisWilson` and `SIR` models)
-> - T. Gaskin, M. Girolami, G. Pavliotis. *Inferring networks from time series: a neural approach.* https://arxiv.org/abs/2303.18059
+> - T. Gaskin, G. Pavliotis, M. Girolami, . *Inferring networks from time series: a neural approach.* https://arxiv.org/abs/2303.18059
 > (`Kuramoto` and `HarrisWilsonNW` models)
+> - T. Gaskin, T. Conrad, G. Pavliotis, C. Schütte. *Neural parameter calibration and uncertainty quantification for epidemic
+> forecasting*. https://arxiv.org/abs/2312.03147 (`SIR` and `Covid` models)
 
-> **_Note_**: Since the code is continously
+> **_Note_**: Since the code is continuously
 > being reworked and improved, the plots produced by the current version may quantatively differ from the publication
 > plots. Versions below `v2.0.0` will reproduce the PNAS publication plots.
 
