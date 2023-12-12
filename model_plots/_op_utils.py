@@ -2,7 +2,6 @@ import itertools
 from typing import Sequence, Union
 
 import numpy as np
-import scipy
 import xarray as xr
 
 # ----------------------------------------------------------------------------------------------------------------------

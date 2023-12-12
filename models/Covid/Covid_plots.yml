@@ -1,0 +1,78 @@
+# Loss over time
+loss:
+  based_on: loss
+
+# Evolution of the parameter predictions
+parameter_predictions:
+  based_on: predictions_uni
+  col_wrap: auto
+  color: !dag_result c_darkblue
+
+# Plot the true data
+true_counts:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: true_counts
+  x: time
+  hue: kind
+  helpers:
+    set_scales:
+      y: log
+
+# Draw parameters from the predicted joint density and calculate time series
+densities_from_joint:
+  based_on: densities_from_joint_uni
+
+# Plot the marginals on the parameters
+marginals:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.density
+  select:
+    parameters:
+      path: parameters
+      transform: [.data]
+    loss: loss
+
+  transform:
+
+    # Divide the loss by the median value: this is necessary to prevent numerical underflow
+    # arising from very small values of J
+    - .median: [ !dag_tag loss ]
+    - div: [ !dag_tag loss, !dag_prev ]
+    - neg_exp: [ !dag_prev ]
+      tag: probabilities
+
+    - .coords: [!dag_tag parameters, 'parameter']
+      tag: parameter_coords
+
+    # Number of bins in each dimension
+    - xr.DataArray:
+        data: [100, 100]
+        dims: ['idx']
+    - .expand_dims: [!dag_prev , {parameter: !dag_tag parameter_coords }]
+      tag: bins
+
+    # Broadcast parameters and loss into a single dimension
+    - broadcast: [ !dag_tag parameters, !dag_tag probabilities ]
+
+    # Get the neural marginals
+    - marginal_from_ds: [ !dag_prev , !dag_tag bins]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter]
+        scale_y_bins: True
+      tag: data
+  x: x
+  y: y
+  col: parameter
+  col_wrap: 5
+  sharex: False
+  sharey: False
+  c: !dag_result c_darkblue
+  smooth_kwargs:
+    enabled: True
+    smoothing: 3

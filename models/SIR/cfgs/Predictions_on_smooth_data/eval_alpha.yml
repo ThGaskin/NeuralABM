@@ -1,0 +1,148 @@
+# Plot the marginals as individual frames
+marginals: !pspace
+  dag_options:
+    meta_operations:
+      load_csv:
+        - import_and_call: [ pandas, read_csv, !arg 0 ]
+          kwargs: { index_col: !kwarg index_col }
+    define:
+      parameter: !sweep
+        default: 'p_infect'
+        values: ['p_infect', 't_infectious', 'alpha']
+      ground_truth_path: data/SIR/ground_truth.csv
+      mcmc_path: data/SIR/MCMC_data.csv
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+    - .cycler_blue_pink_grey
+  select_and_combine:
+    fields:
+      parameters: parameters
+      probabilities:
+        path: loss
+        transform: [neg_exp]
+  transform:
+    - xr.DataArray:
+        data: [[100, 1000], [100, 1000], [100, 1000]]
+        dims: [parameter, idx0]
+        coords: {parameter: ['p_infect', 't_infectious', 'alpha']}
+      tag: bins
+    - xr.DataArray:
+        data: [[[~, ~], [~, ~]], [[~, ~], [~, ~]], [[0, 1], [~, ~]]]
+        dims: [parameter, idx1, idx0]
+        coords: {parameter: ['p_infect', 't_infectious', 'alpha']}
+      tag: ranges
+    - flatten_dims: [ !dag_tag probabilities ]
+      kwargs:
+        dims:
+          sample: [ batch, seed ]
+      tag: prob
+    - flatten_dims: [ !dag_tag parameters ]
+      kwargs:
+        dims:
+          sample: [ batch, seed ]
+      tag: params
+    - broadcast: [ !dag_tag params, !dag_tag prob ]
+    - kwargs:
+        exclude_dim: [ parameter ]
+        x: x
+        y: loss
+      marginal_from_ds: [ !dag_node -1 , !dag_tag bins, !dag_tag ranges]
+    - .sel: [ !dag_prev , { parameter: !dag_tag parameter } ]
+    - .expand_dims: [ !dag_prev , { type: [ Neural ] } ]
+      tag: neural_marginals
+
+    # Load the ground truth and MCMC estimates
+    - load_csv: [!dag_tag ground_truth_path]
+      kwargs: {index_col: [0, 1]}
+    - .to_xarray: [!dag_prev ]
+    - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
+      kwargs: {drop: True}
+    - .expand_dims: [!dag_prev , {type: [Ground truth]}]
+      tag: ground_truth
+
+    - load_csv: [ !dag_tag mcmc_path ]
+      kwargs: { index_col: [0, 1]}
+    - .to_xarray: [!dag_prev ]
+    - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
+      kwargs: {drop: True}
+    - .to_array: [!dag_prev ]
+    - .sel: [!dag_prev , {variable: value}]
+      kwargs: {drop: True}
+    - hist: [!dag_prev ]
+      kwargs:
+        bins: 100
+        ranges: !coupled-sweep
+          default: ~
+          values: [~, ~, [0, 1]]
+          target_name: parameter
+        dim: sample
+        use_bins_as_coords: False
+    - .rename: [!dag_prev , {count: y}]
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: x
+        y: y
+    - .expand_dims: [ !dag_prev , { type: [ MALA ] } ]
+      tag: mcmc_estimate
+    - xr.concat: [[!dag_tag neural_marginals, !dag_tag mcmc_estimate, !dag_tag ground_truth], 'type']
+      tag: data
+  x: x
+  y: y
+  hue: type
+  linestyle: [solid, solid, dotted]
+  helpers:
+    set_labels:
+      y: ''
+    set_legend:
+      use_legend: !coupled-sweep
+        default: true
+        target_name: parameter
+        values: [true, false, false]
+    set_limits:
+      x: !coupled-sweep
+        default: ~
+        target_name: parameter
+        values: [ ~, ~, [ 0, 1.05] ]
+      y: !coupled-sweep
+        default: ~
+        target_name: parameter
+        values: [ ~, ~, [ 0, 2 ] ]
+  smooth_kwargs:
+    enabled: !coupled-sweep
+      default: true
+      target_name: parameter
+      values: [false, false, true]
+    smoothing: !coupled-sweep
+      default: true
+      target_name: parameter
+      values: [0, 0, 15]
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result quarter_width]
+
+# Plot the prior densities on the parameters
+initial_values:
+  based_on: initial_values
+  helpers:
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_labels:
+          x: $\beta$
+      1:
+        axis: [ 1, 0 ]
+        set_labels:
+          x: $\tau$
+      2:
+        axis: [ 2, 0 ]
+        set_labels:
+          x: $\alpha$
+    setup_figure:
+      nrows: 1
+      ncols: 3
+    set_labels:
+      y: ''
+    set_title:
+      title: ''
+  style:
+    figure.figsize: [!dag_result full_width, !dag_result quarter_width]

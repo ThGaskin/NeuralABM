@@ -1,12 +1,9 @@
 ---
 # ======================================================================================================================
-#  ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-#  ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#   ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
+#  ╔╦╗╔═╗╔═╗╔═╗╦ ╦╦ ╔╦╗╔═╗
+#   ║║║╣ ╠╣ ╠═╣║ ║║  ║ ╚═╗
+#  ═╩╝╚═╝╚  ╩ ╩╚═╝╩═╝╩ ╚═╝
 # ======================================================================================================================
-.variables:
-  base_path:        &base_path    data/SIR
-
 .meta_ops:
   dag_options:
     meta_operations:
@@ -19,7 +16,6 @@
       .sel_with_drop:
         - .sel: [!arg 0, !arg 1]
           kwargs: {drop: True}
-
 .default_style:
   dag_visualization:
     enabled: False
@@ -31,7 +27,7 @@
       c_orange: '#EC9F7E'
       c_red: '#ec7070'
       c_pink: '#F8A6A6'
-      c_purple: '#A07CB0'
+      c_purple: '#90649A'
       c_lightblue: '#97c3d0'
       c_darkblue: '#2F7194'
       c_lightgreen: '#AFD8BC'
@@ -49,18 +45,20 @@
         - div: [!dag_tag _page_width, 2]
       third_width:
         - div: [!dag_tag _page_width, 3]
-      two_thirds_width:
-        - div: [!dag_tag _page_width, 3]
-        - mul: [!dag_prev , 2]
       quarter_width:
         - div: [!dag_tag _page_width, 4]
       fifth_width:
         - div: [!dag_tag _page_width, 5]
+      seventh_width:
+        - div: [!dag_tag _page_width, 7]
+      two_thirds_width:
+        - div: [!dag_tag _page_width, 3]
+        - mul: [!dag_prev , 2]
 
   style:
-    text.usetex: False   # Set to 'True' to use latex
-    font.family: 'Arial' # Set to a font family of your choice, e.g. Helvetica
+    text.usetex:        False   # Set to 'True' to use latex
     mathtext.fontset:   cm
+    font.family:        Helvetica
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
     # Set the label fontsize
@@ -73,19 +71,18 @@
     grid.linewidth:     0.5
     savefig.bbox:       tight
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_darkblue]:}',
-                              'black',
-                              '{colors[c_darkgreen]:}',
-                              '{colors[c_lightgreen]:}',
+      fstr: "cycler('color', ['{colors[c_lightgreen]:}',
                               '{colors[c_red]:}',
+                              '{colors[c_darkgreen]:}',
                               '{colors[c_lightblue]:}',
+                              '{colors[c_darkblue]:}',
                               '{colors[c_lightbrown]:}',
                               '{colors[c_orange]:}',
                               '{colors[c_yellow]:}',
                               '{colors[c_darkgrey]:}',
                               '{colors[c_pink]:}',
                               '{colors[c_purple]:}',
-                              '{colors[c_lightgrey]:}'
+                              '{colors[c_lightgrey]:}', 'black'
                               ])"
       colors:
         <<: *colors
@@ -98,34 +95,26 @@
       dpi: 900
   file_ext: pdf
 
-.cycler_marginals:
+# Blue-pink cycler for the marginal densities
+.marginal_cycler:
   style:
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_darkblue]:}', '{colors[c_pink]:}'])"
+      fstr: "cycler('color', ['{colors[c_darkblue]:}',
+                              '{colors[c_pink]:}'
+                              ])"
       colors:
         <<: *colors
 
-.cycler_green_red_green:
+# Green-red cycler for the predicted densities
+.densities_cycler:
   style:
     axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_lightgreen]:}', '{colors[c_red]:}', '{colors[c_darkgreen]:}',])"
+      fstr: "cycler('color', ['{colors[c_darkgreen]:}',
+                              '{colors[c_red]:}',
+                              '{colors[c_orange]:}'
+                              ])"
       colors:
         <<: *colors
-
-.cycler_blue_orange_brown:
-  style:
-    axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_darkblue]:}', '{colors[c_orange]:}', '{colors[c_lightbrown]:}'])"
-      colors:
-        <<: *colors
-
-.cycler_blue_pink_grey:
-  style:
-    axes.prop_cycle: !format
-      fstr: "cycler('color', ['{colors[c_darkblue]:}', '{colors[c_pink]:}', '{colors[c_darkgrey]:}'])"
-      colors:
-        <<: *colors
-
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
@@ -140,7 +129,7 @@
     - .meta_ops
 
   dag_options:
-    select_path_prefix: *base_path
+    select_path_prefix: &base_path data/Covid
 
 .creator.multiverse:
   based_on:
@@ -166,7 +155,6 @@
 #  ╠═╝║  ║ ║ ║ ╚═╗
 #  ╩  ╩═╝╚═╝ ╩ ╚═╝
 # ======================================================================================================================
-
 # -- Plot of the training loss -----------------------------------------------------------------------------------------
 loss:
   based_on:
@@ -182,71 +170,11 @@ loss:
     set_scales:
       y: log
 
-# -- Animated state of the agents --------------------------------------------------------------------------------------
-state:
-  based_on:
-    - .creator.universe
-    - .plot.abm
-    - .animation.ffmpeg
-  select:
-    x:
-      path: position
-      transform:
-        - .sel: [!dag_prev , {coords: x}]
-          kwargs:
-            drop: true
-    y:
-      path: position
-      transform:
-        - .sel: [ !dag_prev , {coords: y}]
-          kwargs:
-            drop: true
-    kinds:
-      path: kinds
-      transform:
-        - .data: [!dag_prev ]
-
-  # Combine coordinates and kinds into a single Dataset
-  transform:
-    - xr.Dataset:
-      kwargs:
-        data_vars:
-          x: !dag_tag x
-          y: !dag_tag y
-          kind: !dag_tag kinds
-      tag: data
-
-  to_plot:
-    data:
-      cmap:
-        susceptible: !dag_result c_lightgreen
-        infected: !dag_result c_red
-        recovered: !dag_result c_darkgreen
-      vmin: 0
-      vmax: 2
-      size_scale: 0.0005
-  hue: kind
-  x: x
-  y: y
-  frames: time
-  # Colorbar settings
-  cmap:
-    susceptible: !dag_result c_lightgreen
-    infected: !dag_result c_red
-    recovered: !dag_result c_darkgreen
-  cbar_kwargs:
-    shrink: 0.8
-  style:
-    savefig.bbox: ~
-    axes.grid: True
-    axes.spines.top: True
-    axes.spines.right: True
-  # Animation control
-
 # -- Plot of the parameter predictions  --------------------------------------------------------------------------------
 predictions_uni:
   based_on:
     - .creator.universe
+    - .plot.facet_grid.with_auto_encoding
     - .plot.facet_grid.line
   select:
     data:
@@ -275,6 +203,125 @@ predictions_mv:
   style:
     figure.figsize: [ !dag_result half_width, !dag_result half_width ]
 
+densities_from_joint_uni:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.errorbands
+    - .plot.facet_grid.with_auto_encoding
+    - .densities_cycler
+  dag_options:
+    define:
+      n_samples: 200
+  select:
+    parameters:
+      path: parameters
+      transform: [.data]
+    probabilities:
+      path: loss
+      transform: [neg_exp]
+    true_data:
+      path: true_counts
+      transform: [.data]
+    cfg:
+      path: ../../cfg
+      transform:
+        - getitem: [!dag_prev , 'Covid']
+  transform:
+    # Get n random samples from the parameters
+    - .coords: [!dag_tag parameters , 'batch']
+    - len: [!dag_prev ]
+    - np.randint: [0, !dag_prev , !dag_tag n_samples]
+      tag: sample_idx
+    - .isel: [!dag_tag parameters, {batch: !dag_prev }]
+      tag: parameter_samples
+
+    # Normalise the loss
+    - .isel: [ !dag_tag probabilities , {batch: !dag_tag sample_idx } ]
+    - .sum: [ !dag_prev ]
+    - div: [ !dag_node -2, !dag_prev ]
+
+    # Copy the loss for each parameter
+    - Covid_densities_from_joint: [!dag_tag parameter_samples, !dag_prev ]
+      kwargs:
+        true_counts: !dag_tag true_data
+        cfg: !dag_tag cfg
+      tag: data
+  x: time
+  y: mean
+  col: kind
+  yerr: std
+  hue: type
+  sharey: False
+  col_wrap: auto
+
+densities_from_joint_mv:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+    - .plot.facet_grid.with_auto_encoding
+    - .densities_cycler
+  dag_options:
+    define:
+      n_samples: 200
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform: [.data]
+      probabilities:
+        path: loss
+        transform: [neg_exp]
+      true_data:
+        path: true_counts
+        transform: [.data]
+      cfg:
+        path: ../../cfg
+        transform:
+          - getitem: [!dag_prev , 'Covid']
+        subspace:
+          seed: [ 0 ]
+  transform:
+
+    # Extract the cfg
+    - .data: [ !dag_tag cfg ]
+    - getitem: [ !dag_prev , 0 ]
+      tag: cfg_flattened
+
+    # Flatten the true counts
+    - .isel_with_drop: [ !dag_tag true_data, { seed: 0 } ]
+      tag: true_data_flattened
+
+    # Get n random samples from the parameters
+    - flatten_dims: [ !dag_tag parameters ]
+      kwargs: {dims: {sample: [seed, batch]}}
+    - .coords: [!dag_prev , 'sample']
+    - len: [!dag_prev ]
+    - np.randint: [0, !dag_prev , !dag_tag n_samples]
+      tag: sample_idx
+    - .isel: [!dag_node -4, {sample: !dag_prev }]
+      tag: parameter_samples
+
+    # Normalise the loss
+    - flatten_dims: [ !dag_tag probabilities ]
+      kwargs: { dims: { sample: [ seed, batch ] } }
+    - .isel: [ !dag_prev , {sample: !dag_tag sample_idx } ]
+    - .sum: [ !dag_prev ]
+    - div: [ !dag_node -2, !dag_prev ]
+
+    # Copy the loss for each parameter
+    - Covid_densities_from_joint: [!dag_tag parameter_samples, !dag_prev ]
+      kwargs:
+        true_counts: !dag_tag true_data_flattened
+        cfg: !dag_tag cfg_flattened
+      tag: data
+  x: time
+  y: mean
+  col: kind
+  yerr: std
+  hue: type
+  sharey: False
+  col_wrap: auto
+
 # Distribution of the initial values (multiverse plot)
 initial_values:
   based_on:
@@ -294,6 +341,7 @@ initial_values:
         bins: 100
       tag: data
   col: parameter
+  col_wrap: 3
   x: x
   y: parameters
   color: !dag_result c_darkblue

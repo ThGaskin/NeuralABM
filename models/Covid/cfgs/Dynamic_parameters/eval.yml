@@ -1,0 +1,83 @@
+# Predicted time series from the joint distribution
+densities_from_joint:
+  based_on: densities_from_joint_mv
+  dag_options:
+    define:
+      n_samples: 100
+
+# Loss for each seed
+loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+    - .plot.facet_grid.with_auto_encoding
+  select_and_combine:
+    fields:
+      data: loss
+  col: seed
+  x: batch
+  col_wrap: 5
+  c: !dag_result c_darkblue
+  helpers:
+    set_legend:
+      use_legend: False
+    set_scales:
+      y: log
+
+# Marginals of the parameters
+marginals:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.density
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss: loss
+  transform:
+
+    # Divide the loss by the median value: this is necessary to prevent numerical underflow
+    # arising from very small values of J
+    - .median: [ !dag_tag loss ]
+    - div: [ !dag_tag loss, !dag_prev ]
+    - neg_exp: [ !dag_prev ]
+      tag: probabilities
+
+    - .coords: [!dag_tag parameters, 'parameter']
+      tag: parameter_coords
+
+    # Number of bins in each dimension
+    - xr.DataArray:
+        data: [100, 100]
+        dims: ['idx']
+    - .expand_dims: [!dag_prev , {parameter: !dag_tag parameter_coords }]
+      tag: bins
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [ !dag_tag probabilities ]
+      kwargs:
+        dims: { sample: [ batch, seed ] }
+      tag: prob
+    - flatten_dims: [ !dag_tag parameters ]
+      kwargs:
+        dims: { sample: [ batch, seed ] }
+      tag: params
+    - broadcast: [ !dag_tag params, !dag_tag prob ]
+
+    # Get the neural marginals
+    - marginal_from_ds: [ !dag_prev , !dag_tag bins]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter]
+        scale_y_bins: True
+      tag: data
+  x: x
+  y: y
+  col: parameter
+  col_wrap: 3
+  c: !dag_result c_darkblue
+  sharex: False
+  sharey: False
+  smooth_kwargs:
+    enabled: True
+    smoothing: 3

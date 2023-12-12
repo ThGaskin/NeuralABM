@@ -173,12 +173,6 @@ class SIR_NN:
                 else self.true_parameters["sigma"]
             )
 
-            # alpha = (
-            #     predicted_parameters[self.to_learn["alpha"]]
-            #     if "alpha" in self.to_learn.keys()
-            #     else self.true_parameters["alpha"]
-            # )
-
             current_densities = self.training_data[batch_idx].clone()
             current_densities.requires_grad_(True)
 
@@ -204,10 +198,7 @@ class SIR_NN:
                         ]
                     ),
                     0.0,
-                    1.0
-                    # + torch.tensor(
-                    #     [1 / (10000 + alpha), 1 / (10000 + alpha), 1 / (10000 + alpha)]
-                    # )
+                    1.0,
                 )
 
                 # Calculate loss
@@ -253,7 +244,7 @@ if __name__ == "__main__":
 
     log.note("   Preparing model run ...")
     log.note(f"   Loading config file:\n        {cfg_file_path}")
-    yamlc = yaml.YAML(typ='safe')
+    yamlc = yaml.YAML(typ="safe")
     with open(cfg_file_path) as cfg_file:
         cfg = yamlc.load(cfg_file)
     model_name = cfg.get("root_model_name", "SIR")

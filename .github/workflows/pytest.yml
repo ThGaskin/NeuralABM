@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Python application
+name: CI
 
 on:
   push:
@@ -48,29 +48,29 @@ jobs:
         utopya run Kuramoto --pp num_epochs=10 --po loss
         utopya run HarrisWilsonNW --pp num_epochs=10 --po loss
 
-    # Create a coverage badge
-    - name: Coverage Badge
-      uses: tj-actions/coverage-badge-py@v2
-
-    # Check if changed and if so, update coverage badge
-    - name: Verify Changed files
-      uses: tj-actions/verify-changed-files@v9
-      id: changed_files
-      with:
-        files: coverage.svg
-    - name: Commit coverage banner
-      if: steps.changed_files.outputs.files_changed == 'true'
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add coverage.svg
-        git commit -m "Updated coverage.svg"
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - name: Push changes
-      if: steps.changed_files.outputs.files_changed == 'true'
-      uses: ad-m/github-push-action@master
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ github.head_ref }}
+#    # Create a coverage badge
+#    - name: Coverage Badge
+#      uses: tj-actions/coverage-badge-py@v2
+#
+#    # Check if changed and if so, update coverage badge
+#    - name: Verify Changed files
+#      uses: tj-actions/verify-changed-files@v9
+#      id: changed_files
+#      with:
+#        files: coverage.svg
+#    - name: Commit coverage banner
+#      if: steps.changed_files.outputs.files_changed == 'true'
+#      run: |
+#        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+#        git config --local user.name "github-actions[bot]"
+#        git add coverage.svg
+#        git commit -m "Updated coverage.svg"
+#    - uses: actions/checkout@v3
+#      with:
+#        fetch-depth: 0
+#    - name: Push changes
+#      if: steps.changed_files.outputs.files_changed == 'true'
+#      uses: ad-m/github-push-action@master
+#      with:
+#        github_token: ${{ secrets.GITHUB_TOKEN }}
+#        branch: ${{ github.head_ref }}

@@ -1,0 +1,537 @@
+.plot_policy_intervals:
+  # Indicates the periods on which the k_E parameter does not change
+  helpers:
+    set_ticks:
+      x:
+        major:
+          locs: [ 0, 26, 35, 80, 120, 200, 254 ]
+          labels: [ 'Feb 16', '', 'Mar 13–22', 'May 6', 'June 15', 'Sep 3', 'Oct 27' ]
+          ha: right
+          rotation: 45
+    call:
+      functions:
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.1
+          zorder: -1
+          xmin: 0
+          xmax: 26
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.3
+          zorder: -1
+          xmin: 26
+          xmax: 35
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.6
+          zorder: -1
+          xmin: 35
+          xmax: 80
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.4
+          zorder: -1
+          xmin: 80
+          xmax: 120
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.2
+          zorder: -1
+          xmin: 120
+          xmax: 200
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_darkblue
+          alpha: 0.1
+          zorder: -1
+          xmin: 200
+          xmax: 254
+          lw: 0
+    set_hv_lines:
+      vlines:
+        - pos: 26
+          linestyle: dotted
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+        - pos: 35
+          linestyle: dotted
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+        - pos: 80
+          linestyle: dotted
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+        - pos: 120
+          linestyle: dotted
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+        - pos: 200
+          linestyle: solid
+          c: !dag_result c_darkgrey
+          lw: 0.5
+          zorder: -1
+
+# Plot all compartments as individual frames
+densities/all:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.with_auto_encoding
+    - .plot.facet_grid.errorbands
+    - .densities_cycler
+    - .plot_policy_intervals
+  dag_options:
+    define:
+      n_samples: 1000
+      kind: !range [8]
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform: [.data]
+      loss:
+        path: loss
+        transform: [neg_exp]
+      true_data:
+        path: true_counts
+        transform: [.data]
+      cfg:
+        path: ../../cfg
+        transform:
+          - getitem: [!dag_prev , 'Covid']
+        subspace:
+          seed: [0]
+  transform:
+
+    # Extract the cfg
+    - .data: [!dag_tag cfg]
+    - getitem: [!dag_prev , 0]
+      tag: cfg_flattened
+
+    # Flatten the true counts
+    - .isel: [!dag_tag true_data, {seed: 0}]
+      kwargs: {drop: True}
+      tag: true_data_flattened
+
+    # Flatten the parameters
+    - flatten_dims: [ !dag_tag parameters ]
+      kwargs: {dims: {sample: [seed, batch]}}
+    - .coords: [!dag_prev , 'sample']
+    - len: [!dag_prev ]
+    - np.randint: [0, !dag_prev , !dag_tag n_samples]
+      tag: sample_idx
+    - .isel: [!dag_node -4, {'sample': !dag_prev }]
+      tag: parameters_flattened
+
+    # Flatten and normalise the loss
+    - flatten_dims: [ !dag_tag loss ]
+      kwargs: { dims: { sample: [ seed, batch ] } }
+    - .isel: [ !dag_prev , { 'sample': !dag_tag sample_idx } ]
+    - .sum: [ !dag_prev ]
+    - div: [ !dag_node -2, !dag_prev ]
+
+    # Copy the loss for each parameter
+    - Covid_densities_from_joint: [!dag_tag parameters_flattened, !dag_prev ]
+      kwargs:
+        true_counts: !dag_tag true_data_flattened
+        cfg: !dag_tag cfg_flattened
+        combine:
+          quarantined: [quarantine_S, quarantine_E, quarantine_I]
+        drop:
+          - contact_traced
+          - deceased
+      file_cache:
+        read: True
+        write: True
+      tag: densities
+    - getitem: [!dag_prev , 'mean']
+    - Covid_densities_residuals: [!dag_prev ]
+      kwargs:
+        train_cut: 200
+      tag: residuals
+    - .sel: [!dag_tag densities , {type: [prediction_mean, true_counts]}]
+    - mul: [!dag_prev , 3574608] # Multiply by population of Berlin
+    - .isel: [!dag_prev , {kind: !dag_tag kind}]
+      tag: data
+  compute_only: [data, residuals]
+  x: time
+  y: mean
+  yerr: std
+  hue: type
+  sharey: False
+  col: kind
+  col_wrap: 3
+  helpers:
+    set_legend:
+      use_legend: True
+      custom_labels: [Prediction, True data]
+    set_labels:
+      x: ''
+      y: ''
+  style:
+    figure.figsize: [ !dag_result half_width, !dag_result fifth_width ]
+
+# Plot the SY, H, C compartments into a common plot (for publication)
+densities/pub:
+  based_on: densities/all
+  dag_options:
+    define:
+      kind: !range [4, 7]
+  row: kind
+  col: ~
+  sharex: True
+  sharey: False
+  add_legend: False
+  col_wrap: ~
+  compute_only: [data]
+  helpers:
+    set_title:
+      title: ''
+    set_labels:
+      x: ''
+    set_legend:
+      use_legend: False
+    setup_figure:
+      nrows: 3
+      ncols: 1
+    axis_specific:
+      0:
+        axis: [0, 0]
+        set_limits:
+          y: [-1000, 17000]
+        set_legend:
+          use_legend: True
+          gather_from_fig: True
+          custom_labels: [Prediction, True data]
+          loc: upper center
+        set_labels:
+          y: Symptomatic
+      1:
+        axis: [0, 1]
+        set_labels:
+          y: Hospitalised
+        set_limits:
+          y: [ -100, 1700 ]
+      2:
+        axis: [0, 2]
+        set_labels:
+          y: Critical
+        set_limits:
+          y: [ -50, 700 ]
+  figsize: [ !dag_result half_width, !dag_result two_thirds_width ]
+
+# Plot the ABM data together with the RKI figures, and indicate the intervals
+# over which the parameters are time-dependent
+true_data:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  universes:
+    seed: [0]
+  select:
+    counts:
+      path: true_counts
+      transform:
+        - .sel: [!dag_prev , {kind: ['symptomatic', 'hospitalized', 'critical']}]
+        - .squeeze_with_drop: [!dag_prev ]
+        - mul: [!dag_prev , 3574608]
+        - pd.date_range:
+            start: "2020-02-16"
+            end: "2020-10-26"
+            freq: 'D'
+        - .assign_coords: [!dag_node -2, {'time': !dag_prev }]
+
+  transform:
+    # Load the cumulative number of infected patients
+    # Combine counts and cumulative counts
+    - import_and_call: [pandas, read_csv, 'data/Covid/Berlin_data/data_cumulative.csv']
+      kwargs: {index_col: 0}
+    - .to_xarray: [!dag_prev ]
+    - .coords: [!dag_prev , 'index']
+    - pd.to_datetime: [!dag_prev ]
+    - .assign_coords: [!dag_node -3, {index: !dag_prev }]
+    - .rename: [!dag_prev , {index: time, nShowingSymptomsCumulative: cumulative}]
+    - getitem: [!dag_prev , 'cumulative']
+    - .expand_dims: [!dag_prev , {kind: ['cumulative']}]
+    - xr.concat: [[!dag_tag counts, !dag_prev ], 'kind']
+      tag: data
+
+    # Load the RKI data
+    - import_and_call: [pandas, read_csv, 'data/Covid/Berlin_data/RKI_data.csv']
+      kwargs: {index_col: 0}
+    - getitem: [!dag_prev , 'Datum']
+    - pd.to_datetime: [!dag_prev ]
+      tag: RKI_data_x
+    - getitem: [!dag_node -3 , 'KumFall']
+      tag: RKI_data_y
+  x: time
+  hue: kind
+  add_legend: true
+  linewidth: 1.5
+  figsize: [ !dag_result half_width, !dag_result third_width ]
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[orange]:}',
+                              '{colors[red]:}',
+                              '{colors[purple]:}',
+                              '{colors[lightbrown]:}'])"
+      colors:
+        orange: '#EC9F7E'
+        red: '#ec7070'
+        purple: '#76527F'
+        lightbrown: '#C6BFA2'
+  helpers:
+    set_labels:
+      x: ''
+      y: ''
+    set_scales:
+      y: log
+    set_legend:
+      use_legend: True
+      title: ~
+      custom_labels: ['SY', 'H', 'C', 'cumulative']
+      ncol: 4
+      bbox_to_anchor: [0.03, 1., 1, 0.1]
+      gather_from_fig: True
+    set_tick_formatters:
+      x:
+        major:
+          name: DateFormatter
+          args: ['%b %d']
+    set_ticks:
+      x:
+        major:
+          locs: ['2020-02-16', '2020-03-13', '2020-03-22','2020-05-06', '2020-06-15', '2020-09-03', '2020-10-27']
+          labels: ['Feb 16', '', 'Mar 13–22', 'May 6', 'Jun 15', 'Sep 3', 'Oct 27']
+          rotation: 45
+    call:
+      functions:
+        - function: [matplotlib.pyplot, scatter]
+          args: [!dag_result RKI_data_x, !dag_result RKI_data_y]
+          c: !dag_result c_lightbrown
+          marker: 'o'
+          edgecolor: !dag_result c_darkgrey
+          lw: 0.3
+          s: 1.5
+          zorder: 10
+        - function: [matplotlib.pyplot, axvspan]
+          color: !dag_result c_pink
+          alpha: 0.1
+          zorder: -1
+          xmin: '2020-02-16'
+          xmax: '2020-03-13'
+          lw: 0
+        - function: [matplotlib.pyplot, axvspan]
+          color: !dag_result c_pink
+          alpha: 0.4
+          zorder: -1
+          xmin: '2020-03-13'
+          xmax: '2020-03-22'
+          lw: 0
+        - function: [matplotlib.pyplot, axvspan]
+          color: !dag_result c_pink
+          alpha: 0.6
+          zorder: -1
+          xmin: '2020-03-22'
+          xmax: '2020-05-06'
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.4
+          zorder: -1
+          xmin: '2020-05-06'
+          xmax: '2020-06-15'
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_pink
+          alpha: 0.2
+          zorder: -1
+          xmin: '2020-06-15'
+          xmax: '2020-09-03'
+          lw: 0
+        - function: [ matplotlib.pyplot, axvspan ]
+          color: !dag_result c_lightblue
+          alpha: 0.2
+          zorder: -1
+          xmin: '2020-09-03'
+          xmax: '2020-10-27'
+          lw: 0
+
+# Plot the loss over time
+loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      data: loss
+  hue: seed
+  style:
+    figure.figsize: [ !dag_result full_width, !dag_result half_width ]
+  helpers:
+    set_legend:
+      use_legend: False
+    set_scales:
+      y: log
+
+# Plot the evolution of the parameter predictions
+predictions:
+  based_on: predictions_mv
+  col_wrap: 3
+  add_legend: False
+  lw: 1
+  alpha: 0.5
+  helpers:
+    setup_figure:
+      ncols: 3
+      nrows: 5
+
+# Marginals of the parameters together with the MCMC estimates
+marginals/all:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.violin
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss: loss
+  transform:
+    # Divide the loss by the median value: this is necessary to prevent numerical underflow
+    # arising from very small values of J
+    - .median: [ !dag_tag loss ]
+    - div: [ !dag_tag loss, !dag_prev ]
+    - neg_exp: [ !dag_prev ]
+      tag: probabilities
+
+    - .coords: [!dag_tag parameters, 'parameter']
+      tag: parameter_coords
+
+    # Number of bins in each dimension
+    - xr.DataArray:
+        data: [100, 100]
+        dims: ['idx']
+    - .expand_dims: [!dag_prev , {parameter: !dag_tag parameter_coords }]
+      tag: bins
+
+    # Flatten the prob and parameter samples into a single dimension
+    - flatten_dims: [ !dag_tag probabilities ]
+      kwargs:
+        dims: { sample: [ batch, seed ] }
+      tag: prob
+    - flatten_dims: [ !dag_tag parameters ]
+      kwargs:
+        dims: { sample: [ batch, seed ] }
+      tag: params
+    - broadcast: [ !dag_tag params, !dag_tag prob ]
+
+    # Get the neural marginals
+    - marginal_from_ds: [ !dag_prev , !dag_tag bins]
+      kwargs:
+        x: x
+        y: loss
+        exclude_dim: [parameter]
+        scale_y_bins: True
+      tag: neural_marginals
+
+    # Get the MCMC samples
+    - import_and_call: [pandas, read_csv, 'data/Covid/Berlin_data/MCMC_data.csv']
+      kwargs: {index_col: [0, 1]}
+    - .to_xarray: [!dag_prev ]
+    - .sel: [!dag_prev , {parameter: !dag_tag parameter_coords }]
+    - .to_array: [!dag_prev ]
+    - .isel: [!dag_prev , {variable: 0}]
+      kwargs: {drop: True}
+      tag: MCMC_sample
+    - .isel: [!dag_tag bins, {idx: 0}]
+      tag: MCMC_bins
+    # Ranges in each direction for the MCMC
+    - xr.DataArray:
+        data: [[0, 6], [9, 20], [2, 8], [1, 7], [1, 7], [2, 9], [1, 5], [0.5, 1.5], [1, 6], [0, 1], [0, 2], [0, 2], [0, 6]]
+        dims: [ 'parameter', 'idx' ]
+        coords: { parameter: ['k_S', 'k_E_0', 'k_E_1', 'k_E_2', 'k_E_3', 'k_E_4', 'k_I', 'k_R', 'k_SY', 'k_H', 'k_C', 'k_D', 'k_CT'] }
+      tag: MCMC_ranges
+    - hist: [!dag_tag MCMC_sample , !dag_tag MCMC_bins , !dag_tag MCMC_ranges ]
+      kwargs:
+        exclude_dim: [parameter]
+        dim: sample
+    - .rename: [!dag_prev , {count: 'y'}]
+    - normalize: [!dag_prev ]
+      kwargs:
+        x: x
+        y: y
+        exclude_dim: [parameter]
+      tag: MCMC_marginals
+
+    # Combine marginals and reorder
+    - concat_along: [[!dag_tag neural_marginals, !dag_tag MCMC_marginals], 'type', ['Neural', 'MALA']]
+    - .sel: [!dag_prev , {parameter: !dag_tag parameter_coords}]
+      tag: data
+  x: x
+  y: y
+  hue: type
+  col: parameter
+  col_wrap: 5
+  sharex: False
+  sharey: False
+  smooth_kwargs:
+    enabled: True
+    smoothing: 3
+  format_y_label: True
+  helpers:
+    set_title:
+      title: ''
+    set_labels:
+      x: ''
+    set_figlegend:
+      gather_from_fig: True
+      ncol: 2
+  figsize: [ !dag_result full_width, !dag_result full_width ]
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['{colors[darkblue]:}',
+                              '{colors[pink]:}'])"
+      colors:
+        darkblue: '#2F7194'
+        pink: '#F8A6A6'
+
+.plot.facet_grid.violin:
+  module: model_plots.Covid
+  plot_func: violin_plot
+
+# Marginals violin plot, splitting the upper and lower panels into separate images to allow
+# for text wrapping
+marginals/upper:
+  based_on: marginals/all
+  select_and_combine:
+    fields:
+      parameters:
+        path: parameters
+        transform:
+          - .sel: [!dag_prev , {parameter: [k_E_0, k_E_1, k_E_2, k_E_3, k_E_4, k_S, k_I, k_SY, k_H, k_C]}]
+  figsize: [!dag_result full_width, !dag_result two_thirds_width]
+  add_legend: False
+
+marginals/lower:
+  based_on: marginals/upper
+  select_and_combine:
+    fields:
+      parameters:
+        transform:
+          - .sel: [!dag_prev , {parameter: [k_R, k_D, k_CT]}]
+  figsize: [!dag_result full_width, !dag_result third_width]
+
+.plot.facet_grid.hist:
+  module: model_plots.SIR
+  plot_func: plot_bar
+
+# Plot the distribution of the initial values of the parameters
+initial_values:
+  based_on: initial_values

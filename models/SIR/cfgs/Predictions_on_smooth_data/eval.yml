@@ -3,7 +3,6 @@ densities_from_joint:
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.errorbands
-    - .cycler_green_red_green
   select_and_combine:
     fields:
       parameters:
@@ -50,8 +49,7 @@ densities_from_joint:
         data: [100, 100]
         dims: [ 'idx' ]
 
-    # Get the unnormalised joint distribution and set nan entries to zero (they will be skipped in the density
-    # calculation)
+    # Get the normalized joint distribution
     - joint_2D_ds: [!dag_tag params, !dag_tag prob, !dag_prev ]
       kwargs:
         x: p_infect
@@ -69,13 +67,14 @@ densities_from_joint:
 
     # No point plotting the mode, as sampling from sigma will produce a single stochastic process, rather than an
     # average
-    - .sel: [!dag_prev , {type: prediction_mean}]
+    - .sel: [!dag_prev , {type: mean prediction}]
       tag: data
 
     # Get the true data
-    - .sel: [!dag_node -2 , {type: true_counts}]
+    - .sel: [!dag_node -2 , {type: true data}]
       kwargs: {drop: True}
     - getitem: [!dag_prev , mean]
+#    - .sel: [!dag_prev , {kind: ['infected', 'susceptible', 'recovered']}]
       tag: true_counts
   x: time
   y: mean
@@ -87,8 +86,8 @@ densities_from_joint:
     set_legend:
       use_legend: False
     set_labels:
-      x: ' '
-      y: ' '
+      x: time
+      y: ''
     call:
       functions:
         - function: [xarray.plot, line]
@@ -105,7 +104,7 @@ densities_from_joint:
           _labels: False
   style:
     figure.figsize: [ !dag_result half_width, !dag_result quarter_width ]
-    # No idea why this is necessary ...
+    # Why God why
     axes.prop_cycle: !format
       fstr: "cycler('color', ['{colors[red]:}','{colors[darkgreen]:}','{colors[lightgreen]:}', '{colors[lightgreen]:}'])"
       colors:
@@ -127,6 +126,12 @@ marginals_all:
         transform: [neg_exp]
   transform:
 
+    - xr.DataArray:
+        data: [[100, 1000], [100, 1000]]
+        dims: ['parameter', 'idx']
+        coords: {parameter: ['p_infect', 't_infectious']}
+      tag: bins
+
     # Flatten the prob and parameter samples into a single dimension
     - flatten_dims: [!dag_tag probabilities ]
       kwargs:
@@ -136,17 +141,14 @@ marginals_all:
       kwargs:
         dims: {sample: [batch, seed]}
       tag: params
-    - joint_2D_ds: [!dag_tag params, !dag_tag prob, [100, 30]]
+    - broadcast: [!dag_tag params, !dag_tag prob]
+
+    # Get the marginals along the parameters
+    - marginal_from_ds: [!dag_prev , !dag_tag bins]
       kwargs:
-        x: p_infect
-        y: t_infectious
-    - marginal_from_joint: [!dag_prev ]
-      kwargs:
-        parameter: p_infect
-    - marginal_from_joint: [!dag_node -2]
-      kwargs:
-        parameter: t_infectious
-    - concat_along: [[!dag_node -2, !dag_prev ], 'parameter', ['p_infect', 't_infectious']]
+        x: x
+        y: loss
+        exclude_dim: [parameter]
       tag: data
   c: !dag_result c_darkblue
   x: x
@@ -166,24 +168,24 @@ marginals: !pspace
       parameter: !sweep
         default: 'p_infect'
         values: ['p_infect', 't_infectious']
+      ground_truth_path: data/SIR/ground_truth.csv
+      mcmc_path: data/SIR/MCMC_data.csv
   based_on:
     - .creator.multiverse
     - .plot.facet_grid.density
-    - .cycler_marginals
+    - .cycler_blue_pink_grey
   select_and_combine:
     fields:
-      parameters:
-        path: parameters
+      parameters: parameters
       probabilities:
         path: loss
         transform: [neg_exp]
   transform:
-
-    # --- Calculate the neural marginals -------------------------------------------------------------------------------
     - xr.DataArray:
-        data: [100, 100]
+        data: [100, 1000]
         dims: ['idx']
       tag: bins
+
     # Flatten the prob and parameter samples into a single dimension
     - flatten_dims: [!dag_tag probabilities ]
       kwargs:
@@ -194,123 +196,68 @@ marginals: !pspace
         dims: {sample: [batch, seed]}
       tag: params
 
-    - joint_2D_ds: [!dag_tag params, !dag_tag prob, !dag_tag bins]
+    - joint_2D_ds: [!dag_tag params, !dag_tag prob ]
       kwargs:
         x: p_infect
         y: t_infectious
     - marginal_from_joint: [!dag_prev ]
-      kwargs: {parameter: !dag_tag parameter, scale_y_bins: False}
-      tag: neural_marginal
+      kwargs:
+        parameter: !dag_tag parameter
+    - .expand_dims: [!dag_prev , {type: [Neural]}]
+      tag: neural_marginals
 
-      # --- Load the ground truth --------------------------------------------------------------------------------------
-    - load_csv: ['data/SIR/ground_truth.csv']
+    # Load the ground truth and MCMC estimates
+    - load_csv: [!dag_tag ground_truth_path]
       kwargs: {index_col: [0, 1]}
     - .to_xarray: [!dag_prev ]
     - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
-      kwargs: {drop: True}
+    - .expand_dims: [!dag_prev , {type: [Ground truth]}]
       tag: ground_truth
-    - getitem: [!dag_prev , 'x']
-      tag: ground_truth_x
-    - getitem: [!dag_node -2, 'y']
-      tag: ground_truth_y
 
-      # --- Calculate the MCMC marginals -------------------------------------------------------------------------------
-    - load_csv: ['data/SIR/MCMC_data.csv']
+    - load_csv: [ !dag_tag mcmc_path ]
       kwargs: { index_col: [0, 1]}
     - .to_xarray: [!dag_prev ]
-    - getitem: [!dag_prev , 'value']
-      tag: MCMC_samples
-    - .coords: [!dag_prev , 'parameter']
-      tag: MCMC_parameter_coords
-    - xr.DataArray:
-        data: [100, 100, 100]
-        dims: ['parameter']
-    - .assign_coords: [!dag_prev , {parameter: !dag_tag MCMC_parameter_coords}]
-      tag: MCMC_bins
-    - xr.DataArray:
-        data: [[0, 1], [0, 1], [1, 30]]
-        dims: ['parameter', 'idx']
-    - .assign_coords: [!dag_prev , {parameter: !dag_tag MCMC_parameter_coords}]
-      tag: MCMC_ranges
-    - hist: [!dag_tag MCMC_samples , !dag_tag MCMC_bins , !dag_tag MCMC_ranges]
+    - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
+      kwargs: {drop: True}
+    - .to_array: [!dag_prev ]
+    - hist: [!dag_prev ]
       kwargs:
-        exclude_dim: [parameter]
-        dim: 'sample'
+        dim: sample
+        use_bins_as_coords: False
     - .rename: [!dag_prev , {count: y}]
     - normalize: [!dag_prev ]
       kwargs:
-        x: 'x'
-        y: 'y'
-        exclude_dim: [parameter]
-    - .sel: [!dag_prev , {parameter: !dag_tag parameter}]
-      kwargs: {drop: True}
-      tag: MCMC_marginal
-
-    # Combine neural and MCMC estimates into a single dataset
-    - concat_along: [[!dag_tag neural_marginal, !dag_tag MCMC_marginal], 'kind', ['Neural', 'MALA']]
+        x: x
+        y: y
+    - .expand_dims: [ !dag_prev , { type: [ MALA ] } ]
+      tag: mcmc_estimate
+    - xr.concat: [[!dag_tag neural_marginals, !dag_tag mcmc_estimate, !dag_tag ground_truth], 'type']
+    - .squeeze_with_drop: [!dag_prev ]
       tag: data
-
-    # Calculate the Hellinger distances and print
-    - Hellinger_distance: [!dag_tag neural_marginal, !dag_tag ground_truth]
-      kwargs: {x: x, y: y}
-    - print: [!dag_prev ]
-      tag: Hellinger_neural
-    - Hellinger_distance: [ !dag_tag MCMC_marginal, !dag_tag ground_truth ]
-      kwargs: {x: x, y: y}
-    - print: [!dag_prev ]
-      tag: Hellinger_MCMC
-
-  compute_only: [data, Hellinger_neural, Hellinger_MCMC]
   x: x
   y: y
-  hue: kind
-  smooth_kwargs:
-    t_infectious:
-      enabled: True
-      smoothing: 1
+  hue: type
+  linestyle: [solid, solid, dotted]
   helpers:
-    call:
-      functions:
-        - function: [ matplotlib, pyplot.plot ]
-          args: [ !dag_result ground_truth_x, !dag_result ground_truth_y ]
-          color: !dag_result c_darkgrey
-          label: Ground truth
-          linestyle: dotted
     set_labels:
-      y: ' '
+      y: ''
     set_legend:
       use_legend: !coupled-sweep
         default: true
         target_name: parameter
         values: [true, false]
+  smooth_kwargs:
+    enabled: !coupled-sweep
+      default: true
+      target_name: parameter
+      values: [false, true]
+    smoothing: 1
   style:
     figure.figsize: [!dag_result half_width, !dag_result quarter_width]
 
-# Plot the initial value distribution on the parameters
+# Plot the prior densities on the parameters
 initial_values:
-  based_on:
-    - .creator.multiverse
-    - .plot.multiplot
-  select_and_combine:
-    fields:
-      parameters:
-        path: parameters
-        transform:
-          - .isel: [!dag_prev , {batch: 0}]
-  transform:
-    - .isel: [!dag_tag parameters, {parameter: 0}]
-      tag: p
-    - .isel: [!dag_tag parameters, {parameter: 1}]
-      tag: t
-  to_plot:
-    [0, 0]:
-      - function: sns.histplot
-        data: !dag_result p
-    [1, 0]:
-      - function: sns.histplot
-        data: !dag_result t
-  color: !dag_result c_darkblue
-  linewidth: 0.5
+  based_on: initial_values
   helpers:
     axis_specific:
       0:
@@ -325,8 +272,9 @@ initial_values:
       nrows: 1
       ncols: 2
     set_labels:
-      y: ' '
-  compute_only: []
+      y: ''
+    set_title:
+      title: ''
   style:
     figure.figsize: [!dag_result full_width, !dag_result quarter_width]
 
