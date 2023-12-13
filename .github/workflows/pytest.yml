@@ -64,7 +64,7 @@ jobs:
           style: classic
           source: ./coverage/coverage-summary.json
           output: ./coverage/coverage-badge.svg
-          jsonPath: totals.percent_covered #_display
+          jsonPath: totals.percent_covered_display
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
@@ -76,6 +76,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    permissions: write-all
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
