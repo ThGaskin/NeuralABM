@@ -80,6 +80,7 @@ Add the following entry to the `Training` entry of the configuration file (see t
 Training:
   Berlin_data_loss: True
 ```
+The data is sourced from the [MODUS Covid simulator](https://covid-sim.info/2020-11-12/secondLockdown).
 ### Configuration sets
 
 The following configuration sets are included in the model:
@@ -88,8 +89,9 @@ The following configuration sets are included in the model:
 - `Dynamic_parameters`: A toy example using dynamic parameters. Data is generated synthetically
 - `Berlin`: Calibrates the Berlin dataset
 - `Berlin_MCMC`: runs a Langevin MCMC scheme on the Berlin dataset
+
 You can run these sets simply by calling
 
 ```commandline
-utopya run SIR --cs name_of_cs
+utopya run Covid --cs name_of_cs
 ```
