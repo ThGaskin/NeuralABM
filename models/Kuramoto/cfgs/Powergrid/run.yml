@@ -1,0 +1,49 @@
+---
+paths:
+  model_note: Powergrid
+parameter_space:
+  num_epochs: 100
+  write_every: 50
+  seed: 69
+  write_predictions_every: 50
+  write_start: 1
+  Kuramoto:
+    second_order: true
+    Data:
+      write_adjacency_matrix: true
+      load_from_dir:
+        network: data/Kuramoto/UK_power_grid/data.h5
+        eigen_frequencies: data/Kuramoto/UK_power_grid/data.h5
+        training_data: data/Kuramoto/UK_power_grid/data.h5
+        copy_data: True
+      alpha: 1
+      dt: 0.01
+      beta: 0.2
+      kappa: 60
+
+      # Train the neural network on 400 frames after the cut (cut occurs at time t=10000)
+      training_data_times: !slice [10100, 10500]
+
+    NeuralNet:
+      num_layers: 5
+      nodes_per_layer:
+        default: 20
+      activation_funcs:
+        default: tanh
+        layer_specific:
+          -1: Hardsigmoid
+      biases:
+        default: ~
+
+      # Initialise the network at a complete network
+      prior:
+        distribution: uniform
+        parameters:
+          lower: 1
+          upper: 1
+
+    Training:
+      batch_size: 2
+      true_parameters:
+        sigma: 0
+      cut_off_time: 2400 # Iteration at which to stop pushing the neural network towards the unperturbed network

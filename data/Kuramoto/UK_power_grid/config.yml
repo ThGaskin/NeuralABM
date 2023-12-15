@@ -1,0 +1,52 @@
+---
+Kuramoto:
+  Data:
+    dt: 0.01
+    gamma: 0.2
+    kappa: 60
+    load_from_dir: {copy_data: true, eigen_frequencies: data/Kuramoto/UK_power_grid_new/nw_unperturbed_weighted.h5,
+      network: data/Kuramoto/UK_power_grid_new/nw_unperturbed_weighted.h5}
+    synthetic_data:
+      N: 16
+      eigen_frequencies:
+        distribution: uniform
+        parameters: {lower: 1, upper: 3}
+        time_series: false
+        time_series_std: 0.0
+      init_phases:
+        distribution: uniform
+        parameters: {lower: 1, upper: 1}
+      network:
+        graph_props:
+          WattsStrogatz: {p_rewire: 0.2}
+          is_directed: false
+          is_weighted: true
+        mean_degree: 5
+        type: random
+      num_steps: 20000
+      sigma: 0
+      training_set_size: 1
+    write_adjacency_matrix: true
+  Power_grid:
+    edges_to_cut:
+    - [256, 261]
+    - [255, 257]
+    power_cut_index: 10000
+  Training:
+    batch_size: 2
+    device: cpu
+    loss_function: {name: MSELoss}
+    true_parameters: {sigma: 0}
+  second_order: true
+log_levels: {backend: warning, model: info}
+monitor_emit_interval: 2.0
+num_epochs: 0
+num_steps: 3
+output_dir: /Users/thomasgaskin/utopya_output/Kuramoto/230321-141338_UK_power_grid/data/uni0
+output_path: /Users/thomasgaskin/utopya_output/Kuramoto/230321-141338_UK_power_grid/data/uni0/data.h5
+root_model_name: Kuramoto
+seed: 69
+write_every: 50
+write_predictions_every: 50
+write_start: 1
+

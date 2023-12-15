@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import sys
-import time
 from os.path import dirname as up
 
 import coloredlogs
@@ -81,10 +80,6 @@ if __name__ == "__main__":
         device=device,
     )
 
-    # Select a temporal slice from the training data to use (only used in the power grid simulation)
-    training_data = training_data[:, model_cfg["Data"].get("training_data_times", slice(None, None)), :, :]
-    eigen_frequencies = eigen_frequencies[model_cfg["Data"].get("training_data_size", slice(None, None)), :, :]
-
     # Initialise the neural net
     num_agents = training_data.shape[2]
     output_size = num_agents**2
@@ -119,8 +114,12 @@ if __name__ == "__main__":
         rng=rng,
         output_data_group=output_data_group,
         neural_net=net,
-        training_data=training_data,
-        eigen_frequencies=eigen_frequencies,
+        training_data=training_data[:,
+                      model_cfg["Data"].get("training_data_times", slice(None, None)), :, :
+        ],
+        eigen_frequencies=eigen_frequencies[
+                          :, model_cfg["Data"].get("training_data_times", slice(None, None)), :, :
+        ],
         true_network=torch.from_numpy(nx.to_numpy_array(network)).float() if network is not None else None,
         ABM=ABM,
         write_every=cfg["write_every"],
@@ -155,8 +154,10 @@ if __name__ == "__main__":
 
     # Generate a complete dataset using the predicted parameters
     log.progress("   Generating predicted dataset ...")
-    predicted_time_series = training_data[0, :, :, :].clone()
-    for step in range(0 if model.ABM.alpha == 0 else 1, training_data.shape[1] - 1):
+    predicted_time_series = training_data[0,
+                            slice(model_cfg["Data"].get("training_data_times", slice(0, None)).start, None), :, :
+                            ].clone()
+    for step in range(0 if model.ABM.alpha == 0 else 1, predicted_time_series.shape[0] - 1):
         predicted_time_series[step + 1, :, :] = ABM.run_single(
             current_phases=predicted_time_series[step, :],
             current_velocities=(
@@ -165,7 +166,7 @@ if __name__ == "__main__":
             )
             / ABM.dt,
             adjacency_matrix=model.current_adjacency_matrix,
-            eigen_frequencies=eigen_frequencies[0, step, :, :],
+            eigen_frequencies=eigen_frequencies[0, model_cfg["Data"].get("training_data_times", slice(0, None)).start + step, :, :],
             requires_grad=False,
         )
 
