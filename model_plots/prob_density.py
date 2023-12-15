@@ -15,6 +15,7 @@ from utopya.eval import PlotHelper, is_plot_func
     supported_hue_styles=("discrete",),
     hue_style="discrete",
     add_guide=False,
+    register_as_kind='density'
 )
 def plot_prob_density(
     ds: xr.Dataset,

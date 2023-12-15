@@ -76,7 +76,7 @@
         - mul: [!dag_tag third_width, 2]
 
   style:
-    text.usetex: True   # Set to 'True' to use latex
+    text.usetex: False   # Set to 'True' to use latex
     mathtext.fontset: cm
     font.family: Helvetica
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
@@ -133,6 +133,20 @@
       colors:
         <<: *colors
 
+.cycler_high_contrast:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['black', '{colors[c_darkgreen]:}', '{colors[c_pink]:}', '{colors[c_lightgreen]}'])"
+      colors:
+        <<: *colors
+
+.cycler_black_yellow:
+  style:
+    axes.prop_cycle: !format
+      fstr: "cycler('color', ['black', '{colors[c_yellow]:}'])"
+      colors:
+        <<: *colors
+
 .style_error_cmap:
   cmap:
     from_values:
@@ -177,8 +191,8 @@
 
 # Base function for probability densities
 .plot.facet_grid.density:
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
+  based_on: .plot.facet_grid
+  kind: density
 
 # Base adjacency matrix plot: plots the edge weights (which lie in [0, 1]) in matrix form,
 # where the (1, 1) entry is in the upper left corner
