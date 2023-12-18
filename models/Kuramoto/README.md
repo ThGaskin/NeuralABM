@@ -129,7 +129,8 @@ you can set the noise level to use via the ``Training.true_parameters.sigma`` en
 zero, meaning the solver runs the noiseless version of the equations.
 
 ### Configuration sets
-The following configuration sets are included in the model:
+The following configuration sets are included in the model (some of which are located in the `Performance_analysis` 
+folder)
 
 - `Accuracy`: compares the prediction accuracy to that of OLS regression and MCMC, both for first- and second-order
 equations
@@ -142,19 +143,10 @@ including the inferred degree and triangle distributions
 - `N_1000_example`: same as for `N_100_example`, but for 1000 nodes.
 - `Noise_performance`: trains the model and plots the Hellinger error, standard deviation, and relative entropy errors
 on the degree and triangle distributions as a function of the noise on the training data
-
+- `Powergrid`: UK powergrid example, with data given in `data/Kuramoto/UK_power_grid`
 
 You can run these sets simply by calling
 
 ```commandline
 utopya run Kuramoto --cs name_of_cs
 ```
-
-> **_Note_**: The power grid simulations are provided on a separate branch (`Powergrid_simulations`). To switch
-> to that branch, call
-> ```commandline
-> git checkout Powergrid_simulations
-> ```
-> This branch contains an additional `UK_power_grid` configuration set.
-> The original data used is not available, but the `UK_power_grid` configuration set will generate a synthetic replacement
-> network and infer line failures on that.

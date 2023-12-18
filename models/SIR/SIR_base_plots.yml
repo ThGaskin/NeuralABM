@@ -153,8 +153,8 @@
 
 # Base function for probability densities
 .plot.facet_grid.density:
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
+  based_on: .plot.facet_grid
+  kind: density
 
 # Base function for barplots
 .plot.facet_grid.bar:

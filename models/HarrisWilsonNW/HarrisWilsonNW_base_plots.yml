@@ -169,8 +169,8 @@
 
 # Base function for probability densities
 .plot.facet_grid.density:
-  module: model_plots.HarrisWilson
-  plot_func: plot_prob_density
+  based_on: .plot.facet_grid
+  kind: density
 
 # Base adjacency matrix plot: plots the edge weights (which lie in [0, 1]) in matrix form,
 # where the (1, 1) entry is in the upper left corner

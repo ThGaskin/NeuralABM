@@ -1,0 +1,291 @@
+# Plot the true data (network response to perturbation)
+true_data:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+    - .hlpr.no_labels
+    - .cycler_high_contrast
+  select:
+    responses:
+      path: training_data/phases
+      transform:
+        - .sel: [!dag_prev , {vertex_idx: [257, 253, 112, 621]}] # Select the responses at specified vertices
+        - .sel: [!dag_prev , {time: !slice [8000, 15000]}] # Select the time before and after the cut
+    training_data_times:
+      path: ../cfg
+      transform:
+        - recursive_getitem: [!dag_prev , [Kuramoto, Data, training_data_times]]
+  transform:
+    # Normalise the responses to the value at time t=8000 (start of the time series)
+    - .sel: [!dag_tag responses, {time: 8000}]
+    - div: [!dag_tag responses, !dag_prev ]
+      tag: data
+    - .start: [!dag_tag training_data_times]
+      tag: training_start
+    - .stop: [!dag_tag training_data_times]
+      tag: training_stop
+  x: time
+  hue: vertex_idx
+  helpers:
+    call:
+      functions:
+      - alpha: 0.2
+        color: !dag_result c_pink
+        function: [matplotlib.pyplot, axvspan]
+        lw: 0
+        xmax: !dag_result training_stop
+        xmin: !dag_result training_start
+        zorder: -1
+    set_hv_lines:
+      vlines:
+        - pos: 10000
+          color: !dag_result c_red
+          linestyle: dotted
+    set_labels:
+      x: 'Time since line failure [s]'
+      y: $\varphi_i(t)/\varphi_i(t=0)$
+    set_legend:
+      custom_labels: [A, B, C, D]
+      handlelength: 1
+      loc: upper left
+      use_legend: true
+    set_ticks:
+      x:
+        major:
+          labels: !range [-20, 50, 10]
+          locs: !range [8000, 15000, 1000]
+    set_title:
+      title: ''
+  style:
+    axes.grid: true
+    figure.figsize: [!dag_result half_width, !dag_result quarter_width]
+
+# Plot the loss and its gradients over time
+rolling_losses:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+    - .hlpr.no_labels
+  dag_options:
+    meta_operations:
+      rolling_mean:
+      - .rolling: [!arg 0]
+        kwargs: {batch: !arg 1}
+      - .mean: [!dag_prev ]
+      - np.abs: [!dag_prev ]
+  select:
+    cutoff:
+      path: ../cfg
+      transform:
+        - recursive_getitem: [!dag_prev , [Kuramoto, Training, cut_off_time]]
+    losses:
+      path: output_data/Loss
+      transform:
+        - .sel_with_drop: [!dag_prev , {kind: Data loss}]
+  transform:
+    - rolling_mean: [!dag_tag losses, 20]
+      tag: loss
+    - .diff: [!dag_tag loss]
+      kwargs: {dim: batch, label: lower}
+    - np.abs: [!dag_prev ]
+    - rolling_mean: [!dag_prev , 20]
+      tag: first
+    - .diff: [!dag_tag loss]
+      kwargs: {dim: batch, label: lower}
+    - .diff: [!dag_prev ]
+      kwargs: {dim: batch, label: lower}
+    - np.abs: [!dag_prev ]
+    - rolling_mean: [!dag_prev , 20]
+      tag: second
+    - .isel: [!dag_tag loss, {batch: !slice [null, -2, null]}]
+    - .isel: [!dag_tag first, {batch: !slice [null, -1, null]}]
+    - concat_along: [[!dag_node -2, !dag_prev , !dag_tag second],
+                     'order',
+      [$\langle J \rangle$, $\vert \langle \partial_s  J\rangle \vert$, '$ \vert \langle \partial_{ss} J \rangle \vert$']]
+      tag: data
+  hue: order
+  helpers:
+    set_hv_lines:
+      vlines:
+        - pos: !dag_result cutoff
+          color: '#ec7070'
+          linestyle: dotted
+    set_labels:
+      x: Iteration
+    set_legend:
+      title: ''
+    set_scales:
+      y: log
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result quarter_width]
+
+# Plot the predicted and true phases at three different locations in the network (Doncaster, Truro, Aberdeen)
+phases:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+    - .cycler_black_yellow
+  select:
+    prediction:
+      path: output_data/predicted phases
+      transform:
+      - .sel: &vertex_sel [!dag_prev , {vertex_idx: [241, 0, 480]}]
+        kwargs: {method: nearest}
+      - .sel: [!dag_prev , {time: !slice [0, ~]}]
+    true_data:
+      path: training_data/phases
+      transform:
+      - .sel: *vertex_sel
+        kwargs: {method: nearest}
+      - .sel: [!dag_prev , {time: !slice [10100, ~]}]
+      - .isel_with_drop: [!dag_prev , {training_set: 0}]
+  transform:
+    - .coords: [!dag_tag true_data, time]
+    - .data: [!dag_prev ]
+    - .assign_coords: [!dag_tag prediction, {time: !dag_prev }]
+    - concat_along: [[!dag_tag true_data, !dag_prev ], 'kind', ['True', Predicted]]
+    - .isel: [!dag_prev , {time: 0}]
+    - div: [!dag_node -2, !dag_prev ]
+      tag: data
+  x: time
+  col: vertex_idx
+  hue: kind
+  sharey: false
+  col_wrap: 3
+  add_legend: false
+  figsize: [!dag_result full_width, !dag_result quarter_width]
+  helpers:
+    axis_specific:
+      11:
+        axis: [0, 0]
+        set_labels: {x: '$t$ [s]', y: $\varphi_i(t)/\varphi_i(t=0)$}
+        set_title: {title: Doncaster}
+      12:
+        axis: [1, 0]
+        set_labels: {x: '$t$ [s]'}
+        set_ticks:
+          x:
+            major:
+              labels: !range [0, 50, 10]
+              locs: !range [10000, 15000, 1000]
+        set_title: {title: Truro}
+      13:
+        axis: [2, 0]
+        set_labels: {x: '$t$ [s]'}
+        set_title: {title: Aberdeen}
+    call:
+      functions:
+      - alpha: 0.2
+        color: !dag_result c_pink
+        function: [matplotlib.pyplot, axvspan]
+        lw: 0
+        xmax: 10400
+        xmin: 10100
+        zorder: -1
+    set_legend: {use_legend: false}
+    set_limits:
+      x: [10000, 15000]
+    setup_figure: {ncols: 3, nrows: 1}
+
+# Plot the marginal densities on the edges with the highest prediction error
+marginals: !pspace
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.density
+    - .hlpr.no_labels
+  select:
+    loss:
+      path: output_data/Loss
+      transform:
+      - .sel_with_drop: [!dag_prev , {kind: Data loss}]
+    predictions: output_data/predictions
+    true_values: true_network/_adjacency_matrix
+  transform:
+    - divide_by_median: [!dag_tag loss, 'batch']
+    - neg_exp: [!dag_prev ]
+      tag: probabilities
+    - define: !sweep
+        default: 0
+        range: [15]
+      tag: idx
+    
+    # Get the most likely prediction
+    - .isel_with_drop: [!dag_tag predictions, {batch: -1}]
+      tag: prediction
+    
+    # Get the entries with the highest error
+    - sub: [!dag_prev , !dag_tag true_values]
+    - np.abs: [!dag_prev ]
+    - create_mask: [!dag_tag true_values, '>', 0]
+    - xr.where: [!dag_prev , !dag_tag true_values, 1]
+    - div: [!dag_node -3, !dag_prev ]
+    - create_mask: [!dag_tag true_values, '>=', !dag_tag prediction]
+    - xr.where: [!dag_prev , !dag_node -2, 0]
+    - kwargs: {symmetric: true}
+      largest_entry_indices: [!dag_prev , 15]
+      tag: indices_and_errors
+    - sel_matrix_indices: [!dag_tag predictions, !dag_prev ]
+    - .squeeze: [!dag_prev ]
+      kwargs: {drop: true}
+    - .sel: [!dag_prev , {idx: !dag_tag idx}]
+
+    # Calculate the marginals on those edges
+    - marginal: [!dag_prev , !dag_tag probabilities, [1000, 1000], [[0, 1], [~, ~]]]
+      kwargs: {scale_y_bins: True}
+      tag: data
+
+    # Get the true values, calculate p-values and means and add to plot
+    - sel_matrix_indices: [!dag_tag true_values, !dag_tag indices_and_errors]
+      tag: true_vals
+    - getitem: [!dag_tag true_vals, !dag_tag idx]
+    - .data: [!dag_prev ]
+      tag: unperturbed_value
+    - kwargs: {y: y, x: x}
+      mean: [!dag_tag data]
+    - .data: [!dag_prev ]
+      tag: mean
+    - .sel:
+      - !dag_tag indices_and_errors
+      - {idx: !dag_tag idx}
+    - getitem: [!dag_prev , i]
+    - .data: [!dag_prev ]
+      tag: i
+    - .sel:
+      - !dag_tag indices_and_errors
+      - {idx: !dag_tag idx}
+    - getitem: [!dag_prev , j]
+    - .data: [!dag_prev ]
+      tag: j
+    - kwargs: {y: y, x: x}
+      p_value: [!dag_tag data, !dag_tag unperturbed_value]
+    - .data: [!dag_prev ]
+    - np.round: [!dag_prev , 4]
+    - str: [!dag_prev ]
+      tag: p_value
+    - .sel:
+      - !dag_tag indices_and_errors
+      - {idx: !dag_tag idx}
+    - getitem: [!dag_prev , value]
+    - .data: [!dag_prev ]
+    - np.round: [!dag_prev , 3]
+    - str: [!dag_prev ]
+      tag: error
+    - .format: ["Edge: ({}, {}) \n $p$-value: {} \n rel. $L^1$ error: {}", !dag_tag i,
+        !dag_tag j, !dag_tag p_value, !dag_tag error]
+      tag: title
+  x: x
+  y: y
+  c: black
+  smooth_kwargs:
+    enabled: true
+    smoothing: 10
+  helpers:
+    set_hv_lines:
+      # Plot unperturbed value (red) and mean (green)
+      vlines:
+        - { color: !dag_result c_red, linestyle: dotted, pos: !dag_result unperturbed_value }
+        - { color: !dag_result c_darkgreen, linestyle: dotted, pos: !dag_result mean }
+    set_title:
+      title: !dag_result title
+  style:
+    figure.figsize: [ !dag_result quarter_width, !dag_result quarter_width ]

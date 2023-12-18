@@ -51,7 +51,7 @@ Data:
   # Friction coefficient
   beta: !is-positive 1
 
-  # Couling coefficient
+  # Coupling coefficient
   kappa: !is-positive 1
 
   # Time differential
