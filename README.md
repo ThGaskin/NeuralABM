@@ -16,12 +16,13 @@ This README gives a brief introduction to installation and running a model, as w
 overview of the Utopia syntax. You can find a complete guide on running models with Utopia/utopya
 [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial).
 
-> ![WARNING]
+> [!WARNING]
 > This package requires `Python >= 3.11`. utopya is also currently only supported on Unix systems (macOS and Ubuntu).
 
-> ![TIP]: If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
+> [!TIP]
+> If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
 
-> ![TIP]
+> [!TIP]
 > See the section on [configuration sets](#running-a-model-using-configuration-sets) for guidance on how to reproduce the plots from the
 > publications, once you have completed installation.
 > - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
@@ -69,7 +70,8 @@ You should now be able to invoke the utopya CLI:
 utopya --help
 ```
 
-> **_Note_**  Enabling CUDA for PyTorch requires additional packages, e.g. `torchvision` and `torchaudio`.
+> [!NOTE] 
+> Enabling CUDA for PyTorch requires additional packages, e.g. `torchvision` and `torchaudio`.
 > Follow [these](https://pytorch.org/get-started/locally/) instructions to enable GPU training.
 > For Apple Silicon, follow [these](https://PyTorch.org/blog/introducing-accelerated-pytorch-training-on-mac/)
 > installation instructions. Note that GPU acceleration for Apple Silicon is still work in progress and many functions have not
@@ -87,7 +89,8 @@ utopya projects ls
 ```
 Done! 🎉
 
-> **_Note_** Any changes to the project info file need to be communicated to utopya by calling the registration command anew.
+> [!IMPORTANT]
+> Any changes to the project info file need to be communicated to utopya by calling the registration command anew.
 > You will then have to additionally pass the `````--exists-action overwrite````` flag, because a project of that name already exists.
 > See ```utopya projects register --help``` for more information.
 
@@ -170,11 +173,13 @@ You can run the model using this file by calling
 utopya run HarrisWilson path/to/cfg.yml
 ```
 
-> **_Note_**: The models all come with plenty of example configuration files in the `cfgs` folders. These are
+> [!TIP] 
+> The models all come with plenty of example configuration files in the `cfgs` folders. These are
 > *configuration sets*, complete sets of run configurations and evaluation routines designed to produce specific
 > plots. These also demonstrate how to load datasets to run the models.
 
 ## Parameter sweeps
+
 > [!TIP]
 > Take a look at the [full tutorial entry](https://docs.utopia-project.org/html/getting_started/tutorial.html#parameter-sweeps)
 > for a full guide on running parameter sweeps.
