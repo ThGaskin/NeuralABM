@@ -36,6 +36,10 @@ overview of the Utopia syntax. You can find a complete guide on running models w
 > being reworked and improved, the plots produced by the current version may quantatively differ from the publication
 > plots. Versions below `v2.0.0` will reproduce the PNAS publication plots.
 
+> [!TIP]
+> See the model-specific README files, located at ``<model_name>/README.md``, for guidance on 
+> how to use individual models.
+
 ### Contents of this README
 * [How to install](#how-to-install)
 * [How to run a model](#how-to-run-a-model)
