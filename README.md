@@ -20,7 +20,7 @@ overview of the Utopia syntax. You can find a complete guide on running models w
 [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial).
 
 > [!WARNING]
-> This package requires `Python >= 3.11`. utopya is also currently only supported on Unix systems (macOS and Ubuntu).
+> utopya is currently only supported on Unix systems (macOS and Ubuntu).
 
 > [!TIP]
 > If you encounter any difficulties, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
