@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip' # caching pip dependencies
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
