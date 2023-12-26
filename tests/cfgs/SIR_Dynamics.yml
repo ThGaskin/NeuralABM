@@ -3,9 +3,9 @@ periodic:
   N: 100
   space: [10, 10]
   r_infectious: 3
-  p_infect: 0.2
-  t_infectious: 5
-  num_steps: 10
+  p_infect: 0.5
+  t_infectious: 10
+  num_steps: 20
   sigma: 0.1
   sigma_s: 0.5
   sigma_i: 0.5
@@ -16,9 +16,9 @@ dynamics:
   N: 100
   space: [10, 10]
   r_infectious: 3
-  p_infect: 0.2
-  t_infectious: 5
-  num_steps: 10
+  p_infect: 0.5
+  t_infectious: 10
+  num_steps: 20
   sigma: 0.1
   sigma_s: 0.02
   sigma_i: 0.01
