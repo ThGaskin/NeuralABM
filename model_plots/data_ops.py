@@ -379,7 +379,7 @@ def hist(
     if use_bins_as_coords:
         sel = [0] * len(np.shape(bin_centres))
         sel[axis] = None
-        bin_centres = bin_centres[*sel].flatten()
+        bin_centres = bin_centres[tuple(sel)].flatten()
         coords.update({dim: bin_centres})
 
         res = xr.DataArray(

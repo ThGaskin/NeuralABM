@@ -1,5 +1,5 @@
 import itertools
-from typing import Sequence, Union
+from typing import Sequence, Union, Tuple
 
 import numpy as np
 import xarray as xr
@@ -81,7 +81,7 @@ def apply_along_dim(func):
 
 def _hist(
     obj, *, normalize: Union[bool, float] = None, **kwargs
-) -> tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """Applies ``numpy.histogram`` along an axis of an object and returns the counts and bin centres.
     If specified, the counts are normalised. Returns the counts and bin centres (not bin edges!)
     :param obj: data to bin
@@ -138,7 +138,7 @@ def _get_hist_bins_ranges(ds, bins, ranges, axis):
 
 def _interpolate(
     _p: xr.DataArray, _q: xr.DataArray
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Interpolates two one-dimensional densities _p and _q onto their common support, with the mesh size given by the sum of the
     individual mesh sizes. ``_p`` and ``_q`` must be one-dimensional."""
 
