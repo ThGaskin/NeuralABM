@@ -129,27 +129,21 @@ def test_training():
     for _, config in test_cfg.items():
         net = nn.NeuralNet(input_size=input_size, output_size=output_size, **config)
 
+        # Calculate the initial loss
+        initial_loss = torch.stack([torch.nn.functional.mse_loss(net(x), test_data[idx]).detach() for idx, x in enumerate(train_data)]).sum()
+
+        # Train the model for n steps
         for it in range(num_epochs):
             for idx, x in enumerate(train_data):
 
-                # Calculate the loss
-                current_loss = torch.nn.functional.mse_loss(net(x), test_data[idx]).detach().numpy()
-
-                # Assert that the model loss is nonzero
-                assert current_loss > 0
-
-                # Perform a training step and assert that the loss has changed, meaning
-                # the internal parameters have changed
                 net.optimizer.zero_grad()
                 loss = torch.nn.functional.mse_loss(net(x), test_data[idx])
                 loss.backward()
                 net.optimizer.step()
-                new_loss = (
-                    torch.nn.functional.mse_loss(net(x), test_data[idx])
-                    .detach()
-                    .numpy()
-                )
-                assert current_loss != new_loss
+
+        # Assert that the loss has decreased
+        new_loss = torch.stack([torch.nn.functional.mse_loss(net(x), test_data[idx]).detach() for idx, x in enumerate(train_data)]).sum()
+        assert new_loss < initial_loss
 
 
 # Test the model outputs values according to the prior
