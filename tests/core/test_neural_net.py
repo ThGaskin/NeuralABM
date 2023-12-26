@@ -131,31 +131,25 @@ def test_training():
 
         for it in range(num_epochs):
             for idx, x in enumerate(train_data):
-                # Perform a single training step
-                loss = torch.tensor(0.0, requires_grad=True)
-                net.optimizer.zero_grad()
-                y = net(x)
-                loss = torch.nn.functional.mse_loss(y, test_data[idx])
-                loss.backward()
-                net.optimizer.step()
 
-                # Assert that the model is nonzero
-                previous_loss = loss.detach().numpy()
-                assert previous_loss > 0
-                del loss
+                # Calculate the loss
+                current_loss = torch.nn.functional.mse_loss(net(x), test_data[idx]).detach().numpy()
 
-                # Repeat the training step on the same batch and assert that the loss has changed, meaning
+                # Assert that the model loss is nonzero
+                assert current_loss > 0
+
+                # Perform a training step and assert that the loss has changed, meaning
                 # the internal parameters have changed
                 net.optimizer.zero_grad()
                 loss = torch.nn.functional.mse_loss(net(x), test_data[idx])
                 loss.backward()
                 net.optimizer.step()
-                current_loss = (
+                new_loss = (
                     torch.nn.functional.mse_loss(net(x), test_data[idx])
                     .detach()
                     .numpy()
                 )
-                assert current_loss != previous_loss
+                assert current_loss != new_loss
 
 
 # Test the model outputs values according to the prior
