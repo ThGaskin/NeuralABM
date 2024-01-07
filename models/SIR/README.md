@@ -1,38 +1,23 @@
 # The SIR model of contagious diseases
 
-### Model description
-In the agent-based SIR model, ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DN)
-agents move around a square domain ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5B0,%20L%5D%5E2)
-with periodic boundary conditions, ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D0%20%3C%20L%20%5Cin%20%5Cmathbb%7BR%7D);
-each agent has a position ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cmathbf%7Bx%7D_i),
-and a state ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dk_i%20%5Cin%20%5C%7B%20%5Ctext%7BS,%20I,%20R%7D%20%5C%7D).
-All agents with ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dk_i%20=%20%5Ctext%7BS%7D) are
-susceptible to the disease. If a susceptible agent lies within the infection radius ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dr)
-of an infected agent (an agent with ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dk_i%20=%20%5Ctext%7BI%7D)),
-they are infected with infection probability ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dp).
-After a certain recovery time ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ctau),
-agents recover from the disease (upon which ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dk_i%20=%20%5Ctext%7BR%7D));
-each agent's time since infection is stored in a state ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ctau_i).
-Agents move randomly around the space with diffusivities ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Csigma_S),
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Csigma_I),
-and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Csigma_R).
+## Model description
+In the agent-based SIR model, $N$ agents move around a square domain $[0, L]^2$, $0 < L \in \mathbb{R}$. Each agent $i$ has a position $\mathbf{x}_i$ and a state $k_i \in \{ S, I, R \}$. All agents with $k_i = S$ are susceptible to the disease. If a susceptible agent lies within the infection radius $r$ of an infected agent (an agent with $k_i = I$), they are infected with infection probability $\beta$. After a certain recovery time $\tau$, agents recover from the disease (upon which $k_i = R$);
+each agent's time since infection is stored in a state $\tau_i$. Agents move randomly around the space with diffusivities $\sigma_S, \sigma_i, \sigma_R$:
 
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/605b6e09-703e-4296-a884-ea1315dba8ea" width=60%>
 
-Let ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DS(%5Cmathbf%7Bx%7D,%20t))
-be the spatio-temporal distribution of susceptible agents (analogously ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DI)
-and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DR)).
-Assume we only observe the temporal densities
-> ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ctext%7BS%7D(t)%20=%20%5Cdfrac%7B1%7D%7BN%7D%5Cint_%5COmega%20S(%5Cmathbf%7Bx%7D,%20t)%20%5Cmathrm%7Bd%7D%5Cmathbf%7Bx%7D,)
->
-applicable to the spread of an epidemic where we only see the counts of infected and recovered patients without any
-location tracking or contact tracing. To these observations the neural network now fits the stochastic equations
+Let $S(\mathbf{x},t)$ be the spatio-temporal distribution of susceptible agents (analogously $I(\mathbf{x},t)$ and $R(\mathbf{x},t)$ ). Assume we only observe the temporal densities $$S(t) = \dfrac{1}{N} \int_\Omega S(\mathbf{x}, t) \mathrm{d}\mathbf{x}$$ applicable to the spread of an epidemic where we only see the counts of infected and recovered patients without any
+location tracking or contact tracing. To these observations the neural network now fits the stochastic equations $$\mathrm{d}S = - \beta S I \mathrm{d}t - \sigma I \mathrm{d}W$$ $$\mathrm{d}I = (\beta S - \tau^{-1} I) \mathrm{d}t + \sigma I \mathrm{d}W$$ $$\mathrm{d}R = \tau^{-1} I \mathrm{d}t$$ where $W$ is a Wiener process.
 
-> ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cmathrm%7Bd%7D%5Ctext%7BS%7D%20=%20-%20%5Cbeta%20%5Ctext%7BSI%7D%20%5Cmathrm%7Bd%7Dt%20-%20%5Csigma%20%5Ctext%7BI%7D%20%5Ccirc%20%5Cmathrm%7Bd%7DW%20%20%5C%5C%20%20%20%5Cmathrm%7Bd%7D%5Ctext%7BI%7D%20=%20(%5Cbeta%20%5Ctext%7BS%7D%20-%20%5Ctau%5E%7B-1%7D)%5Ctext%7BI%7D%5Cmathrm%7Bd%7Dt%20&plus;%20%20%5Csigma%20%5Ctext%7BI%7D%20%5Ccirc%20%5Cmathrm%7Bd%7DW%20%5Cnonumber%20%5C%5C%20%20%20%5Cmathrm%7Bd%7D%5Ctext%7BR%7D%20=%20%5Ctau%5E%7B-1%7D%20%5Ctext%7BI%7D%5Cmathrm%7Bd%7Dt,)
->
-where ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DW) is a Wiener process,
-and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ccirc) represents the Stratonovich integral.
+The parameters that can be calibrated are $\beta, \tau$, and $\sigma$. The model produces outputs such as a predicted time series for each compartment
 
-### Model parameters
+<img src="https://github.com/ThGaskin/NeuralABM/files/13787421/densities_from_joint.pdf" width=100%>
+
+as well as marginal densities on the parameters that are to be learned:
+
+<img src="https://github.com/ThGaskin/NeuralABM/files/13787439/marginals.pdf" width=100%>
+
+## Model parameters
 
 ```yaml
 Data:
@@ -40,9 +25,9 @@ Data:
 
     # How to generate synthetic data. Smooth densities can be generated directly using the SDE model,
     # or from an agent-based model
-    type: from_ABM
+    type: from_ABM  # options: from_ABM or smooth
 
-    # Number of agents
+    # Number of agents (only relevant for the ABM)
     N: 150
 
     # Domain extent, and whether the boundaries are periodic
@@ -65,13 +50,11 @@ Data:
     # Number of steps to run
     num_steps: 200
 ```
-The key `type` determines how training data is generated. Set it `from_ABM` to generate
+The key `type` determines how training data is generated. Set it to `from_ABM` to generate
 densities from the ABM, or to `smooth` to generate smooth densities from the SDEs directly.
 
 ### Specifying the parameters to learn
-You can learn any of the parameters
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dp,%20t,%20%5Csigma).
-Specify which parameters to learn in the `Training` entry:
+You can learn any subset of the parameters $\beta, \tau, \sigma$. Specify which parameters to learn in the `Training` entry:
 ```yaml
 Training:
   to_learn: [p_infect, t_infectious, sigma]
@@ -93,7 +76,7 @@ Data:
 ```
 This file must contain a densities dataset called `true_counts`. If you generate synthetic data
 from the ABM first and then point the config to the location of the data, it will automatically run the model
-from this dataset. See the `Predictions` configuration set for an example.
+from this dataset. See the `Predictions_on_ABM_data` configuration set for an example.
 
 ### Configuration sets
 The default options generate SIR data from an ABM and calibrate it using a single neural training run.
@@ -105,7 +88,6 @@ The following configuration sets are included in the model:
 - `Generate_ABM_data` generates synthetic ABM data. This data is calibrated in the following configuration set:
 - `Predictions_on_ABM_data` fits the SDE system to noisy ABM data and calculates the marginal densities on the
 parameters (fig. 4 in the PNAS paper)
-
 - `Generate_ground_truth` runs a two-dimensional grid search over two parameters to generate a ground truth distribution.
 This data is calibrated in the following two configuration sets:
 - `Predictions_on_smooth_data` fits the SDE system to noisy data generated by the same SDE and calculates the marginal
@@ -113,9 +95,8 @@ densities on the parameters (fig. 1d in the Epidemic forecasing paper)
 - `MCMC_predictions_on_smooth_data`: runs an MCMC scheme on the same data as `Predictions_on_smooth_data` and plots the
 results.
 
-
 You can run these sets simply by calling
 
 ```commandline
-utopya run SIR --cs name_of_cs
+utopya run SIR --cs <name_of_cs>
 ```
