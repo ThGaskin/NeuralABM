@@ -17,6 +17,9 @@ as well as marginal densities on the parameters that are to be learned:
 
 <img src="https://github.com/ThGaskin/NeuralABM/files/13787439/marginals.pdf" width=100%>
 
+To ensure better training, the parameters can be scaled to ensure they are all of roughly equal magnitude when learned by the neural network.
+The scaling factors can be controlled via the `Training.scaling_factors` dictionary. By default, the infection time is scaled by a factor of 10.
+
 ## Model parameters
 
 ```yaml
@@ -49,6 +52,11 @@ Data:
 
     # Number of steps to run
     num_steps: 200
+Training:
+  # Scale the infection time by a factor of 10 to ensure all learned parameters are of equal magnitude.
+  # This makes training more efficient.
+  scaling_factors:
+    t_infectious: 10
 ```
 The key `type` determines how training data is generated. Set it to `from_ABM` to generate
 densities from the ABM, or to `smooth` to generate smooth densities from the SDEs directly.
