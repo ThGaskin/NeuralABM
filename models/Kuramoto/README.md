@@ -1,22 +1,16 @@
 # Kuramoto model of phase synchronisation
 
----
 ### Model description
-The Kuramoto model describes phase-locking of ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DN) coupled oscillators,
-each with phases ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cvarphi_i) and eigenfrequencies
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Comega_i).
-The oscillators are coupled via
-an adjacency matrix ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cmathbf%7BA%7D%20=%20(a_%7Bij%7D))
-via the differential equation
+The Kuramoto model describes phase-locking of $N$ coupled oscillators, each with phases $\varphi_i$ and eigenfrequencies $\omega_i$.
+The oscillators are coupled via an adjacency matrix $\textbf{A} = (a_{ij})$ via the differential equation $$\alpha \dfrac{d^2 \varphi_i(t)}{dt^2} + \beta \dfrac{d\varphi_i(t)}{dt} = \omega_i + \kappa \sum_j a_{ij} \sin(\varphi_j - \varphi_i) + \sigma dB_i$$ where $\alpha$ is the inertia coefficient, $\beta$ the friction coefficient, $\kappa$ the coupling coefficient, and $B_i$ random noise with strength $\sigma$. In this model, we infer the adjacency matrix $\textbf{A}$ from observations of the phases $\varphi(t)$. The network is inferred from observations of its reponse to an initial perturbation: the coupled oscillators synchronise over time, until the phases are all in sync. These *reponse* dynamics allow us to infer $\textbf{A}$. Typically, a single observation time series $\textbf{T} = (\varphi(0), ..., \varphi(T))$ is insufficient to infer the entire network, and so neural network is trained on several independent observations simultaneously. However, in the British power grid configuration set, only a single time series is used (see below). The number of training sets used can be controlled via a `training_set_size` argument in the run configuration.
 
-> ![equation](https://latex.codecogs.com/svg.image?\alpha&space;\dfrac{\mathrm{d}^2\varphi_i(t)}{\mathrm{d}t^2}&space;&plus;&space;\beta&space;\dfrac{\mathrm{d}\varphi_i(t)}{\mathrm{d}t}=\omega_i&space;&plus;&space;\kappa\sum_{j}a_{ij}\sin(\varphi_j&space;-&space;\varphi_i)&space;&plus;&space;\sigma&space;\mathrm{d}B_i)
+The model outputs e.g. the predicted and true network adjacency matrix, as well as predicted degree and triangle distributions with uncertainty quantification:
 
-where ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Calpha) is the inertia coefficient,
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cbeta) the friction coefficient,
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ckappa) the coupling coefficient,
-and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DB_i) is random noise with variance
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Csigma).
-In this model, we infer the network from observations of the phases.
+True and predicted adjacency matrix:
+<img src="https://github.com/ThGaskin/NeuralABM/files/13854647/comp.pdf" width=100%>
+
+Predicted degree distribution as a function of the noise $\sigma$ on the data:
+<img src="https://github.com/ThGaskin/NeuralABM/files/13854606/degree_distribution.pdf" width=100%>
 
 ### Model parameters
 The following are the default model parameters:
@@ -41,19 +35,19 @@ Data:
       parameters:
         lower: 1
         upper: 3
-      time_series_std: 0.0
+      time_series_std: 0.0 # Noise on the eigen frequencies time series
 
     # Initial distribution of the phases
     init_phases:
       distribution: uniform
       parameters:
         lower: 0
-        upper: 6.283
+        upper: 6.283  # 2 pi
 
     # Noise variance on the training data
     sigma: 0.0
 
-    # Length of time series
+    # Length of each time series
     num_steps: 5
 
     # Number of individual time series
