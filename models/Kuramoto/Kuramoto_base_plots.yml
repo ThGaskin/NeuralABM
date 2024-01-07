@@ -311,8 +311,7 @@ degree_distribution_uni:
             bins: !dag_tag bins
             ranges: !dag_tag range
             dim: vertex_idx
-        - set_x_as_coord: [!dag_prev ]
-          kwargs: {name: _degree_weighted}
+            use_bins_as_coords: True
 
   # Get the distribution statistics
   transform:

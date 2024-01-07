@@ -166,7 +166,7 @@ degree_distribution:
   linestyle: [solid, dotted]
   smooth_kwargs:
     enabled: True
-    sigma: 2
+    smoothing: 2
   helpers:
     set_limits:
       y: [ 0, ~ ]
@@ -184,3 +184,31 @@ triangle_distribution:
   helpers:
     set_title:
       title: True and predicted triangle distribution
+
+# True adjacency matrix
+comp:
+  based_on:
+    - .creator.universe
+    - .adjacency_matrix
+  select:
+    true_data:
+      path: true_network/_adjacency_matrix
+      transform: [.data]
+    loss_idx:
+      path: output_data/Loss
+      transform:
+        - .sel_with_drop: [!dag_prev , {kind: Data loss}]
+        - .idxmin: [!dag_prev ]
+    predictions:
+      path: output_data/predictions
+  transform:
+    - .sel_with_drop: [!dag_tag predictions , {batch: !dag_tag loss_idx}]
+      tag: pred
+    - concat_along: [[!dag_tag true_data, !dag_tag pred], 'kind', ['True network', 'Prediction']]
+      tag: data
+  col: kind
+  helpers:
+    set_suptitle:
+      title: Comparison true and predicted adjancency matrix
+  add_colorbar: False
+  figsize: [!dag_result full_width, !dag_result half_width]
