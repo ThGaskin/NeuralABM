@@ -18,7 +18,7 @@ Data:
     # Model parameters: infection radius, infection probability, infection time
     r_infectious: !is-positive 1.0
     p_infect: !is-probability 0.2
-    t_infectious: 30 #!is-positive 30
+    t_infectious: !is-positive 30
 
     # Agent diffusivities
     sigma_s: !is-positive-or-zero 0.15
@@ -60,7 +60,7 @@ NeuralNet:
         upper: 0.8
 
 Training:
-  batch_size: !is-positive-int 1
+  batch_size: !is-positive-int 100
   loss_function:
     name: MSELoss
     kwargs:
@@ -68,3 +68,8 @@ Training:
   to_learn: [ p_infect, t_infectious, sigma ]
   device: cpu
   num_threads: ~
+
+  # Scale the infection time by a factor of 10 to ensure all learned parameters are of equal magnitude.
+  # This makes training more efficient.
+  scaling_factors:
+    t_infectious: 10

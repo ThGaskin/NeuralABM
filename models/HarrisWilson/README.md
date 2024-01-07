@@ -1,69 +1,25 @@
 # The Harris-Wilson model of economic activity
 
-> [!NOTE] 
-> See the section on [Configuration sets](#configuration-sets) to see how to reproduce
-> the plots from the [PNAS publication](https://www.pnas.org/doi/10.1073/pnas.2216415120).
-
-
 ### Model description
-In the Harris-Wilson model, ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DN)
-origin zones are connected to ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DM) destination
-zones through a weighted, directed, complete bipartite network , i.e. each origin zone is connected to every destination zone.
-Economic demand flows from the origin zones to the destination zones, which supply the demand.
-Such a model is applicable for instance to an urban setting, the origin zones representing e.g.
-residential areas, and the destination zones representing retail areas, shopping centres,
-or other areas of consumer activity.
+In the Harris-Wilson model, $N$ origin zones are connected to $M$ destination zones through a weighted, directed, complete bipartite network, i.e. each origin zone is connected to every destination zone. Economic demand flows from the origin zones to the destination zones, which supply the demand. Such a model is applicable for instance to an urban setting, the origin zones representing e.g.
+residential areas, and the destination zones representing retail areas, shopping centres, or other areas of consumer activity.
 
-Let ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cmathbf%7BC%7D%20%5Cin%20%5Cmathbb%7BR%7D%5E%7BN%20%5Ctimes%20M%7D)
-be the non-zero section of the full network adjacency matrix.
-The network weights ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dc_%7Bij%7D)
-quantify the convenience of travelling from origin zone ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Di)
-to destination zone ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dj):
-a low weight thus models a highly inconvenient route (e.g. due to a lack of public transport).
-Each origin zone has a fixed demand ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DO_i).
-The resulting cumulative demand at some destination zone ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Di)
-is given by
+Let $\mathbf{C} = (c_{ij}) \in \mathbb{R}^{N \times M}$ be the non-zero section of the full network adjacency matrix. The network weights $c_{ij}$ quantify the convenience of travelling from origin zone $i$ to destination zone $j$: a low weight thus models a highly inconvenient route (e.g. due to a lack of public transport). Each origin zone has a fixed demand $O_i$. The resulting cumulative demand at some destination zone $j$ is given by $$D_j = \sum_{i=1}^N T_{ij}$$ $T_{ij}$ representing the flow of demand from $i$ to $j$ (the transport map, in optimal transport terms). The model assumption is that this flow depends both on the size $W_j$
+of the destination zone and the convenience of getting from $i$ to $j$: $$T_{ij} = \dfrac{W_j^\alpha c_{ij}^\beta}{\sum_k W_k^\alpha c_{ij}^\beta}O_i$$
 
-> ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DD_j%20=%20%5Csum_%7Bi=1%7D%5E%7BN%7D%20T_%7Bij%7D,)
+The parameters $\alpha$ and $\beta$ relative importance of size and convenience to the flow of demand
+from $i$ to $j$: high $\alpha$ means consumers value large destination zones (e.g. prefer larger shopping centres to smaller ones),
+high $\beta$ means consumers place a strong emphasis on convenient travel to destination zones.
+Finally, the sizes $W_j$ are governed by a system of $M$ coupled logistic equations: $$dW_j = \epsilon W_j (D_j - \kappa W_j) dt + \sigma W_j \circ dB_j \quad [1]$$
 
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DT_%7Bij%7D)
-representing the flow of demand from ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Di)
-to ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dj).
-The model assumption is that this flow depends both on the size ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DW_j)
-of the destination zone and the convenience of getting from ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Di)
-to ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dj):
+with given initial conditions $W_j(t=0) = W_{j, 0}$. Here, $\epsilon$ is a responsiveness parameter, representing the rate at which destination zones can adapt to fluctuations in demand, and $\kappa$ models the cost of maintaining a larger site per unit floor space (e.g. rent, utilities, etc.). We recognise the logistic nature of the equations: the change in size is proportional to the size itself, as well as to $W_j$. A low value of $\kappa$ favours larger destination zones (e.g. larger malls), a high cost favours smaller zones (e.g. local stores). In addition, the model eq. [1] includes multiplicative noise with strength
+$\sigma \geq 0$, with $\circ$ signifying Stratonovich integration.
 
-> ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DT_%7Bij%7D%20=%20%5Cdfrac%7BW_j%5E%5Calpha%20c_%7Bij%7D%5E%5Cbeta%7D%7B%5Csum_%7Bk=1%7D%5EM%20W_k%5E%5Calpha%20c_%7Bik%7D%5E%5Cbeta%7D%20O_i.)
+In this model, we infer any of the four parameters $(\alpha, \beta, \kappa, \sigma)$. The network $\mathbf{C}$ is inferred in the sister `HarrisWilsonNW` model. See here the marginal densities on the parameters as the noise on the training data increases:
 
-The parameters ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Calpha)
-and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cbeta) represent the
-relative importance of size and convenience to the flow of demand
-from ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Di)
-to ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7Dj): high ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Calpha)
-means consumers value large destination zones (e.g. prefer larger shopping centres to smaller ones),
-high ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cbeta)
-means consumers place a strong emphasis on convenient travel to destination zones.
-Finally, the sizes ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DW_j)
-are governed by a system of ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DM)
-coupled logistic equations:
+<img src="https://github.com/ThGaskin/NeuralABM/files/13855044/marginals.pdf" width=100%>
 
-> ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cmathrm%7Bd%7DW_j%20=%20%5Cepsilon%20W_j(D_j%20-%20%5Ckappa%20W_j)%5Cmathrm%7Bd%7Dt%20&plus;%20%5Csigma%20W_j%20%5Ccirc%20%5Cmathrm%7Bd%7DB_j,)   [1]
-
-with given initial conditions ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DW_j(t=0)%20=%20W_%7Bj,%200%7D).
-Here, ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cepsilon)
-is a responsiveness parameter, representing the rate at which destination zones can adapt to
-fluctuations in demand, and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ckappa) models
-the cost of maintaining a larger site per unit floor space (e.g. rent, utilities, etc.).
-We recognise the logistic nature of the equations: the change in size is proportional to the size itself,
-as well as to ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7DD_j%20-%20%5Ckappa%20W_j).
-A low value of ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ckappa) favours larger
-destination zones (e.g. larger malls), a high cost favours smaller zones (e.g. local stores).
-In addition, the model eq. [1] includes multiplicative noise with variance
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Csigma%20%5Cgeq%200),
-with ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Ccirc) signifying Stratonovich integration.
-
-In this model, we infer any of the four parameters ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Calpha,%20%5Cbeta,%20%5Ckappa,%20%5Csigma).
-The network is inferred in the sister `HarrisWilsonNW` model.
+We can clearly see the width of the marginals increasing. Notice also the multimodality of the distributions on $\alpha$ and $\beta$, which have a second peak at $(\alpha=1, \beta=0)$.
 
 ### Model parameters
 The following are the default model parameters:
@@ -122,9 +78,8 @@ are used to train the model. If the model is in static equilibrium, the last fra
 is sufficient.
 
 ### Specifying the parameters to learn
-You can learn any of the parameters
-![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Calpha,%20%5Cbeta,%20%5Ckappa,%20%5Csigma).
-Specify which parameters to learn in the `Training` entry:
+You can learn any of the parameters $(\alpha, \beta, \kappa, \sigma)$. Specify which parameters to learn in the `Training` entry:
+
 ```yaml
 Training:
   to_learn: [alpha, beta, kappa, sigma]
@@ -139,6 +94,7 @@ Training:
     kappa: 5
     sigma: 0.0
 ```
+
 ### Loading data
 Instead of generating synthetic data, you can also load data from an `.h5` File or `.csv` files.
 For instance, you can load the origin zone, destination zone sizes, and the network all from separate `.csv` files:
@@ -163,10 +119,7 @@ If you first generate synthetic data using this model, you can thereafter point 
 ### Configuration sets
 The following configuration sets are included in the model:
 
-- `Inequality`: sweeps over different values of ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Calpha)
-and ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cbeta) and plots a heatmap of the
-inequality parameter ![equation](https://latex.codecogs.com/gif.image?%5Cinline%20%5Cdpi%7B110%7D%5Cnu) (fig. 5) in
-the publication
+- `Inequality`: sweeps over different values of $\alpha$ and $\beta$ and plots a heatmap of the inequality parameter $\nu$ (fig. 5 in the publication)
 - `London_dataset`: loads the London datasets, sweeps over two network metrics, and plots the marginal densities on the
 parameters (fig. 10 in the publication)
 - `Synthetic_example`: trains the model on synthetic data from multiple initialisations, and plots the resulting

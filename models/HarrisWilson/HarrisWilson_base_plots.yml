@@ -49,9 +49,9 @@
         - div: [!dag_tag _page_width, 5]
 
   style:
-    text.usetex:        True   # Set to 'True' to use latex
+    text.usetex:        False   # Set to 'True' to use latex
     mathtext.fontset:   cm
-    font.family:        serif
+    font.family:        Helvetica
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
     # Set the label fontsize
