@@ -1,4 +1,4 @@
-# Neural parameter calibration of multi-agent models
+# Neural parameter calibration of ODEs and SDEs
 ### Thomas Gaskin
 
 ---
@@ -10,8 +10,7 @@
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
-This project calibrates multi-agent ODE and SDE models to data using a neural network. We estimate marginal densities on the parameters
-(including adjacency matrices). This repository contains all the code and models used in our publications on the topic:
+This project calibrates multi-agent ODE and SDE models to data using a neural network. We estimate marginal densities on the equation parameters, including adjacency matrices. This repository contains all the code and models used in our publications on the topic, as well as an extensive set of tools and examples for you to calibrate your own model:
 
 - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
 https://doi.org/10.1073/pnas.2216415120 (`HarrisWilson` and `SIR` models)
@@ -20,10 +19,10 @@ https://doi.org/10.1073/pnas.2216415120 (`HarrisWilson` and `SIR` models)
 - T. Gaskin, T. Conrad, G. Pavliotis, C. Schütte. *Neural parameter calibration and uncertainty quantification for epidemic
 forecasting*. https://arxiv.org/abs/2312.03147 (`SIR` and `Covid` models)
 
-Each model contains its own README file, detailing specifics on the code for the different models. Since the code is continuously being reworked and improved, the plots produced by the current version may differ from the publication plots. This repository is versioned, such that each publication has a version that will produce the plots exactly as they appear in the publication. However, the results produced by the latest code base will typically be more accurate, performative, and reliable than older versions.
+Each model contains its own README file, detailing specifics on the code for the different models. Since the code is continuously being reworked and improved, the plots produced by the current version may differ from the publication plots. For this reason, this repository is versioned, such that each publication has a version that will produce the plots exactly as they appear in the paper. However, the results produced by the latest code base will typically be more accurate, performative, and reliable than older versions.
 
 The project uses the [utopya package](https://docs.utopia-project.org/html/index.html) to handle simulation configuration, data management,
-and plotting. This README gives a brief introduction to installation and a basic tutorial for the Utopia/utopya syntax. The tutorial below will be sufficient to just run the models, reproduce plots, and play around with the code. You should also refer to the model-specific README files, located at `model_name/README.md`, for detailed instructions on each model's features. A complete guide to running models with Utopia/utopya can be found [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial). As you go through the [Tutorial](#tutorial), you will find relevant references to the full tutorial entry, and it is recommended to peruse these if you wish to build your own model using our codebase.
+and plotting. This README gives a brief introduction to installation and a basic tutorial, which will be sufficient to just run the models, reproduce plots, and play around with the code. You can also refer to the model-specific README files, located at `<model_name>/README.md`, for detailed instructions on each model's features. A complete guide to running models with Utopia/utopya can be found [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#tutorial). As you go through the [Tutorial](#tutorial) below, you will find links to the relevant tutorial entries, and it is recommended to peruse these if you wish to build your own model using our code base.
 
 > [!TIP]
 > If you encounter any difficulties or have questions, please [file an issue](https://github.com/ThGaskin/NeuralABM/issues/new).
@@ -181,7 +180,7 @@ SUCCESS  logging           All done.
 > ValueError: The writer 'ffmpeg' is not available on your system! 
 > ```
 > you don't have a writer installed to save animations. Don't worry: it's only needed for producing animated plots,
-> so the error isn't critical and doesn't prevent you plotting non-animated plots.
+> so the error isn't critical and doesn't prevent you from plotting non-animated plots.
 
 Navigate to your `utopya_output` directory and open the `SIR` folder. In it you should see a time-stamped folder
 containing a `config`, a `data`, and an `eval` folder. One of the most important benefits of using utopya is that it automatically
@@ -210,7 +209,7 @@ parameter_space:
     Training:
       batch_size: 100
 ```
-We are now using a batch size of 100, i.e. the length of the time series, and also training the model for a little bit longer (300 epochs instead of the default 100). Now, run the model again and pass the path to this file to the model:
+We are now using a batch size of 100, i.e. the length of the time series, and are also training the model for a little bit longer (300 epochs instead of the default 100). Now, run the model again and pass the path to this file to the model:
 
 ```commandline
 utopya run SIR path/to/run.yml
@@ -235,7 +234,7 @@ Perhaps a little bit better, but still not great, and the uncertainty is much to
 
 ## Parameter sweeps
 
-Take a look at `models/SIR/cfgs` folder. In it you will find lots of subfolders, each containing a pair of `run.yml` and `eval.yml` files. These are called *configuration sets*: pre-fabricated run files and corresponding evaluation configurations that will reproduce a given plot. Try running the following command:
+Take a look at the `models/SIR/cfgs` folder. In it you will find lots of subfolders, each containing a pair of `run.yml` and `eval.yml` files. These are called *configuration sets*: pre-fabricated run files and corresponding evaluation configurations. Try running the following command:
 
 ```commandline
 utopya run SIR --cs Predictions_from_ABM_data
@@ -277,7 +276,7 @@ In your output folder you will also find the following plot:
 
 <img src="https://github.com/ThGaskin/NeuralABM/files/13852798/predictions.pdf" width=100%>
 
-Each line represents a trajectory taken by the neural net during training; as you can see, we are training the net multiple times in parallel, each time initialising the neural network at a different value of the initial distribution – see #section on how to adjust this distribution. The colour of each line repressents the training loss at that sample.
+Each line represents a trajectory taken by the neural net during training; as you can see, we are training the net multiple times in parallel, each time initialising the neural network at a different value of the initial distribution – see [the corresponding section](#specifying-the-prior-on-the-output) on how to adjust this distribution. The colour of each line repressents the training loss at that sample.
 The number of initialisations is controlled by the `seed` entry of the run config.
 
 > [!TIP]
@@ -303,12 +302,25 @@ parameter: !sweep
                  #   logspace: [-5, -2, 7]  # 7 log-spaced values in [10^-5, 10^-2], passed to np.logspace
 ```
 
-Once you have set up your sweep configuration file, enable a multiverse run either by setting `perform_sweep: True` to the top-level of the file, or by passing `--run-mode sweep` to the CLI command when you run your model. Without these, the model will be run as a universe run.
+Once you have set up your sweep configuration file, enable a multiverse run either by setting `perform_sweep: True` to the top-level of the file, or by passing `--run-mode sweep` to the CLI command when you run your model. Without one of these, the model will be run as a universe run.
 
-There is no limit to how many parameters you can sweep over. Take a look, for instance, at the `models/HarrisWilson/cfgs/Marginals_over_noise/run.yml` file. Here, we are sweeping over the noise in the training data (`sigma`) as well as the `seed`. Running such a large sweep takes longer, of course.
+There is no limit to how many parameters you can sweep over. Take a look, for instance, at the `models/HarrisWilson/cfgs/Marginals_over_noise/run.yml` file. Here, we are sweeping over the noise in the training data (`sigma`) as well as the `seed`. Sweeping over more parameters takes longer, of course, since the volume of parameters increases exponentially.
 
 > [!TIP]
 > Read the full guide on running parameter sweeps [here](https://docs.utopia-project.org/html/getting_started/tutorial.html#parameter-sweeps).
+
+### Coupled sweeps
+If you want to sweep over one parameter but vary some others along with it, you can perform a [coupled sweep](https://docs.utopia-project.org/html/about/features.html?highlight=target_name#id31):
+```yaml
+param1: !sweep
+  default: 1
+  values: [1, 2, 3, 4]
+param2: !coupled-sweep
+  default: foo
+  values: [bar, baz, foo, fab]
+  target_name: param1
+```
+Here, `param2` is being varied along `param1` – the dimension of the parameter space remains 1. You can couple as many parameters to sweep parameters as you like.
 
 ### Adjusting the parallelisation
 When running a sweep, you will see the following logging entry in your terminal:
@@ -335,11 +347,10 @@ utopya run <model> path/to/run.yml
 ```
 You can pass a relative or an absolute path, it's up to you. Entries in these files will overwrite the default values. Remember that you only need to provide those entries of the default config you wish to update! Finally, you can also change parameters directly by passing a `--pp` flag from the CLI:
 ```commandline
-utopya run <model> --pp num_epochs=100 --pp param1=2
+utopya run <model> --pp num_epochs=100 --pp entry.key=2
 ```
 
-YAML offers wide range of functionality within the configuration file. Take a look e.g. at the [learnXinYminutes](https://learnxinyminutes.com/docs/yaml/) YAMl tutorial for an 
-overview -- but since it is an intuitive and humand-readable configuration language, most things should seem very familiar to you already.
+Note that, when using the CLI, you can set sublevel entries of outer scopes by connecting them with a `.`: `key.subkey.subsubkey`. YAML offers a wide range of functionality within the configuration file. Take a look e.g. at the [learnXinYminutes](https://learnxinyminutes.com/docs/yaml/) YAMl tutorial for an overview – but since it is an intuitive and humand-readable configuration language, most things should seem very familiar to you already.
 
 > [!IMPORTANT]
 > YAML is sensitive to indentation levels! In utopya, nearly every option can be set through a configuration parameter. With these, it is important to take care of the correct indentation level. If you place a parameter at the wrong location, it will often be ignored, sometimes even without warning! A common mistake at the beginning is to place model specific parameters outside of the <model_name> scope:
@@ -348,26 +359,25 @@ overview -- but since it is an intuitive and humand-readable configuration langu
 >   SIR:
 >     model_parameter: 1   # Parameters in this scope are passed to the model!
 > ```
->
 
-In general, every aspect of running, evaluation, and configuring models is controllable from the configuration file. Take a look at the [documentation entry](https://docs.utopia-project.org/html/ref/mv_base_cfg.html?highlight=worker%20manager#utopya-multiverse-base-configuration) for a full overview of the keys and controls at your disposal.
+In general, every aspect of running, evaluation, and configuring models is controllable from the configuration file. Take a look at the [documentation entry](https://docs.utopia-project.org/html/ref/mv_base_cfg.html?highlight=worker%20manager#utopya-multiverse-base-configuration) for a full overview of the keys and controls at your disposal. 
 
 ### Automatic parameter validation
-Take a look at, for example, the `models/SIR/SIR_cfg.yml`. You will notice lots of little `!is-positive` or `!is-positive-or-zero` entries. These are so-called *validation flags*, and can only be used in the default configuration. They are optional, but their function is to make sure you do not pass invalid parameters to the model (e.g. negative values where only positive ones are allowed), and to catch such errors before the model is run. Running a model with invalid parameters can sometimes lead to cryptic error messages or are even not caught at all, leading to unpredictable behaviour which can be a nightmare to debug. For this reason, you can add these validation flags to the default configuration, along with possible values, ranges, or datatypes for each parameter.
+Take a look at, for example, the `models/SIR/SIR_cfg.yml` file. You will notice lots of little `!is-positive` or `!is-positive-or-zero` flags. These are so-called *validation flags*, and can only be used in the default configuration. They are optional, but their function is to make sure you do not pass invalid parameters to the model (e.g. negative values where only positive ones are allowed), and to catch such errors before the model is run. Running a model with invalid parameters can sometimes lead to cryptic error messages or are even not caught at all, leading to unpredictable behaviour which can be a nightmare to debug. For this reason, you can add these validation flags to the default configuration, along with possible values, ranges, or datatypes for each parameter.
 
 > [!TIP]
-> See the [full tutorial entry](https://docs.utopia-project.org/html/usage/run/config-validation.html) for a guide on how to use these. They are optional, but useful if you wish to implement your own model.
+> See the [full tutorial entry](https://docs.utopia-project.org/html/usage/run/config-validation.html) for a guide on how to use these. They are useful if you wish to implement your own model.
 
 ### Full model configuration
-In our `utopya_output/SIR` output folder, take a look at the `config` folder inside the model run output. In it, you will see a whole bunch of configuration files. Every single level of the configuration hierarchy is backed up to this folder, allowing you to always reconstruct which parameters you used to run a model. A couple of useful pointers:
+Inside our `utopya_output/SIR` output folder, take a look at the `config` folder. You will see a whole bunch of configuration files. Every single level of the configuration hierarchy is backed up to this folder, allowing you to always reconstruct which parameters you used to run a model. A couple of useful pointers:
 
 - the `model_cfg.yml` file contains the default configuration
 - the `run_cfg.yml` is the run configuration
 - the `update_cfg.yml` contains any additional parameters you passed from the CLI
-- the `meta_cfg.yml` is the combination of all three, plus all the other defaults (many provided by utopya itself) used to run the model. This file will probably seem very large and overwhelming, but you don't need to worry about it. However, when in doubt, you can also refer to these to check where in your custom configuration you need to place certain keys.
+- the `meta_cfg.yml` is the combination of all three, plus all the other defaults (many provided by utopya itself) used to run the model. This file will probably seem very large and overwhelming, and you don't really need to worry about it. However, when in doubt, you can refer to it to check where in your custom configuration you need to place certain keys.
 
 > [!TIP]
-> In general, every aspect of running, evaluation, and configuring models is controllable from the configuration file. Take a look at the [documentation entry](https://docs.utopia-project.org/html/ref/mv_base_cfg.html?highlight=worker%20manager#utopya-multiverse-base-configuration) for a full overview of the keys and controls at your disposal.
+> Almost every aspect of running, evaluation, and configuring models is controllable from the configuration file. Take a look at the [documentation entry](https://docs.utopia-project.org/html/ref/mv_base_cfg.html?highlight=worker%20manager#utopya-multiverse-base-configuration) for a full overview of the keys and controls at your disposal.
 
 ## Evaluation and plotting 
 
@@ -382,13 +392,11 @@ performs a series of tasks:
 1. It then collects and bundles the output data and stores it
 1. Finally, it loads all the data into a so-called `DataManager` and plots the files.
 
-Running a simulation and plotting the data are seperate steps that can be run indepdently of one another. For instance, if you call
+Running a simulation and plotting the data are seperate steps that can be run indepedently of one another. For instance, if you call
 ```commandline
 utopya run <model_name> --no-eval
 ```
-the evaluation step will be skipped.
-
-A common use case however will be re-evaluating a model run you have already performed. This can easily be done by running the command
+the evaluation step will be skipped. A common use case however will be re-evaluating a model run you have already performed. This can easily be done by running the command
 ```commandline
 utopya eval <model_name>
 ```
@@ -396,18 +404,18 @@ This will re-evaluate the *last* simulation run that was performed. If you wish 
 ```commandline
 utopya eval <model_name> path/to/folder
 ```
-Calling this will use all the plots given in the *default plots configuration file* `<model_name>_plots.yml`. This is the default behaviour; you can pass a different plot configuration using the `--plots-cfg` flat in the CLI:
+Calling this will use all the plots given in the *default plot configuration file* `<model_name>_plots.yml`. This is the default behaviour; you can pass a different plot configuration using the `--plots-cfg` flat in the CLI:
 
 ```commandline
 utopya eval <model_name> --plots-cfg path/to/config.yml
 ```
-Take a look at the `SIR_plots.yml` file: you will see a list of entries, each corresponding to one plot. In each of the configuration folders, you will notice a `eval.yml` file. These are plot configurations used for these specific configuration sets; thus, all the `--cs` is is a shorthand for the command
+Take a look at the `SIR_plots.yml` file: you will see a list of entries, each corresponding to one plot. In each of the configuration folders, you will notice an `eval.yml` file. These are plot configurations used for these specific configuration sets; thus, all the configuration set `--cs` flag is is a shorthand for the command
 
 ```commandline
 utopya run <model_name> path/to/run.yml --plots-cfg path/to/eval.yml
 ```
 
-Many of these plots are based on a *base plot*: these are default plots given in the `SIR_base_plots.yml` file and which are available throughout the model, i.e. to any other plots configuration. This is handy, since you may wish to share plots throughout the model and not need to type out the configuration file each time. Take a look at the `SIR_base_plots.yml` file, and scroll all the way down to the `loss` baseplot:
+Many of these plots are based on a *base plot*: these are default plots given in the `SIR_base_plots.yml` file and which are available throughout the model, i.e. to any other plot configuration. This is handy, since you may wish to share plots throughout the model and not want to have to copy the configuration each time. Take a look at the `SIR_base_plots.yml` file, and scroll all the way down to the `loss` baseplot:
 
 ```yaml
 loss:
@@ -417,8 +425,7 @@ loss:
   select:
     data: loss
 ```
-This function plots the training loss for each batch, and is available throughout the model. Let's go through it line by line: the `based_on` argument tells the `PlotManager` which configurations to use as the base plot. In utopya, a single run is called a `universe`. Sweeping over multiple parameters creates multiple universes, or `multiverses`. The two plot creators to use are thus the `.creator.universe` and the `.creator.multiverse`. The universe creator creates plots for each individual universe, whereas the multiverse creator creates plots for the multiverse. The `.plot.facet_grid.line` is the plot function to use, in this case, a line. Finally, the `select` key tells the `PlotManager` which data to plot. It's that simple. Everything else shown in the configuration entry is just styling, which you can also control right from the configuration.
-If you now wish to use this function in your model evaluation, in your `eval.yml` you simply write
+This function plots the training loss for each batch, and is available throughout the model. Let's go through it line by line: the `based_on` argument tells the `PlotManager` which configurations to use as the base. Remember that in utopya, a single run is called a `universe`, and that sweeping over multiple parameters creates multiple universes, or `multiverses`. The two plot creators to use are thus the `.creator.universe` and the `.creator.multiverse`. The universe creator creates plots for each individual universe, whereas the multiverse creator creates plots for the multiverse. The `.plot.facet_grid.line` is the plot function to use to plot a line. Finally, the `select` key tells the `PlotManager` which data to plot. It's that simple. Everything else shown in the configuration entry is just styling, which you can also control right from the configuration (and this backed up and reconstructible later on). If you now wish to use this function in your model evaluation, create an `eval.yml` and simply add
 ```yaml
 loss:
   based_on: loss  # This is the 'loss' plot from the base configuration
@@ -584,12 +591,11 @@ This repository contains the following models:
 - **HarrisWilsonNW**: The Harris-Wilson model, but learning the network adjacency matrix from data. The physical equations
 - **Covid**: A complex model of contagion and the spread of Covid-19. Scalar parameters are learned from data.
   
-See the model-specific README files for a guide to each model. The README files are located in the respective `<model_name>` folders:
+See the model-specific README files for a guide to each model. The README files are located in the respective `<model_name>` folders.
 
 ## Building your own model
-If you are ready to build your own `NeuralABM` model, there is an easy command you can use
+If you are ready to build your own `NeuralABM` model, there is an easy command you can use to get started:
 ```commandline
 utopya models copy <model_name>
 ```
-This command will duplicate an existing model and rename it to the name you give when prompted. You can then iteratively change an existing model to your own requirements.
-We suggest forking this repository and regularly merging the main branch into yours.
+This command will duplicate an existing model and rename it to whatever name you give when prompted. You can then successively change an existing model to your own requirements.
