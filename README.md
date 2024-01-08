@@ -10,6 +10,15 @@
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
+<div>
+ <div>
+   <img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/605b6e09-703e-4296-a884-ea1315dba8ea" width=50%>
+ </div>
+  <div>
+   <img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/605b6e09-703e-4296-a884-ea1315dba8ea" width=50%>
+ </div>
+</div>
+
 This project calibrates multi-agent ODE and SDE models to data using a neural network. We estimate marginal densities on the equation parameters, including adjacency matrices. This repository contains all the code and models used in our publications on the topic, as well as an extensive set of tools and examples for you to calibrate your own model:
 
 - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
