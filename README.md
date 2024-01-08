@@ -585,7 +585,7 @@ This will load in the training data from the given `h5` file and use it across u
 
 ## Models overview
 This repository contains the following models:
-- **SIR**: An SDE model of contagious diseases with scalar parameters that are learned from data.
+- [**SIR**](models/SIR/README.md): An SDE model of contagious diseases with scalar parameters that are learned from data.
 - **Kuramoto**: A linear SDE model of synchronisation of network osciallations. The network adjacency matrix is learned from data.
 - **HarrisWilson**: A non-linear SDE model of optimal transport, modelling the flow of supply and demand on a network. Scalar parameters are learned from data. 
 - **HarrisWilsonNW**: The Harris-Wilson model, but learning the network adjacency matrix from data. The physical equations
