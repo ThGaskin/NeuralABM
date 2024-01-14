@@ -1,0 +1,112 @@
+# Plot configurations for the prob_density plot function
+---
+_x_y: &x_y
+  x: x
+  y: y
+
+_x_y_and_yerr: &x_y_yerr
+  x: x
+  y: y
+  yerr: yerr
+
+
+
+# Basic one-dimensional probability density plot, with x as coords
+basic_1D_x_as_coords:
+  select:
+    data: datasets/1D
+  x: coords_x
+  y: y
+
+# Basic one-dimensional probability density plot, with x as variable
+basic_1D:
+  select: &select_1D
+    data: datasets/1D
+  <<: *x_y
+
+# One-dimensional plot with errorbands
+errorbands_1D:
+  select:
+    <<: *select_1D
+  <<: *x_y_yerr
+
+# Test smoothing on 1D plot
+smoothing:
+  select:
+    <<: *select_1D
+  <<: *x_y
+  smooth_kwargs:
+    enabled: True
+    smoothing: 2
+
+
+# Errorbands with hue
+errorbands_2D:
+  select: &select_2D
+    data: datasets/2D
+  <<: *x_y_yerr
+  hue: dim_1
+
+# Errorbands with hue and column
+errorbands_3D:
+  select: &select_3D
+    data: datasets/3D
+  <<: *x_y_yerr
+  hue: dim_1
+  col: dim_2
+
+# Errorbands with hue, column, and row
+errorbands_4D:
+  select: &select_4D
+    data: datasets/4D
+  <<: *x_y_yerr
+  hue: dim_1
+  col: dim_2
+  row: dim_3
+
+# 4D plot with smoothing and errorbands
+nD_smoothing:
+  select:
+    <<: *select_4D
+  <<: *x_y_yerr
+  hue: dim_1
+  col: dim_2
+  row: dim_3
+  smooth_kwargs:
+    enabled: True
+    smoothing: 2
+
+# 4D plot with coords as x
+nD_with_coords:
+  select:
+    <<: *select_4D
+  x: coords_x
+  y: y
+  yerr: yerr
+  hue: dim_1
+  col: dim_2
+  row: dim_3
+  smooth_kwargs:
+    enabled: True
+    smoothing: 2
+
+# 4D plot with legend
+test_legend:
+  select:
+    <<: *select_4D
+  <<: *x_y_yerr
+  hue: dim_1
+  col: dim_2
+  row: dim_3
+  add_legend: True
+
+# 4D plot with plot_kwargs
+test_plot_kwargs:
+  select:
+    <<: *select_4D
+  <<: *x_y_yerr
+  hue: dim_1
+  col: dim_2
+  row: dim_3
+  lw: 2.0
+  linestyle: dotted
