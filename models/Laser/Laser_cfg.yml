@@ -26,7 +26,7 @@ Laser_Cavity:
     - &alpha_p !expr 3.14159 / 4
 
   # Roundtrips to complete during initialisation
-
+  n_initialisation: 2000
 
 # Neural network default configuration
 NeuralNet:
@@ -39,7 +39,7 @@ NeuralNet:
     default: sigmoid
     layer_specific:
       -1: tanh # Outputs in [-1, 1], which are then multiplied by pi, such that the final output is in [-pi, pi]
-  learning_rate: !is-positive 0.002
+  learning_rate: !is-positive 0.001
   prior:
     - distribution: uniform
       parameters:
@@ -59,11 +59,6 @@ NeuralNet:
         upper: *alpha_p
 
 Training:
-  batch_size: !is-positive-int 2
+  batch_size: !is-positive-int 100
   device: cpu
   num_threads: ~
-
-  # Scale the infection time by a factor of 10 to ensure all learned parameters are of equal magnitude.
-  # This makes training more efficient.
-  scaling_factors:
-    t_infectious: 10

@@ -161,13 +161,22 @@
   based_on: .plot.facet_grid
   kind: bar
 
+.plot.facet_grid.surface:
+  based_on: .plot.facet_grid
+  kind: surface
+  helpers:
+    setup_figure:
+      subplot_kw:
+        projection: 3d
+
+
 # ======================================================================================================================
 #  ╔═╗╦  ╔═╗╔╦╗╔═╗
 #  ╠═╝║  ║ ║ ║ ╚═╗
 #  ╩  ╩═╝╚═╝ ╩ ╚═╝
 # ======================================================================================================================
 
-# -- Plot of the training loss -----------------------------------------------------------------------------------------
+# Plot of the objective function
 objective:
   based_on:
     - .creator.universe
@@ -177,5 +186,33 @@ objective:
   color: black
   helpers:
     set_labels:
-      x: Time
       y: $E/\kappa$
+
+# Plot the laser beam over time
+laser_beam:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.surface
+  select:
+    data: laser_state
+  col: axis
+  x: t
+  y: iteration
+  cmap: viridis
+
+# Plot the angles over time
+parameters:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: parameters
+  col: parameter
+
+# Plot the energy over time
+energy:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line
+  select:
+    data: laser_energy

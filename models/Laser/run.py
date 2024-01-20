@@ -85,14 +85,13 @@ if __name__ == "__main__":
         h5group=h5group,
         laser=laser,
         neural_net=net,
-        write_every=cfg["write_every"],
         write_start=cfg["write_start"],
         **model_cfg["Training"],
     )
     model.initialise_laser(torch.stack([torch.cosh(model.laser.solver.t) ** (-1),
                                         0.2 * torch.cosh(model.laser.solver.t) ** (-1)
                                         ]).cfloat(),
-                           n_round_trips=10)
+                           n_round_trips=model_cfg["Laser_Cavity"]["n_initialisation"])
 
     # Now run the laser for n_steps
     num_epochs = cfg["num_epochs"]
@@ -111,13 +110,17 @@ if __name__ == "__main__":
             # Train the neural network
             model.perform_step()
 
+            # Write the data
+            model.write_data()
+
             # Update the angles with the new prediction
             model.set_parameters_from_NN()
 
-        log.progress(
-            f"   Completed epoch {i+1} / {num_epochs}; "
-            f"   current objective: {model.objective}"
-        )
+            log.progress(
+                f"   Iteration {i}, current objective: {model.objective}"
+            )
+
+        model.write_laser_state()
 
     log.info("   Simulation run finished.")
     log.info("   Wrapping up ...")

@@ -27,7 +27,6 @@ class Laser_NN:
         neural_net: base.NeuralNet,
         laser: Laser.Laser_cavity,
         batch_size: int,
-        write_every: int = 1,
         write_start: int = 1,
         **__,
     ):
@@ -39,7 +38,6 @@ class Laser_NN:
         :param neural_net: The neural network
         :param laser: the uninitialised laser
         :param batch_size (int): update the neural network parameters after a given number of round trips
-        :param write_every: write every iteration
         :param write_start: iteration at which to start writing
         """
         self._h5group = h5group
@@ -62,9 +60,9 @@ class Laser_NN:
             chunks=True,
             compression=3,
         )
-        self._dset_obj.attrs["dim_names"] = ["time"]
-        self._dset_obj.attrs["coords_mode__time"] = "start_and_step"
-        self._dset_obj.attrs["coords__time"] = [write_start, write_every]
+        self._dset_obj.attrs["dim_names"] = ["iteration"]
+        self._dset_obj.attrs["coords_mode__iteration"] = "start_and_step"
+        self._dset_obj.attrs["coords__iteration"] = [write_start, batch_size]
 
         # Write the parameter predictions after every batch
         self.dset_parameters = self._h5group.create_dataset(
@@ -74,18 +72,54 @@ class Laser_NN:
             chunks=True,
             compression=3,
         )
-        self.dset_parameters.attrs["dim_names"] = ["time", "parameter"]
-        self.dset_parameters.attrs["coords_mode__time"] = "start_and_step"
-        self.dset_parameters.attrs["coords__time"] = [write_start, write_every]
+        self.dset_parameters.attrs["dim_names"] = ["iteration", "parameter"]
+        self.dset_parameters.attrs["coords_mode__iteration"] = "start_and_step"
+        self.dset_parameters.attrs["coords__iteration"] = [write_start, batch_size]
         self.dset_parameters.attrs["coords_mode__parameter"] = "values"
         self.dset_parameters.attrs["coords__parameter"] = ["alpha_1", "alpha_2", "alpha_3", "alpha_p"]
+
+        # Write the laser state
+        self.dset_laser_state = self._h5group.create_dataset(
+            "laser_state",
+            (0, 2, self.laser.solver.t.shape[0]),
+            maxshape=(None, 2, self.laser.solver.t.shape[0]),
+            chunks=True,
+            compression=3,
+        )
+        self.dset_laser_state.attrs["dim_names"] = ["iteration", "axis", "t"]
+        self.dset_laser_state.attrs["coords_mode__iteration"] = "trivial"
+        self.dset_laser_state.attrs["coords_mode__axis"] = "values"
+        self.dset_laser_state.attrs["coords__axis"] = ["u", "v"]
+        self.dset_laser_state.attrs["coords_mode__t"] = "values"
+        self.dset_laser_state.attrs["coords__t"] = self.laser.solver.t
+
+        # Write the laser energy
+        self.dset_laser_energy = self._h5group.create_dataset(
+            "laser_energy",
+            (0, ),
+            maxshape=(None, ),
+            chunks=True,
+            compression=3,
+        )
+        self.dset_laser_energy.attrs["dim_names"] = ["iteration"]
+        self.dset_laser_energy.attrs["coords_mode__iteration"] = "trivial"
+
+        # Write the laser kurtosis
+        self.dset_laser_kurtosis = self._h5group.create_dataset(
+            "laser_kurtosis",
+            (0, ),
+            maxshape=(None, ),
+            chunks=True,
+            compression=3,
+        )
+        self.dset_laser_kurtosis.attrs["dim_names"] = ["iteration"]
+        self.dset_laser_kurtosis.attrs["coords_mode__iteration"] = "trivial"
 
         # Perform a gradient descent step after a certain number of round trips
         self.batch_size = batch_size
 
         # Batches processed
-        self._time = 0
-        self._write_every = write_every
+        self._it = 0
         self._write_start = write_start
 
     def initialise_laser(self, initial_condition: torch.Tensor, n_round_trips: int = 100) -> None:
@@ -114,13 +148,13 @@ class Laser_NN:
         ).flatten()
 
         # Set the transformation matrix of the laser using the current prediction
-        self.laser.set_transformation_matrix(self.laser.calculate_transformation_matrix(alpha=prediction))
+        self.laser.set_alpha(prediction)
 
     def objective_function(self) -> torch.Tensor:
         """" Calculate the objective function of the laser, which is the energy divided by the fourth moment
          of the Fourier spectrum """
 
-        return self.laser.solver.energy(self.laser.state).real #/ self.laser.solver.kurtosis(self.laser.state)
+        return self.laser.solver.energy(self.laser.state) / self.laser.solver.kurtosis(self.laser.state)
 
     def perform_step(self):
         """ Performs a single gradient descent step."""
@@ -130,19 +164,32 @@ class Laser_NN:
         self.neural_net.optimizer.zero_grad()
 
         self.objective = -loss.detach().clone()
-        self._time += 1
-        self.write_data()
+        self._it += 1
         self.laser.clear_gradients()
 
     def write_data(self):
-        """Write the current state (loss and parameter predictions) into the state dataset.
+        """Write the current state (loss, parameter predictions, and laser state) into the state dataset.
 
         In the case of HDF5 data writing that is used here, this requires to
         extend the dataset size prior to writing; this way, the newly written
         data is always in the last row of the dataset.
         """
-        if self._time >= self._write_start and (self._time % self._write_every == 0):
+        if self._it >= self._write_start:
             self._dset_obj.resize(self._dset_obj.shape[0] + 1, axis=0)
             self._dset_obj[-1] = self.objective
+
             self.dset_parameters.resize(self.dset_parameters.shape[0] + 1, axis=0)
             self.dset_parameters[-1, :] = self.laser.alpha()
+
+    def write_laser_state(self):
+        """ Write the state of the laser (abs(u), abs(v)) """
+        self.dset_laser_state.resize(self.dset_laser_state.shape[0] + 1, axis=0)
+        self.dset_laser_state[-1, :] = torch.abs(self.laser.state.clone().detach())
+
+        self.dset_laser_energy.resize(self.dset_laser_energy.shape[0] + 1, axis=0)
+        self.dset_laser_energy[-1] = self.laser.energy.clone().detach()
+
+        self.dset_laser_kurtosis.resize(self.dset_laser_kurtosis.shape[0] + 1, axis=0)
+        self.dset_laser_kurtosis[-1] = self.laser.kurtosis.clone().detach()
+
+

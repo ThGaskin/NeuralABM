@@ -52,13 +52,9 @@ class CNLS_Solver:
         self.z = z
         self.dz = z[1] - z[0]
 
-        # Frequency array
-        self.k = (
-            2 * torch.pi / (self.t[-1] - self.t[0])
-            * torch.cat(
-                (torch.arange(0, len(self.t) / 2), torch.arange(-len(self.t) / 2, 0))
-            )
-        )
+        # Frequency array, both in the natural order and sorted
+        self.k = 2 * torch.pi / (t[-1] - t[0]) * torch.fft.fftfreq(len(t), 1/self.dt)
+        self.k_sorted = torch.cat([self.k[int(len(self.k)/2):], self.k[:int(len(self.k)/2)]])
 
         # Cavity parameters
         self.parameters = parameters
@@ -72,7 +68,35 @@ class CNLS_Solver:
         """
         u, v = state
 
-        return torch.trapezoid(y=torch.conj(u) * u + torch.conj(v) * v, x=self.t)
+        return torch.trapezoid(y=torch.conj(u) * u + torch.conj(v) * v, x=self.t).real
+
+    def kurtosis(self, state: torch.Tensor) -> torch.Tensor:
+        """ Calculate the kurtosis of a state, given by the sum of the kurtoses of each individual component.
+        The kurtosis of a signal is given by the fourth moment about the mean divided by the square of the variance:
+
+        .. math::
+            E [ (u-\bar{u})^4 ] / E [ (u-\bar{u})^2 ] ^2
+
+        """
+        # Helper function for kurtosis along a single dimension
+        def _kurtosis(_x):
+
+            # Calculate the Fourier spectrum and normalise
+            _spec = torch.abs(fft(_x))**2
+            _spec = torch.cat([_spec[int(len(self.k)/2):], _spec[:int(len(self.k)/2)]])
+            _norm = torch.trapz(y=_spec, x=self.k_sorted)
+            _spec = _spec / _norm
+
+            # Calculate the mean, standard deviation, and fourth moment
+            _mean = torch.trapz(_spec * self.k_sorted, self.k_sorted)
+            _m_2 = torch.trapz((self.k_sorted - _mean) ** 2 * _spec, self.k_sorted)
+            _m_4 = torch.trapz((self.k_sorted - _mean) ** 4 * _spec, self.k_sorted)
+
+            # Return the normalised fourth moment
+            return _m_4 / (_m_2 ** 2)
+
+        u, v = state
+        return _kurtosis(u) + _kurtosis(v)
 
     def set_parameter(self, params: dict) -> None:
         """Update the dictionary of parameters"""
@@ -209,10 +233,13 @@ class Laser_cavity:
         # Current energy
         self.energy = None
 
+        # Current kurtosis
+        self.kurtosis = None
+
         # Current time
         self._t = 0
 
-    def calculate_transformation_matrix(self, *, alpha: torch.Tensor = None) -> torch.Tensor:
+    def calculate_transformation_matrix(self, alpha: torch.Tensor = None) -> torch.Tensor:
         """Gets the current state of the laser cavity"""
 
         alpha = self._alpha if alpha is None else alpha
@@ -250,7 +277,7 @@ class Laser_cavity:
         """Setter function for alpha. When changing the angles of the waveplates and polarizers, the
         transformation matrix is automatically adjusted."""
         self._alpha = alpha
-        self._transformation_matrix = self.transformation_matrix()
+        self._transformation_matrix = self.calculate_transformation_matrix(alpha)
 
     def set_state(self, state: torch.Tensor, *, set_init: bool = False) -> None:
         """Setter function for the current state of (u, v). If specified, also sets this state as the initial
@@ -304,6 +331,9 @@ class Laser_cavity:
 
             # Update the energy
             self.energy = new_energy
+
+            # Update the kurtosis
+            self.kurtosis = self.solver.kurtosis(new_state)
 
             self._t += 1
 

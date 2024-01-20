@@ -5,3 +5,19 @@
 # ======================================================================================================================
 objective_function:
   based_on: objective
+
+laser_beam:
+  based_on: laser_beam
+
+parameters:
+  based_on: parameters
+  sharey: False
+  col_wrap: 2
+
+energy:
+  based_on: energy
+
+kurtosis:
+  based_on: energy
+  select:
+    data: laser_kurtosis
