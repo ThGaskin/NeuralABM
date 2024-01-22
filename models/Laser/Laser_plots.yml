@@ -21,3 +21,8 @@ kurtosis:
   based_on: energy
   select:
     data: laser_kurtosis
+
+birefringence:
+  based_on: energy
+  select:
+    data: laser_birefringence

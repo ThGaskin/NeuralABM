@@ -5,7 +5,7 @@ Laser_Cavity:
   # Birefringence of the optical fiber
   K: 0.1
   # Standard deviation of the birefringence time series
-  K_std: 0
+  K_std: 1e-3
   # Cavity saturation energy
   E0: 1
   # Bandwidth of the gain media (denoted by tau in original code)

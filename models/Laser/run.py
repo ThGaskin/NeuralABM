@@ -19,7 +19,6 @@ base = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include")
 log = logging.getLogger(__name__)
 coloredlogs.install(fmt="%(levelname)s %(message)s", level="INFO", logger=log)
 
-
 # ----------------------------------------------------------------------------------------------------------------------
 # Performing the simulation run
 # ----------------------------------------------------------------------------------------------------------------------
@@ -66,8 +65,8 @@ if __name__ == "__main__":
     # Instantiate a laser, which is later initialised in the model
     laser = Laser.Laser_cavity(
         parameters=model_cfg["Laser_Cavity"],
-        t=torch.linspace(-25, +25, 256), # TODO control this from the config
-        z=torch.tensor([0, 0.5, 1]), # TODO control this from the config
+        t=torch.linspace(-25, +25, 256),  # TODO control this from the config
+        z=torch.tensor([0, 0.5, 1]),  # TODO control this from the config
         alpha=torch.tensor(model_cfg["Laser_Cavity"]["initial_angles"]),
     )
 
@@ -105,8 +104,15 @@ if __name__ == "__main__":
         # Perform a round trip
         model.laser.round_trip()
 
-        if i % model.batch_size == 0:
+        # Vary the birefringence
+        model.laser.solver.set_parameter(dict(K=
+            np.clip(np.random.normal(
+                model.laser.solver.get_parameter("K"),
+                model.laser.solver.get_parameter("K_std")
+            ), a_min=-0.3, a_max=0.3)
+        ))
 
+        if i % model.batch_size == 0:
             # Train the neural network
             model.perform_step()
 

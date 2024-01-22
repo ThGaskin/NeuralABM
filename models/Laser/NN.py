@@ -115,6 +115,17 @@ class Laser_NN:
         self.dset_laser_kurtosis.attrs["dim_names"] = ["iteration"]
         self.dset_laser_kurtosis.attrs["coords_mode__iteration"] = "trivial"
 
+        # Write the birefringence
+        self.dset_laser_K = self._h5group.create_dataset(
+            "laser_birefringence",
+            (0, ),
+            maxshape=(None, ),
+            chunks=True,
+            compression=3,
+        )
+        self.dset_laser_K.attrs["dim_names"] = ["iteration"]
+        self.dset_laser_K.attrs["coords_mode__iteration"] = "trivial"
+
         # Perform a gradient descent step after a certain number of round trips
         self.batch_size = batch_size
 
@@ -192,4 +203,6 @@ class Laser_NN:
         self.dset_laser_kurtosis.resize(self.dset_laser_kurtosis.shape[0] + 1, axis=0)
         self.dset_laser_kurtosis[-1] = self.laser.kurtosis.clone().detach()
 
+        self.dset_laser_K.resize(self.dset_laser_K.shape[0] + 1, axis=0)
+        self.dset_laser_K[-1] = self.laser.solver.get_parameter("K")
 
