@@ -137,13 +137,13 @@ This will pull all the datasets.
 
 ### Installation on Windows
 
-On Windows systems, you must use the Windows development branches of utopya and dantro. Be aware that development on these
-is ongoing; if you run into any problems, please file an issue. After completing the steps above, install the 
-packages by running the following two commands:
+On Windows systems, you must use the Windows development branches of utopya. Be aware that development on these
+is ongoing; if you run into any problems, please file an issue. After completing the steps above, install the utopya windows development
+version by running:
 
 ```commandline
+pip uninstall utopya
 pip install git+https://gitlab.com/utopia-project/utopya@support-windows-platform
-pip install git+https://gitlab.com/utopia-project/dantro@support_windows_platform
 ```
 Lastly, you must change the default encoding to utf-8 on Windows; in the Control Panel, navigate to the 
 Regional Settings, go to the 'Administrative' tab, click 'Change system locale' under 'Language for non-Unicode programs',
