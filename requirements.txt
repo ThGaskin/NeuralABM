@@ -1,4 +1,4 @@
-dantro>=0.18.0
+dantro>=0.20.0b0
 h5py>=3.7.0
 matplotlib
 numpy
