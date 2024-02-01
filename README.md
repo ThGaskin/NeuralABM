@@ -137,7 +137,7 @@ This will pull all the datasets.
 
 ### Installation on Windows
 
-On Windows systems, you must use the Windows development branch of utopya; after completing the step above, run:
+On Windows systems, you must use the Windows development branch of utopya; after completing the steps above, run:
 
 ```commandline
 pip uninstall utopya
