@@ -2,7 +2,8 @@
 Laser_Cavity:
   # Chromatic dispersion; normal (D < 0) or anomalous (D > 0)
   D: 1
-  # Birefringence of the optical fiber
+  # Birefringence of the optical fiber. Can be a float, in which it is used as the initial value of the
+  # time series, or a path to a dataset, in which case the K_std arg is ignored
   K: 0.1
   # Standard deviation of the birefringence time series
   K_std: 1e-3

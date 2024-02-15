@@ -1,0 +1,22 @@
+perform_sweep: True
+paths:
+  model_note: sweep
+parameter_space:
+  seed: !sweep
+    default: 1
+    range: [5]
+  num_epochs: 30000
+  Laser:
+    Laser_Cavity:
+#      initial_angles:
+#        - &alpha_1 !expr 3.14159 / 6
+#        - &alpha_2 !expr 3.14159 / 6
+#        - &alpha_3 !expr 3.14159 / 5
+#        - &alpha_p !expr 3.14159 / 4
+      K: /Users/thomasgaskin/utopya_output/Laser/240122-002357/data/uni0/data.h5
+      n_initialisation: 10
+    NeuralNet:
+#      prior: ~
+      learning_rate: 0.0001
+    Training:
+      device: mps

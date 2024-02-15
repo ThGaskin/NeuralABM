@@ -79,7 +79,7 @@
   style:
     text.usetex: False   # Set to 'True' to use latex
     mathtext.fontset: cm
-    font.family: Helvetica
+    font.family: Carrara
     text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
     # Set the label fontsize

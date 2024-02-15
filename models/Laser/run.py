@@ -62,16 +62,36 @@ if __name__ == "__main__":
     h5file = h5.File(cfg["output_path"], mode="w")
     h5group = h5file.create_group(model_name)
 
+    # Generate the birefringence time series, or load if a dataset is given
+    if isinstance(model_cfg["Laser_Cavity"]["K"], str):
+        with h5.File(model_cfg["Laser_Cavity"]["K"], "r") as f:
+            K = np.array(f["Laser"]["laser_birefringence"])
+        model_cfg["Laser_Cavity"]["K"] = K[0]
+    else:
+        K = model_cfg["Laser_Cavity"]["K"] * np.ones(cfg["num_epochs"])
+        for _ in range(len(K)-1):
+            K[_+1] = np.clip(np.random.normal(K[_], model_cfg["Laser_Cavity"]["K_std"]), a_min=-0.3, a_max=+0.3)
+
     # Instantiate a laser, which is later initialised in the model
+    # Initial angles can be specified in the config, or else are randomly generated
+    # These are used as the initial guess of the neural network
+    init_angles = model_cfg["Laser_Cavity"].get("initial_angles")
+    init_angles = torch.pi * torch.rand(size=(4,)) if init_angles is None else torch.tensor(init_angles)
     laser = Laser.Laser_cavity(
         parameters=model_cfg["Laser_Cavity"],
         t=torch.linspace(-25, +25, 256),  # TODO control this from the config
         z=torch.tensor([0, 0.5, 1]),  # TODO control this from the config
-        alpha=torch.tensor(model_cfg["Laser_Cavity"]["initial_angles"]),
+        alpha=init_angles,
     )
 
-    # Initialise the neural net
+    # Initialise the neural net. The angles of the waveplates are used as the initial guess
     log.info("   Initializing the neural net ...")
+    if model_cfg["NeuralNet"].get("prior", None) is None:
+        model_cfg["NeuralNet"]["prior"] = [
+            dict(distribution='uniform', parameters=dict(lower=a.numpy(), upper=a.numpy()))
+            for a in init_angles
+        ]
+
     net = base.NeuralNet(
         input_size=3,
         output_size=4,
@@ -101,17 +121,13 @@ if __name__ == "__main__":
 
     for i in range(num_epochs):
 
+        # Vary the birefringence
+        model.laser.solver.set_parameter(dict(K=K[i]))
+
         # Perform a round trip
         model.laser.round_trip()
 
-        # Vary the birefringence
-        model.laser.solver.set_parameter(dict(K=
-            np.clip(np.random.normal(
-                model.laser.solver.get_parameter("K"),
-                model.laser.solver.get_parameter("K_std")
-            ), a_min=-0.3, a_max=0.3)
-        ))
-
+        # Perform a gradient step every n round trips
         if i % model.batch_size == 0:
             # Train the neural network
             model.perform_step()

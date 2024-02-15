@@ -14,4 +14,5 @@ xarray
 coloredlogs
 pre-commit
 coverage
+torchdiffeq @ git+https://github.com/rtqichen/torchdiffeq
 tqdm

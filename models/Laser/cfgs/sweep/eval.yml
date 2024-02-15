@@ -1,0 +1,24 @@
+# Plot the objective function for the different explorers
+objective:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      data: objective_function
+  hue: seed
+  add_legend: False
+
+# Plot the parameters for the different explorers
+parameters:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      data: parameters
+  hue: seed
+  add_legend: False
+  col: parameter
+  col_wrap: 2
+  sharey: False
