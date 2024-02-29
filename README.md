@@ -141,7 +141,7 @@ On Windows systems, you must use the Windows development branch of utopya; after
 
 ```commandline
 pip uninstall utopya
-pip install git+https://gitlab.com/utopia-project/utopya@support-windows-platform
+pip install git+https://gitlab.com/utopia-project/utopya@89-allow-exec-prefix
 ```
 
 Be aware that development on the utopya Windows dev branch is ongoing; if you run into any problems, please file an [issue](https://gitlab.com/utopia-project/utopya/-/issues/new). 
