@@ -6,7 +6,8 @@ executable_control:
   run_from_tmpdir: false
 
   # Default prefix for windows operations
-  prefix: !if-windows-else [[python], ~]
+  # Uncomment on Windows
+  # prefix: !if-windows-else [[python], ~]
 
 parameter_space:
   num_epochs: 100
