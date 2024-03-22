@@ -12,7 +12,7 @@
 
 <img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/e0bf61c7-4fe1-4234-b480-02d1f8efff6b"/> <img src="https://github.com/ThGaskin/NeuralABM/files/13863262/marginals_all.pdf" width="49%"> 
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13863293/densities_from_joint.pdf" width="49%"> <img src="https://github.com/ThGaskin/NeuralABM/files/13863249/predictions.pdf" width="49%">
+<img src="https://github.com/ThGaskin/NeuralABM/files/13863293/densities_from_joint.pdf"> <img src="https://github.com/ThGaskin/NeuralABM/files/13863249/predictions.pdf" width="49%">
 
 
 This project calibrates multi-agent ODE and SDE models to data using a neural network. We estimate marginal densities on the equation parameters, including adjacency matrices. This repository contains all the code and models used in our publications on the topic, as well as an extensive set of tools and examples for you to calibrate your own model:
