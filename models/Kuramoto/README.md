@@ -7,10 +7,12 @@ The oscillators are coupled via an adjacency matrix $\textbf{A} = (a_{ij})$ via 
 The model outputs e.g. the predicted and true network adjacency matrix, as well as predicted degree and triangle distributions with uncertainty quantification:
 
 True and predicted adjacency matrix:
-<img src="https://github.com/ThGaskin/NeuralABM/files/13854647/comp.pdf" width=100%>
+
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/bd49f975-7dfa-446a-b317-84eef24a3d50" width=100%>
 
 Predicted degree distribution as a function of the noise $\sigma$ on the data:
-<img src="https://github.com/ThGaskin/NeuralABM/files/13854606/degree_distribution.pdf" width=100%>
+
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/63cb6074-60ae-492e-b9fb-ebba176053af" width=100%>
 
 ### Model parameters
 The following are the default model parameters:
