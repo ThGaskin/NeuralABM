@@ -10,7 +10,7 @@
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
-<picture> <source srcset="https://github.com/ThGaskin/NeuralABM/assets/22022754/e0bf61c7-4fe1-4234-b480-02d1f8efff6b"> </picture>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/e0bf61c7-4fe1-4234-b480-02d1f8efff6b" />
 
 This project calibrates multi-agent ODE and SDE models to data using a neural network. We estimate marginal densities on the equation parameters, including adjacency matrices. This repository contains all the code and models used in our publications on the topic, as well as an extensive set of tools and examples for you to calibrate your own model:
 
