@@ -29,11 +29,11 @@ utopya run Covid
 
 The model calibrates the time series for each of the compartments and produces a prediction by drawing parameter samples from the estimated joint distribution of the parameters:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13854843/densities_from_joint.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/1ef50b59-ad19-41ad-8a66-41f72d6f32cb" width=100%>
 
 The data can be divided into a training (calibration) and test (prediction) section; the neural network is then trained on the training section and a prediction generated on the test section:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13854838/all.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/b4160566-d16a-45c6-906b-5c4cf2905382" width=100%>
 
 Here, the red period is the training section, and the blue shaded area the test period. This can be controlled via the `Data.training_set_size` key (see below).
 

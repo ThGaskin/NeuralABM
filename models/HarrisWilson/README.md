@@ -17,7 +17,7 @@ $\sigma \geq 0$, with $\circ$ signifying Stratonovich integration.
 
 In this model, we infer any of the four parameters $(\alpha, \beta, \kappa, \sigma)$. The network $\mathbf{C}$ is inferred in the sister `HarrisWilsonNW` model. See here the marginal densities on the parameters as the noise on the training data increases:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13855044/marginals.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/f92b2224-7f76-45dc-a8c3-c4aaa88e15f7" width=100%>
 
 We can clearly see the width of the marginals increasing. Notice also the multimodality of the distributions on $\alpha$ and $\beta$, which have a second peak at $(\alpha=1, \beta=0)$.
 
