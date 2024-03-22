@@ -10,7 +10,7 @@
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
-![]("https://github.com/ThGaskin/NeuralABM/assets/22022754/e0bf61c7-4fe1-4234-b480-02d1f8efff6b") <img src="https://github.com/ThGaskin/NeuralABM/files/13863262/marginals_all.pdf" width=49%> 
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/e0bf61c7-4fe1-4234-b480-02d1f8efff6b" width=49%> <img src="https://github.com/ThGaskin/NeuralABM/files/13863262/marginals_all.pdf" width=49%> 
 
 <img src="https://github.com/ThGaskin/NeuralABM/files/13863293/densities_from_joint.pdf" width=49%> <img src="https://github.com/ThGaskin/NeuralABM/files/13863249/predictions.pdf" width=49%>
 
