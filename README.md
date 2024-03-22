@@ -14,7 +14,7 @@
 <img src="https://github.com/ThGaskin/NeuralABM/files/14724527/predictions.pdf">
 
 
-<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/476c99e3-a9f5-443f-8c27-f2ea16e13e4d">
+<img alt="miao" src="https://github.com/ThGaskin/NeuralABM/assets/22022754/476c99e3-a9f5-443f-8c27-f2ea16e13e4d">
 
 
 <img width="656" alt="Screenshot 2024-01-21 at 00 50 07" src="https://github.com/ThGaskin/NeuralABM/assets/22022754/68239667-febd-4611-aff6-9694ced7c1ed">
