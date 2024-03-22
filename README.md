@@ -10,10 +10,7 @@
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
-<img src="https://private-user-images.githubusercontent.com/22022754/294950846-e0bf61c7-4fe1-4234-b480-02d1f8efff6b.mp4?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MTExMTg1MjIsIm5iZiI6MTcxMTExODIyMiwicGF0aCI6Ii8yMjAyMjc1NC8yOTQ5NTA4NDYtZTBiZjYxYzctNGZlMS00MjM0LWI0ODAtMDJkMWY4ZWZmZjZiLm1wND9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDAzMjIlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQwMzIyVDE0MzcwMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTk4YWI4MzE0MzAwYzRlZmZmMWM0NzUzNDFlYjQ3YzAzNjZmMDkwNzkwZDBjZWU3ZDA3ZDgzYmE5NWJjYTc0ZGMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjdG9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.PBG2XbeZK0pJDpIHJ1dVk4RySojqr8QgqfqCrKjYU10"/> <img src="https://github.com/ThGaskin/NeuralABM/files/13863262/marginals_all.pdf" width="49%"> 
-
-<img src="https://github.com/ThGaskin/NeuralABM/files/13863293/densities_from_joint.pdf"> <img src="https://github.com/ThGaskin/NeuralABM/files/13863249/predictions.pdf" width="49%">
-
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/e0bf61c7-4fe1-4234-b480-02d1f8efff6b"/> 
 
 This project calibrates multi-agent ODE and SDE models to data using a neural network. We estimate marginal densities on the equation parameters, including adjacency matrices. This repository contains all the code and models used in our publications on the topic, as well as an extensive set of tools and examples for you to calibrate your own model:
 
