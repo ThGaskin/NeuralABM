@@ -33,6 +33,7 @@ and plotting. This README gives a brief introduction to installation and a basic
 
 
 ### Contents of this README
+* [Quickstart in Jupyter](#Quickstart)
 * [How to install](#installation)
   * [Installation on Windows](#installation-on-windows) 
 * [Tutorial](#tutorial)
@@ -45,6 +46,13 @@ and plotting. This README gives a brief introduction to installation and a basic
   * [Loading data](#loading-data)
 * [Models overview](#models-overview)
 * [Building your own model](#building-your-own-model)
+
+---
+# Quickstart
+If you are beginner, we recommend you start with the `SIR_demo` Jupyter notebook, located in this folder, which will 
+introduce you to the general principles of neural parameter calibration and help you get setup. Afterwards, we suggest 
+you go through this tutorial step by step, which requires installation of the `utopya` package to handle the simulation, 
+including parallel training.
 
 ---
 # Installation
