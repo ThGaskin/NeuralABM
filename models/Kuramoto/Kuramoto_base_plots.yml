@@ -331,6 +331,7 @@ triangle_distribution_uni:
   select:
     predictions:
       transform:
+        - .data: [!dag_prev ]
         - triangles: [ !dag_prev  ]
         - binned_nw_statistic: [!dag_prev ]
           kwargs:
@@ -344,7 +345,7 @@ triangle_distribution_uni:
           kwargs:
             bins: !dag_tag bins
             ranges: !dag_tag range
-            dim: j
+            dim: vertex_idx
             use_bins_as_coords: True
   helpers:
     set_labels:
