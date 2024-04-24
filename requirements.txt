@@ -1,9 +1,11 @@
+cartopy
 dantro>=0.18.0
 h5py>=3.7.0
 matplotlib
 numpy
 pandas
 pytest
+pyproj
 ruamel.yaml
 ruamel.base
 scipy
