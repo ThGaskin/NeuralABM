@@ -18,8 +18,7 @@ This project calibrates multi-agent ODE and SDE models to data using a neural ne
 
 - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
 https://doi.org/10.1073/pnas.2216415120 (`HarrisWilson` and `SIR` models)
-- T. Gaskin, G. Pavliotis, M. Girolami, . *Inferring networks from time series: a neural approach.* https://arxiv.org/abs/2303.18059
-(`Kuramoto` and `HarrisWilsonNW` models)
+- T. Gaskin, G. Pavliotis, M. Girolami, . *Inferring networks from time series: a neural approach.* PNAS Nexus **4**, 63, 2024. https://academic.oup.com/pnasnexus/article/3/4/pgae063/7604085 (`Kuramoto` and `HarrisWilsonNW` models)
 - T. Gaskin, T. Conrad, G. Pavliotis, C. Schütte. *Neural parameter calibration and uncertainty quantification for epidemic
 forecasting*. https://arxiv.org/abs/2312.03147 (`SIR` and `Covid` models)
 
