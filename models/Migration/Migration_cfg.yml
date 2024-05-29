@@ -1,0 +1,25 @@
+Data:
+  stock_data: data/Migration/UN_stock_data_ext.nc
+  net_migration: data/Migration/UN_net_migration.nc
+  training_range: [1990, 2021]
+
+NeuralNet:
+  num_layers: !is-positive-int 3
+  nodes_per_layer:
+    default: !is-positive-int 20
+  biases:
+    default: ~
+  activation_funcs:
+    default: swish
+    layer_specific:
+      -1: abs
+  learning_rate: !is-positive 0.002
+
+Training:
+  loss_function:
+    name: MSELoss
+    kwargs:
+      reduction: sum
+  training_sigma: 0.01
+  device: cpu
+  num_threads: ~

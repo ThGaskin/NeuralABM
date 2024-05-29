@@ -239,8 +239,24 @@ marginals: !pspace
   hue: type
   linestyle: [solid, solid, dotted]
   helpers:
+    set_limits:
+      x: !coupled-sweep
+        default: [0, 1]
+        values: [[0, 1], [1, 30]]
+        target_name: parameter
     set_labels:
       y: ''
+    set_ticks:
+      x:
+        major:
+          locs: [5, 10, 15, 20, 25]
+          labels: [5, 10, 15, 20, 25]
+          rotation: 270
+      y:
+        major:
+          locs: [0, 0.02, 0.04, 0.06, 0.08 ]
+          labels: [0, 0.02, 0.04, 0.06, 0.08 ]
+          rotation: 270
     set_legend:
       use_legend: !coupled-sweep
         default: true
@@ -319,6 +335,7 @@ predictions:
     from_values:
       0: !dag_result c_darkblue
       1: !dag_result c_yellow
+    bad: !dag_result c_darkblue
 
 # Plot the loss landscape of the parameters, colour-coded by loss
 probability_landscape:
@@ -369,13 +386,17 @@ joint:
       tag: data
   x: p_infect
   y: t_infectious
+  add_colorbar: False
   cmap:
     <<: *cmap
-  cbar_kwargs:
-    label: ~
+#  cbar_kwargs:
+#    label: ~
   style:
     figure.figsize: [!dag_result half_width, !dag_result half_width]
-
+  helpers:
+    set_labels:
+      x: $\beta$
+      y: $\tau$
 # Plot the density of samples in 2D
 point_density:
   based_on:
@@ -411,7 +432,76 @@ point_density:
     name: LogNorm
   cmap:
     <<: *cmap
-  cbar_kwargs:
-    label: ~
+#  cbar_kwargs:
+#    label: ~
   style:
     figure.figsize: [!dag_result half_width, !dag_result half_width]
+
+point_density_anim:
+  based_on:
+    - .creator.multiverse
+    - .animation.ffmpeg
+  module: model_plots.SIR
+  plot_func: scatter_anim
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss:
+        path: loss
+        transform: [neg_exp]
+    subspace:
+      seed: [167] #[17, 53, 99, 167, 201]
+  transform:
+    - .sel_with_drop: [!dag_tag parameters, {parameter: "t_infectious"}]
+      tag: tau
+    - .sel_with_drop: [!dag_tag parameters, {parameter: "p_infect"}]
+      tag: beta
+    - xr.Dataset:
+        - x: !dag_tag beta
+          y: !dag_tag tau
+          hue: !dag_tag loss
+#    - .isel_with_drop: [!dag_prev , {"seed": 0}]
+      tag: data
+  x: x
+  y: y
+  hue: hue
+  frames: batch
+  cmap:
+    <<: *cmap
+  s: 2
+#  norm:
+#    name: LogNorm
+  helpers:
+    set_limits:
+      x: [0, 1]
+      y: [0, 30]
+    set_labels:
+      x: $\beta$
+    set_ticks:
+      x:
+        minor:
+          locs: !linspace [0, 1, 101]
+      y:
+        minor:
+          locs: !linspace [0, 30, 31]
+
+  animation:
+    writer_kwargs:
+      ffmpeg:
+        saving:
+          dpi: 500
+
+#  file_ext: png
+  style:
+    figure.figsize: [!dag_result half_width, !dag_result half_width]
+    axes.grid: True
+    savefig.transparent: True
+#    axes.spines.bottom: false
+#    axes.spines.left: false
+    grid.linewidth: 0.1
+    axes.spines.right: false
+    axes.spines.top: false
+    axes.titlesize: 7
+    axes.grid.which: both
+    figure.constrained_layout.use: true
+    figure.facecolor: None

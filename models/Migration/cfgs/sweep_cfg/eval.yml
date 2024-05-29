@@ -1,0 +1,31 @@
+save_datasets:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+#  module: ~
+#  plot_func: ~
+#  expected_mv_ndim: [2]
+  select_and_combine:
+    fields:
+      loss: loss
+      flow_table: flow_table
+  transform:
+    - .isel: [ !dag_tag loss , { batch: !range [ -11, 0 ] } ]
+    - .median: [!dag_prev ]
+    - div: [!dag_node -2, !dag_prev ]
+    - neg_exp: [!dag_prev ]
+    - .sum: [!dag_prev ]
+    - div: [!dag_node -2, !dag_prev ]
+      tag: prob
+    - Migration.save_flow_table_stats: [!dag_tag flow_table, !dag_tag prob , '/Users/thomasgaskin/bilateral_flows_stats_silu.nc']
+      tag: bilat
+    - define: [!dag_tag loss]
+      tag: data
+  compute_only: [data, bilat]
+  hue: seed
+  x: batch
+  alpha: 0.5
+  add_legend: False
+  helpers:
+    set_scales:
+      y: log
