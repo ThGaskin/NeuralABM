@@ -150,6 +150,7 @@ Training_data/oscillations:
     - mul: [!dag_prev , !dag_tag t ]
     - add: [!dag_tag eigen_frequencies , !dag_prev ]
     - np.sin: [!dag_prev ]
+    - .squeeze_with_drop: [!dag_prev ]
       tag: data
   x: time
   hue: vertex_idx

@@ -5,6 +5,9 @@ from torch import nn
 
 from .utils import random_tensor
 
+from .CADAM_splitting import Cadam
+from .iKFAD_optimizer import iKFAD
+from .Cubic_Damping_Optimizer import cubic_damping_opt
 # ----------------------------------------------------------------------------------------------------------------------
 # -- NN utility functions ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
@@ -164,6 +167,9 @@ class NeuralNet(nn.Module):
         "RMSprop": torch.optim.RMSprop,
         "Rprop": torch.optim.Rprop,
         "SGD": torch.optim.SGD,
+        "CAdam": Cadam,
+        "Cubic_Dampening": cubic_damping_opt,
+        "iKFAD": iKFAD
     }
 
     def __init__(
@@ -179,8 +185,7 @@ class NeuralNet(nn.Module):
         prior_max_iter: int = 500,
         prior_tol: float = 1e-5,
         optimizer: str = "Adam",
-        learning_rate: float = 0.002,
-        optimizer_kwargs: dict = {},
+        optimizer_kwargs: dict = None,
         **__,
     ):
         """
@@ -236,7 +241,7 @@ class NeuralNet(nn.Module):
 
         # Get the optimizer
         self.optimizer = self.OPTIMIZERS[optimizer](
-            self.parameters(), lr=learning_rate, **optimizer_kwargs
+            self.parameters(), **(optimizer_kwargs if optimizer_kwargs is not None else {})
         )
 
         # Get the initial distribution and initialise

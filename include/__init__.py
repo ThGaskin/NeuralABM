@@ -4,3 +4,8 @@ from .langevin import MetropolisAdjustedLangevin
 from .neural_net import NeuralNet
 from .utils import *
 from .vector import *
+
+# New optimizers
+from .CADAM_splitting import Cadam
+from .Cubic_Damping_Optimizer import cubic_damping_opt
+from .iKFAD_optimizer import iKFAD

@@ -1,0 +1,13 @@
+perform_sweep: True
+parameter_space:
+  Kuramoto:
+    NeuralNet:
+      optimizer: Cubic_Dampening
+      optimizer_kwargs:
+        lr: 0.001
+        gamma: !sweep
+          default: 1
+          linspace: [0, 1, 5]
+        c: !sweep
+          default: 1
+          values: [1, 10, 100]

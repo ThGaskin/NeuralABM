@@ -64,7 +64,9 @@ NeuralNet:
       -1: abs
   biases:
     default: ~
-  learning_rate: !is-positive 0.002
+  optimizer: Adam
+  optimizer_kwargs:
+    lr: !is-positive 0.002
 
 # Settings for the neural net training
 Training:

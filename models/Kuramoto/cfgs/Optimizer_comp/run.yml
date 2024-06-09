@@ -1,0 +1,13 @@
+perform_sweep: True
+parameter_space:
+  Kuramoto:
+    NeuralNet:
+      optimizer: !sweep
+        default: Adam
+        values: [CAdam, Adam, iKFAD, Cubic_Dampening]
+      optimizer_kwargs: !coupled-sweep
+        target_name: optimizer
+        default: [{lr: 0.002}]
+        # The order of the items corresponds to the order of the optimizers. Change the parameters in each dict as
+        # you like. lr = your h!
+        values: [{lr: 0.001}, {lr: 0.002}, {lr: 0.001}, {lr: 0.001, gamma: 1, c: 1}]

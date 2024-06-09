@@ -1,0 +1,16 @@
+loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      data:
+        path: output_data/Loss
+        transform:
+          - .sel: [!dag_prev , {'kind': 'Total loss'}]
+  col: gamma
+  row: c
+  x: batch
+  helpers:
+    set_scales:
+      y: log

@@ -41,7 +41,8 @@ NeuralNet:
     default: sigmoid
     layer_specific:
       -1: abs
-  learning_rate: !is-positive 0.002
+  optimizer_kwargs:
+    lr: 0.002 # Adam learning rate
 
   # Priors on p_infect, t_infectious, sigma.
   # t_infectious is scaled by a factor of 10

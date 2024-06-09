@@ -68,8 +68,9 @@ NeuralNet:
       -1: HardSigmoid
   biases:
     default: ~
-  learning_rate: !is-positive 0.002
   optimizer: Adam
+  optimizer_kwargs:
+    lr: 0.002 # Adam learning rate
 
 # Training configuration
 Training:
