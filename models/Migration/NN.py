@@ -66,6 +66,7 @@ class Migration_NN:
 
         stock_data = torch.from_numpy(training_data["stock_data"].data).float()
         self.stock_data = torch.diff(stock_data, dim=0).reshape(-1, self.N ** 2)
+        self.total_population = torch.from_numpy(training_data["total_population"].data).float()
 
         # Get the mask for the stock data differences
         self.mask = ~torch.isnan(self.stock_data)
@@ -144,24 +145,32 @@ class Migration_NN:
                 self.net_migration_data[5*b:5*(b+1)]
             ).reshape(-1, 2, self.N, self.N)
 
-            # Perturb the prediction by 1%
+            # Perturb the prediction by sigma
             if self.training_sigma > 0:
                 prediction = prediction * torch.normal(1.0, self.training_sigma, prediction.shape)
 
             # Calculate the total predicted flow across five years (inflow minus outflow)
             predicted_stock_diff = (prediction[:, 0, :] - prediction[:, 1, :]).sum(dim=0).reshape(self.N ** 2)
 
-            # Calculate the predicted net migration
-            predicted_net_migration = ((prediction.transpose(-2, -1)[:, 0, :] + prediction[:, 1, :]).sum(dim=-1) - (
-                        prediction[:, 0, :] + prediction.transpose(-2, -1)[:, 1, :]).sum(dim=-1))
+            # Calculate the total outflow and inflow
+            predicted_outflow = (prediction[:, 0, :] + prediction.transpose(-2, -1)[:, 1, :]).sum(dim=-1)
+            predicted_inflow = (prediction.transpose(-2, -1)[:, 0, :] + prediction[:, 1, :]).sum(dim=-1)
 
-            # Loss = loss on stock data + loss on net migration + trace
+            # Calculate the predicted net migration (inflow - outflow)
+            predicted_net_migration = predicted_inflow - predicted_outflow
+
+            # Loss = loss on stock data + loss on net migration + trace + total outflow must be less than population
+            # of country
             loss = torch.nn.functional.mse_loss(
                 predicted_stock_diff[self.mask[b]], self.stock_data[b][self.mask[b]]
             ) + torch.nn.functional.mse_loss(
                 predicted_net_migration, self.net_migration_data[5 * b: 5*(b + 1)]
-            ) + torch.diagonal(
+            ) + 10000 * torch.diagonal(
                 prediction.sum(dim=1), dim1=-2, dim2=-1
+            ).sum() + torch.relu(
+                predicted_outflow - self.total_population[5 * b: 5*(b + 1)]
+            ).sum() + torch.relu(
+                predicted_inflow - self.total_population[5 * b: 5*(b + 1)]
             ).sum()
 
             # Perform gradient descent step
@@ -174,19 +183,32 @@ class Migration_NN:
             # Save the current predictions
             self.current_predictions[5*b:5*(b+1)] = prediction.detach()
 
-        # 2020 and 2021 not covered by stock -- learn seperately
+        # 2020 and 2021 not covered by stock -- learn separately
         prediction = self.neural_net(self.net_migration_data[-2:]).reshape(-1, 2, self.N, self.N)
 
         # Perturb the prediction by 1%
-        prediction = prediction * torch.normal(1.0, 0.03, prediction.shape)
+        prediction = prediction * torch.normal(1.0, self.training_sigma, prediction.shape)
 
-        # Calculate the predicted net migration
-        predicted_net_migration = ((prediction.transpose(-2, -1)[:, 0, :] + prediction[:, 1, :]).sum(dim=-1) - (
-                    prediction[:, 0, :] + prediction.transpose(-2, -1)[:, 1, :]).sum(dim=-1))
+        # Calculate the total outflow and inflow
+        predicted_outflow = (prediction[:, 0, :] + prediction.transpose(-2, -1)[:, 1, :]).sum(dim=-1)
+        predicted_inflow = (prediction.transpose(-2, -1)[:, 0, :] + prediction[:, 1, :]).sum(dim=-1)
+
+        # Calculate the predicted net migration (inflow - outflow)
+        predicted_net_migration = predicted_inflow - predicted_outflow
 
         # Loss = loss on stock data + loss on net migration + trace
-        loss = torch.nn.functional.mse_loss(predicted_net_migration, self.net_migration_data[-2:]) + torch.diagonal(
-            prediction.sum(dim=1), dim1=-2, dim2=-1).sum()
+        loss = (
+                torch.nn.functional.mse_loss(
+                    predicted_net_migration, self.net_migration_data[-2:]
+                ) + 10000 * torch.diagonal(
+                    prediction.sum(dim=1), dim1=-2, dim2=-1).sum() +
+                torch.relu(
+                    predicted_outflow - self.total_population[-2:]
+                ).sum() +
+                torch.relu(
+                    predicted_inflow - self.total_population[-2:]
+                ).sum()
+        )
 
         loss.backward()
         self.neural_net.optimizer.step()

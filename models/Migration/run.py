@@ -75,6 +75,10 @@ if __name__ == "__main__":
     stock_data = xr.load_dataarray(model_cfg["Data"]["stock_data"])
     stock_data = stock_data.sel({"Year": np.arange(start, end, 5)})
 
+    # Load the total population
+    total_population_data = xr.load_dataarray(model_cfg["Data"]["total_population"])
+    total_population_data = total_population_data.sel({"Year": range(start, end)})
+
     N = len(net_migration_data.coords["Country ISO"].data)
 
     # Initialise the neural net
@@ -94,7 +98,7 @@ if __name__ == "__main__":
         write_start=cfg["write_start"],
         write_predictions_every=cfg.get("write_predictions_every", cfg["write_every"]),
         write_predictions_start=cfg.get("write_predictions_start", cfg["write_start"]),
-        training_data=dict(stock_data=stock_data, net_migration=net_migration_data),
+        training_data=dict(stock_data=stock_data, net_migration=net_migration_data, total_population=total_population_data),
         **model_cfg["Training"],
     )
     log.info(f"   Initialized model '{model_name}'.")

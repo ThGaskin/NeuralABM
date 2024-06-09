@@ -4,6 +4,9 @@ import torch
 from torch import nn
 
 from .utils import random_tensor
+from .iKFAD_optimizer import iKFAD
+from .Cubic_Damping_Optimizer import cubic_damping_opt
+from .CADAM_splitting import Cadam
 
 # ----------------------------------------------------------------------------------------------------------------------
 # -- NN utility functions ----------------------------------------------------------------------------------------------
@@ -164,6 +167,9 @@ class NeuralNet(nn.Module):
         "RMSprop": torch.optim.RMSprop,
         "Rprop": torch.optim.Rprop,
         "SGD": torch.optim.SGD,
+        "Cadam": Cadam,
+        "iKFAD": iKFAD,
+        "Cubic_Dampening": cubic_damping_opt
     }
 
     def __init__(
@@ -179,8 +185,7 @@ class NeuralNet(nn.Module):
         prior_max_iter: int = 500,
         prior_tol: float = 1e-5,
         optimizer: str = "Adam",
-        learning_rate: float = 0.002,
-        optimizer_kwargs: dict = {},
+        optimizer_kwargs: dict = None,
         **__,
     ):
         """
@@ -196,7 +201,7 @@ class NeuralNet(nn.Module):
         :param prior_tol (optional): the tolerance with which the prior distribution should be met
         :param prior_max_iter (optional): maximum number of training iterations to hit the prior target
         :param optimizer: the name of the optimizer to use. Default is the torch.optim.Adam optimizer.
-        :param learning_rate: the learning rate of the optimizer. Default is 1e-3.
+        :param optimizer_kwargs: passed to the optimizer
         :param __: Additional model parameters (ignored)
         """
 
@@ -236,7 +241,7 @@ class NeuralNet(nn.Module):
 
         # Get the optimizer
         self.optimizer = self.OPTIMIZERS[optimizer](
-            self.parameters(), lr=learning_rate, **optimizer_kwargs
+            self.parameters(), **optimizer_kwargs
         )
 
         # Get the initial distribution and initialise

@@ -10,14 +10,14 @@ save_datasets:
       loss: loss
       flow_table: flow_table
   transform:
-    - .isel: [ !dag_tag loss , { batch: !range [ -11, 0 ] } ]
+    - .isel: [ !dag_tag loss , { batch: !range [ -2, 0 ] } ]
     - .median: [!dag_prev ]
     - div: [!dag_node -2, !dag_prev ]
     - neg_exp: [!dag_prev ]
     - .sum: [!dag_prev ]
     - div: [!dag_node -2, !dag_prev ]
       tag: prob
-    - Migration.save_flow_table_stats: [!dag_tag flow_table, !dag_tag prob , '/Users/thomasgaskin/bilateral_flows_stats_silu.nc']
+    - Migration.save_flow_table_stats: [!dag_tag flow_table, !dag_tag prob , '/Users/thomasgaskin/bilateral_flows_stats_noiseless.nc']
       tag: bilat
     - define: [!dag_tag loss]
       tag: data

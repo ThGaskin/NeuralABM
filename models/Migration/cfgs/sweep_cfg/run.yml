@@ -3,7 +3,7 @@ parameter_space:
   num_epochs: 10000
   write_start: 1
   write_every: 1
-  write_predictions_start: 9990
+  write_predictions_start: 9999
   write_predictions_every: 1
   seed: !sweep
     default: 0
@@ -12,6 +12,7 @@ parameter_space:
     Data:
       stock_data: data/Migration/UN_stock_data_ext.nc
       net_migration: data/Migration/UN_net_migration.nc
+      total_population: data/Migration/UN_total_population.nc
       training_range: [1990, 2021]
     NeuralNet:
       num_layers: 5
@@ -23,4 +24,4 @@ parameter_space:
           1: swish
           -1: abs
     Training:
-      training_sigma: 0.03
+      training_sigma: 0.00
