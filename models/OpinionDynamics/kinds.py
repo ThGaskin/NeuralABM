@@ -7,7 +7,8 @@ class Compartments(IntEnum):
     susceptible = 0
     exposed = 1
     infected = 2
-    recovered = 3
-    hospitalized = 4
-    critical = 5
-    deceased = 6
+    symptomatic = 3
+    recovered = 4
+    hospitalized = 5
+    critical = 6
+    deceased = 7
