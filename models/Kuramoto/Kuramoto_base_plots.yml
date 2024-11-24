@@ -78,8 +78,8 @@
   style:
     text.usetex: False   # Set to 'True' to use latex
     mathtext.fontset: cm
-    font.family: Carrara
-#    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
+    font.family: Helvetica
+    text.latex.preamble: \usepackage{amssymb} \usepackage{amsmath}
 
     # Set the label fontsize
     font.size: &fontsize 7
@@ -157,8 +157,8 @@
 .hlpr.no_labels:
   helpers:
     set_labels:
-      x: ''
-      y: ''
+      x: ' '
+      y: ' '
 # ======================================================================================================================
 #  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗╔═╗
 #   ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣ ╚═╗
@@ -331,7 +331,7 @@ triangle_distribution_uni:
   select:
     predictions:
       transform:
-        - .data: [ !dag_prev ]
+        - .data: [!dag_prev ]
         - triangles: [ !dag_prev  ]
         - binned_nw_statistic: [!dag_prev ]
           kwargs:

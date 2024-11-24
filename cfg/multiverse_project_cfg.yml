@@ -5,6 +5,10 @@ executable_control:
   # copied to a temporary directory
   run_from_tmpdir: false
 
+  # Default prefix for windows operations
+  # Uncomment on Windows
+  # prefix: !if-windows-else [[python], ~]
+
 parameter_space:
   num_epochs: 100
   write_start: 1

@@ -10,17 +10,15 @@
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
-<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/e0bf61c7-4fe1-4234-b480-02d1f8efff6b" width=49%> <img src="https://github.com/ThGaskin/NeuralABM/files/13863262/marginals_all.pdf" width=49%> 
-
-<img src="https://github.com/ThGaskin/NeuralABM/files/13863293/densities_from_joint.pdf" width=49%> <img src="https://github.com/ThGaskin/NeuralABM/files/13863249/predictions.pdf" width=49%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/4b786ca5-73df-44a0-92d3-2e4732ef25de" width=49%> <img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/c2701e7a-c5d2-4afb-907e-2772aae69b3c" width=49%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/4ec62487-3956-489c-9a9a-18e36444d40b" width=49%> <img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/d112167b-cc90-48fd-ba8a-8905f3233cd0" width=49%>
 
 
 This project calibrates multi-agent ODE and SDE models to data using a neural network. We estimate marginal densities on the equation parameters, including adjacency matrices. This repository contains all the code and models used in our publications on the topic, as well as an extensive set of tools and examples for you to calibrate your own model:
 
 - T. Gaskin, G. Pavliotis, M. Girolami. *Neural parameter calibration for large-scale multiagent models.* PNAS **120**, 7, 2023.
 https://doi.org/10.1073/pnas.2216415120 (`HarrisWilson` and `SIR` models)
-- T. Gaskin, G. Pavliotis, M. Girolami, . *Inferring networks from time series: a neural approach.* https://arxiv.org/abs/2303.18059
-(`Kuramoto` and `HarrisWilsonNW` models)
+- T. Gaskin, G. Pavliotis, M. Girolami, . *Inferring networks from time series: a neural approach.* PNAS Nexus **4**, 63, 2024. https://academic.oup.com/pnasnexus/article/3/4/pgae063/7604085 (`Kuramoto` and `HarrisWilsonNW` models)
 - T. Gaskin, T. Conrad, G. Pavliotis, C. Schütte. *Neural parameter calibration and uncertainty quantification for epidemic
 forecasting*. https://arxiv.org/abs/2312.03147 (`SIR` and `Covid` models)
 
@@ -34,6 +32,7 @@ and plotting. This README gives a brief introduction to installation and a basic
 
 
 ### Contents of this README
+* [Quickstart in Jupyter](#Quickstart)
 * [How to install](#installation)
   * [Installation on Windows](#installation-on-windows) 
 * [Tutorial](#tutorial)
@@ -46,6 +45,13 @@ and plotting. This README gives a brief introduction to installation and a basic
   * [Loading data](#loading-data)
 * [Models overview](#models-overview)
 * [Building your own model](#building-your-own-model)
+
+---
+# Quickstart
+If you are beginner, we recommend you start with the `SIR_demo` Jupyter notebook, located in this folder, which will 
+introduce you to the general principles of neural parameter calibration and help you get setup. Afterwards, we suggest 
+you go through this tutorial step by step, which requires installation of the `utopya` package to handle the simulation, 
+including parallel training.
 
 ---
 # Installation
@@ -137,14 +143,22 @@ This will pull all the datasets.
 
 ### Installation on Windows
 
-On Windows systems, you must use the Windows development branches of utopya and dantro. Be aware that development on these
-is ongoing; if you run into any problems, please file an issue. After completing the steps above, install the 
-packages by running the following two commands:
+On Windows systems, you must use the Windows development branch of utopya; after completing the steps above, run:
 
 ```commandline
-pip install git+https://gitlab.com/utopia-project/utopya@support-windows-platform
-pip install git+https://gitlab.com/utopia-project/dantro@support_windows_platform
+pip uninstall utopya
+pip install git+https://gitlab.com/utopia-project/utopya@89-allow-exec-prefix
 ```
+
+Be aware that development on the utopya Windows dev branch is ongoing; if you run into any problems, please file an [issue](https://gitlab.com/utopia-project/utopya/-/issues/new). 
+
+Next, in `cfg/multiverse_project_cfg.yml`, uncomment the following line:
+
+```yaml
+executable_control:
+   prefix: !if-windows-else [[python], ~]
+```
+
 Lastly, you must change the default encoding to utf-8 on Windows; in the Control Panel, navigate to the 
 Regional Settings, go to the 'Administrative' tab, click 'Change system locale' under 'Language for non-Unicode programs',
 and check the 'Beta: Use Unicode UTF-8 for worldwide language support option'. See [here](https://stackoverflow.com/questions/57131654/using-utf-8-encoding-chcp-65001-in-command-prompt-windows-powershell-window/57134096#57134096)
@@ -201,7 +215,7 @@ This directory structure already hints at the three basic steps that are execute
 
 Open the `eval` folder — in it there will be a further time-stamped folder. Every time you evaluate a simulation, a new folder is created. This way, no evaluation result is ever overwritten. In the `eval/YYMMDD-hhmmss` folder, you should find five plots. Take a look at `densities_from_joint.pdf`, which should look something like this:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13787239/densities_from_joint.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/4a717f2a-945b-45af-932b-b9d8837a3b12" width=100%>
 
 You can see the true data (orange) together with the neural net predictions (blue) and an error estimate (blue shaded area).
 The results aren't great; you will also notice from the `loss.pdf` plot that the training loss has barely decreased. Why? Well, 
@@ -221,7 +235,7 @@ utopya run SIR path/to/run.yml
 ```
 Here, we are *only* updating those entries of the base configuration which are also given in the `run.yml` file; the remaining ones are taken from the default configuration file. The results in the output folder should look something like this:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13787372/densities_from_joint.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/45510697-8d45-4849-a6e6-fd920dd79d58" width=100%>
 
 Perhaps a little bit better, but still not great, and the uncertainty is much too small. The real problem here is that we are only training our neural network from a single initialisation, and letting it find one of the possible parameters that fit the problem. This doesn't give us an accurate representation of the parameter space. What we really need to be doing is training it multiple times, in parallel, from different initialisations, so that it can see the more of the parameter space. This is what we will do in the next section.
 
@@ -257,11 +271,11 @@ The `seed` entry controls the random initialisation of the neural network, and w
 
 Once the run is complete, the plot output should look like this:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13787421/densities_from_joint.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/c357ca9f-3389-4a26-ac17-82f6edc208d2" width=100%>
 
 Much better! You can see that the predicted densities are significantly closer to the true data. The folder also contains the marginal densities on the parameters we are estimating:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13787439/marginals.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/7bf33590-a53f-465d-a9af-5a1f305dfcfb" width=100%>
 
 These too look good: we obtain an infection parameter of about 0.21, and infection period of about 15 days – these are very similar to the values of 0.2 and 14 used to generate the synthetic data.
 
@@ -279,7 +293,8 @@ These too look good: we obtain an infection parameter of about 0.21, and infecti
 
 In your output folder you will also find the following plot:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13852798/predictions.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/8a7e8d1c-3f32-4789-8e62-50c3e5805b62" width=100%>
+
 
 Each line represents a trajectory taken by the neural net during training; as you can see, we are training the net multiple times in parallel, each time initialising the neural network at a different value of the initial distribution – see [the corresponding section](#specifying-the-prior-on-the-output) on how to adjust this distribution. The colour of each line repressents the training loss at that sample.
 The number of initialisations is controlled by the `seed` entry of the run config.
@@ -530,7 +545,7 @@ NeuralNet:
 ```
 This will initialise each parameter with a separate prior. Take a look at the output folder for the `Predictions_on_smooth_data` run; it contains a plot of the initial value distribution:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13854397/initial_values.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/4167a956-3473-42ca-8d31-df1ada7d4f5a" width=100%>
 
 ## Training settings
 You can modify the training settings, such as the batch size or the training device, from the

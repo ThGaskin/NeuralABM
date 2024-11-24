@@ -4,18 +4,18 @@
 In the agent-based SIR model, $N$ agents move around a square domain $[0, L]^2$, $0 < L \in \mathbb{R}$. Each agent $i$ has a position $\mathbf{x}_i$ and a state $k_i \in \{ S, I, R \}$. All agents with $k_i = S$ are susceptible to the disease. If a susceptible agent lies within the infection radius $r$ of an infected agent (an agent with $k_i = I$), they are infected with infection probability $\beta$. After a certain recovery time $\tau$, agents recover from the disease (upon which $k_i = R$);
 each agent's time since infection is stored in a state $\tau_i$. Agents move randomly around the space with diffusivities $\sigma_S, \sigma_i, \sigma_R$:
 
-<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/605b6e09-703e-4296-a884-ea1315dba8ea" width=60%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/1b71b433-c61e-47a0-b9cd-19d6389c3615" width=60%>
 
 Let $S(\mathbf{x},t)$ be the spatio-temporal distribution of susceptible agents (analogously $I(\mathbf{x},t)$ and $R(\mathbf{x},t)$ ). Assume we only observe the temporal densities $$S(t) = \dfrac{1}{N} \int_\Omega S(\mathbf{x}, t) \mathrm{d}\mathbf{x}$$ applicable to the spread of an epidemic where we only see the counts of infected and recovered patients without any
 location tracking or contact tracing. To these observations the neural network now fits the stochastic equations $$\mathrm{d}S = - \beta S I \mathrm{d}t - \sigma I \mathrm{d}W$$ $$\mathrm{d}I = (\beta S - \tau^{-1} I) \mathrm{d}t + \sigma I \mathrm{d}W$$ $$\mathrm{d}R = \tau^{-1} I \mathrm{d}t$$ where $W$ is a Wiener process.
 
 The parameters that can be calibrated are $\beta, \tau$, and $\sigma$. The model produces outputs such as a predicted time series for each compartment
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13787421/densities_from_joint.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/fe2b380f-2fe5-4396-8b2a-67ed74bc29ef" width=100%>
 
 as well as marginal densities on the parameters that are to be learned:
 
-<img src="https://github.com/ThGaskin/NeuralABM/files/13787439/marginals.pdf" width=100%>
+<img src="https://github.com/ThGaskin/NeuralABM/assets/22022754/dd8e6f2f-ef61-4b17-9919-814b781ace1c" width=100%>
 
 To ensure better training, the parameters can be scaled to ensure they are all of roughly equal magnitude when learned by the neural network.
 The scaling factors can be controlled via the `Training.scaling_factors` dictionary. By default, the infection time is scaled by a factor of 10.

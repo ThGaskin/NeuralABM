@@ -46,6 +46,7 @@ ACTIVATION_FUNCS = {
     "sine": [torch.sin, False],
     "softplus": [torch.nn.Softplus, True],
     "softshrink": [torch.nn.Softshrink, True],
+    "softsign": [torch.nn.Softsign, True],
     "swish": [torch.nn.SiLU, True],
     "tanh": [torch.nn.Tanh, True],
     "tanhshrink": [torch.nn.Tanhshrink, True],
