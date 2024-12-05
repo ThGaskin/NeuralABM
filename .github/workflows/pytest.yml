@@ -51,7 +51,7 @@ jobs:
           coverage run -m pytest tests/
       - name: Generate Coverage Report
         run: |  
-          coverage report -m -i && coverage json -o ./coverage/coverage-summary.json && coverage html -d ./coverage
+          coverage report -m -i && coverage json -o -i ./coverage/coverage-summary.json && coverage html -d -i ./coverage
       - name: Run models
         run: |
           utopya run HarrisWilson --pp num_epochs=100
