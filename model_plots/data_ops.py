@@ -366,7 +366,7 @@ def hist(
 
     # Apply the histogram function along the axis
     res = np.apply_along_axis(
-        _hist, axis, da, bins=bins, range=ranges, normalize=normalize, **kwargs
+        _hist, axis, da.data, bins=bins, range=ranges, normalize=normalize, **kwargs
     )
 
     # Get the counts and the bin centres. Note that the bin centres are equal along every dimension!
