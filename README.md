@@ -48,7 +48,7 @@ and plotting. This README gives a brief introduction to installation and a basic
 
 ---
 # Quickstart
-If you are beginner, we recommend you start with the `SIR_demo` Jupyter notebook, located in this folder, which will 
+If you are beginner, we recommend you start with the `SIR_demo` Jupyter notebook, located in the `Notebooks` folder, which will 
 introduce you to the general principles of neural parameter calibration and help you get setup. Afterwards, we suggest 
 you go through this tutorial step by step, which requires installation of the `utopya` package to handle the simulation, 
 including parallel training.
