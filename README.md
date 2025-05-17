@@ -48,10 +48,13 @@ and plotting. This README gives a brief introduction to installation and a basic
 
 ---
 # Quickstart
-If you are beginner, we recommend you start with the `SIR_demo` Jupyter notebook, located in this folder, which will 
-introduce you to the general principles of neural parameter calibration and help you get setup. Afterwards, we suggest 
-you go through this tutorial step by step, which requires installation of the `utopya` package to handle the simulation, 
-including parallel training.
+We recommend you start with the `SIR_demo` and `SIRS_demo` Jupyter notebooks, located in this folder, which will 
+introduce you to the general principles of neural parameter calibration and help you get set up. You will learn how to
+train a neural network to learn constant and time-dependent parameters on a single and multiple datasets, and use different
+network architectures to improve learning performance.
+
+If you want to efficiently train ensembles of networks in parallel, we suggest  you go through this tutorial step by step, 
+which requires installation of the `utopya` package to handle the simulation, including parallel training.
 
 ---
 # Installation
