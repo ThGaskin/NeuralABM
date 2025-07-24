@@ -89,8 +89,11 @@
     xtick.labelsize: *fontsize
     ytick.labelsize: *fontsize
     legend.fontsize: *fontsize
+    legend.handlelength: 1
+    legend.framealpha: 0
     grid.linewidth: 0.5
     savefig.bbox: tight
+    savefig.transparent: True
     axes.grid:          True
     axes.spines.top:    False
     axes.spines.right:  False
@@ -98,6 +101,7 @@
   helpers:
     save_figure:
       dpi: 900
+      pad_inches: 0
   file_ext: pdf
 
 .default_color_cycler:

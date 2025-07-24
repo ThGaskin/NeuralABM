@@ -141,7 +141,7 @@ marginals/low_noise/alpha:
       gather_from_fig: True
     set_labels:
       x: !dag_result x_label
-      y: ' '
+      y: ''
 
 marginals/low_noise/beta:
   based_on: marginals/low_noise/alpha
@@ -302,7 +302,7 @@ initial_values:
       nrows: 1
       ncols: 3
     set_labels:
-      y: ' '
+      y: ''
   compute_only: []
   style:
     figure.figsize: [!dag_result full_width, !dag_result quarter_width]
