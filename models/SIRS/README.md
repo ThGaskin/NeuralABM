@@ -8,7 +8,10 @@ $$S \overset{k_I}{\longrightarrow} I \overset{k_R}{\longrightarrow} R \overset{k
 Unlike the standard SIR model, agents can lose their immunity and move back into the 'Susceptible' compartment with 
 probability $k_S$. The system of ODEs thus reads:
 
-$$ \begin{gather} \partial_t S = -k_I SI + k_S R \\ \partial_t I = k_I SI - k_R I \\ \partial_t R = k_R I - k_S R \end{gather}$$
+$$ \begin{gather} \partial_t S = -k_I SI + k_S R \\ 
+\partial_t I = k_I SI - k_R I \\ 
+\partial_t R = k_R I - k_S R 
+\end{gather}$$
 
 By setting $k_S=0$, we recover the conventional SIR model.
 
