@@ -1,0 +1,17 @@
+# Plot the evolution of the training loss
+loss:
+  based_on: loss
+
+# Evolution of the parameter estimates
+parameters:
+  based_on: predictions_uni
+  color: 'C2'
+# Predicted time series
+Y_pred:
+  based_on: time_series
+
+# True data
+Y:
+  based_on: time_series
+  select:
+    data: Y

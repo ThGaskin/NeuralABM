@@ -24,3 +24,8 @@ LOSS_FUNCTIONS = {
     "tripletmarginloss": torch.nn.TripletMarginLoss,
     "tripletmarginwithdistanceloss": torch.nn.TripletMarginWithDistanceLoss,
 }
+
+def get_loss_function(loss_function_cfg: dict) -> callable:
+    return LOSS_FUNCTIONS[loss_function_cfg.get("name").lower()](
+        loss_function_cfg.get("args", None), **loss_function_cfg.get("kwargs", {})
+    )
