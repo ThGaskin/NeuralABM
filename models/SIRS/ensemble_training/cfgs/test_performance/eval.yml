@@ -1,0 +1,159 @@
+loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+  select_and_combine:
+    fields:
+      loss:
+        path: loss
+        transform:
+          - .isel_with_drop: [!dag_prev , {epoch: -1}]
+  transform:
+    - .mean: [!dag_tag loss, 'seed']
+    - .std: [!dag_tag loss, 'seed']
+    - xr.Dataset:
+        - mean: !dag_node -2
+          std: !dag_prev
+      tag: data
+  x: n_train
+  y: mean
+  col: kind
+  yerr: std
+  hue: noise
+  sharey: False
+
+# True and predicted data
+data:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line_and_scatter
+  select_and_combine:
+    fields:
+      Y:
+        path: Y
+        transform: [.data]
+      Y_pred:
+        path: Y_pred
+        transform: [ .data ]
+    subspace:
+      seed: 0
+  transform:
+    - xr.Dataset:
+        - Y: !dag_tag Y
+          Y_pred: !dag_tag Y_pred
+      tag: data
+  y: Y_pred
+  scatter: Y
+  x: Time
+  col: dset_id
+  row: n_train
+  hue: Compartment
+  scatter_kwargs:
+    s: 0.1
+
+SIRS_accuracy_2:
+  add_legend: false
+  col: kind
+  creator: multiverse
+  dag_options:
+    define:
+      _page_width: 7.5
+      c_darkblue: '#2F7194'
+      c_darkgreen: '#48675A'
+      c_darkgrey: '#3D4244'
+      c_lightblue: '#97c3d0'
+      c_lightbrown: '#C6BFA2'
+      c_lightgreen: '#AFD8BC'
+      c_lightgrey: '#AFC1B9'
+      c_orange: '#EC9F7E'
+      c_pink: '#F8A6A6'
+      c_purple: '#A07CB0'
+      c_red: '#ec7070'
+      c_yellow: '#F5DDA9'
+      fifth_width:
+      - div: [!dag_tag _page_width, 5]
+      full_width: !dag_tag _page_width
+      half_width:
+      - div: [!dag_tag _page_width, 2]
+      quarter_width:
+      - div: [!dag_tag _page_width, 4]
+      third_width:
+      - div: [!dag_tag _page_width, 3]
+      two_thirds_width:
+      - div: [!dag_tag _page_width, 3]
+      - mul: [!dag_node -1, 2]
+    meta_operations:
+      .isel_with_drop:
+      - .isel: [!arg 0, !arg 1]
+        kwargs: {drop: true}
+      .sel_with_drop:
+      - .sel: [!arg 0, !arg 1]
+        kwargs: {drop: true}
+      neg_exp:
+      - mul: [!arg 0, -1]
+      - np.exp: [!dag_node -1]
+  dag_visualization: {enabled: false}
+  figsize: [6.25598, 1.56]
+  file_ext: pdf
+  helpers:
+    axis_specific:
+      0:
+        axis: [1, 0]
+        set_legend: {framealpha: 0, handlelength: 1, ncols: 2, use_legend: true}
+        set_scales: {y: linear}
+    save_figure: {bbox_inches: tight, dpi: 900, pad_inches: 0, transparent: true}
+    set_labels: {x: Number of training sets, y: ''}
+    set_title: {title: null}
+    setup_figure: {ncols: 2}
+  hue: noise
+  kind: errorbars
+  module: dantro.plot.funcs.generic
+  plot_func: facet_grid
+  select_and_combine:
+    base_path: data/SIRS
+    fields:
+      loss:
+        path: loss
+        transform:
+        - .isel_with_drop:
+          - !dag_node -1
+          - {epoch: -1}
+  sharey: false
+  style: {axes.grid: true, axes.labelsize: 7.5, axes.prop_cycle: 'cycler(''color'',
+      [''#AFD8BC'', ''#ec7070'', ''#2F7194'', ''#48675A'', ''#C6BFA2'', ''#EC9F7E'',
+      ''#F5DDA9'', ''#3D4244'', ''#F8A6A6'', ''#A07CB0'', ''#AFC1B9'' ])', axes.spines.right: false,
+    axes.spines.top: false, axes.titlesize: 7.5, base_style: null, figure.dpi: 254,
+    font.family: Arial, font.size: 7.5, grid.alpha: 0.5, grid.linewidth: 0.5, legend.fontsize: 7.5,
+    lines.linewidth: 1.2, mathtext.fontset: cm, savefig.bbox: tight, text.latex.preamble: '\usepackage{amssymb}
+      \usepackage{amsmath}', text.usetex: false, xtick.labelsize: 7.5, ytick.labelsize: 7.5}
+  transform:
+  - .mean: [!dag_tag loss, seed]
+  - .std: [!dag_tag loss, seed]
+  - mul: [!dag_prev , 1]
+  - xr.Dataset:
+    - {mean: !dag_node -3, std: !dag_node -1}
+  - .assign_coords:
+    - !dag_node -1
+    - noise: [$\sigma=0$, $\sigma=0.01$, $\sigma=0.025$, $\sigma=0.05$]
+    tag: data
+  use_bands: true
+  x: n_train
+  y: mean
+  yerr: std
+
+overfitting:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line
+  select_and_combine:
+    fields:
+      data: loss
+    subspace:
+      noise: 0.01
+      seed: 0
+  col: kind
+  hue: n_train
+  sharey: False
+  helpers:
+    set_scales:
+      y: log

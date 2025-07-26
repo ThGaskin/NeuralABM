@@ -1,0 +1,13 @@
+perform_sweep: True
+paths:
+  model_note: SIR_example
+parameter_space:
+  seed: !sweep
+    default: 1
+    range: [10]
+  num_epochs: 200
+  write_start: 1
+  write_every: 1
+  SIRS:
+    Data:
+      load_from: models/SIRS/data/SIR_data.nc

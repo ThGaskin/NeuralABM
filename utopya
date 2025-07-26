@@ -1,0 +1,201 @@
+#!/usr/bin/env bash
+
+# This is a generic batch script, which passes on command line parameters to
+# the utopya CLI.
+# The difference of this script is that it does not enter the utopia-env of
+# the C++ installation but a custom one (relying on the `workon` command)
+
+# Slurm configuration, according to computer cluster architecture
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=64
+
+# TODO Consider using --signal to send signal prior to job end...
+#      ... but not working as expected (always kills directly, despite USR1)
+
+echo "Parsing arguments ..."
+
+# Get subcommand and model name
+subcommand=${1:-run}
+shift
+model_name=${1:-dummy}
+shift
+
+# Store remaining arguments; for utopia run, always use --no-plot
+cli_flags=$@
+if [ "${subcommand}" == "run" ]; then
+    cli_flags="${cli_flags} --no-eval"
+elif [ "${subcommand}" == "eval" ]; then
+    cli_flags="${cli_flags}"
+fi
+
+
+# The temporary output directory to use (for utopia run)
+node_out_dir=$TMPDIR/utopia_output
+
+# Provide some info
+echo ""
+echo "Utopia CLI subcommand:  $subcommand"
+echo "Selected model:         $model_name"
+echo "Additional arguments:   $cli_flags"
+echo ""
+echo "Slurm information"
+echo "  Cluster name:         $SLURM_CLUSTER_NAME"
+echo "  Partition:            $SLURM_JOB_PARTITION"
+echo "  Job ID:               $SLURM_JOB_ID"
+echo "  Job name:             $SLURM_JOB_NAME"
+echo "  Number of nodes:      $SLURM_NNODES"
+echo "  Hosts:                $SLURM_NODELIST"
+echo "  Tasks/node:           $SLURM_NTASKS_PER_NODE"
+echo "  CPUs/task:            $SLURM_CPUS_PER_TASK"
+echo ""
+echo "Working directory:      $(pwd)"
+echo "Node out_dir:           ${node_out_dir}"
+echo "Final out_dir:          $UTOPIA_OUTPUT"
+echo "Synchronisation mode:   $UTOPIA_BATCH_SYNC_MODE"
+echo "Unpack archives?        $UTOPIA_BATCH_UNPACK_ARCHIVES"
+echo ""
+
+start_time=$(date)
+echo "Invocation time:        $start_time"
+echo ""
+
+# Load modules ...
+echo "Loading utopia meta module ..."
+module load utopia
+
+# Set environment variables needed for Utopia and data copying
+echo "Setting environment variables ..."
+export UTOPIA_CLUSTER_MODE_OUT_DIR=$node_out_dir
+export RUN_TIMESTAMP=$(date +%s)
+export UTOPIA_MODEL_NAME=$model_name
+
+# Check some arguments to not run into trouble later
+sync_mode="$UTOPIA_BATCH_SYNC_MODE"
+if [[ ! "$sync_mode" =~ ^(direct|archive)$ ]]; then
+    echo ""
+    echo "Error: Invalid batch synchronisation mode '$sync_mode'!"
+    echo "Check the UTOPIA_BATCH_SYNC_MODE environment variable is set either to 'direct' or to 'archive'."
+    echo ""
+    echo "Exiting now ..."
+    exit 1
+fi
+
+unpack_archives="$UTOPIA_BATCH_UNPACK_ARCHIVES"
+if [[ "$unpack_archives" != true && "$unpack_archives" != false ]]; then
+    echo ""
+    echo "Error: Invalid value for UTOPIA_BATCH_UNPACK_ARCHIVES: $unpack_archives"
+    echo "Has to be true or false."
+    echo ""
+    echo "Exiting now ..."
+    exit 1
+fi    
+
+echo ""
+echo "Checking virtual environment ..."
+if [[ -n "${VENV_NAME}" ]]; then
+    echo "Entering virtual environment: ${VENV_NAME} ..."
+    source ~/.virtualenvs/${VENV_NAME}/bin/activate
+fi
+echo "  which utopya?  $(which utopya)"
+echo ""
+
+echo ""
+echo "Now commencing batch run ..."
+echo ""
+echo "================================================================================"
+echo ""
+
+# -- Step 0 --
+# Here we gooo ...
+echo "-- Step 0: utopya $subcommand $model_name $cli_flags --cluster-mode"
+echo ""
+srun utopya $subcommand $model_name $cli_flags --cluster-mode
+echo ""
+echo "-- Step 0 finished."
+echo ""
+echo ""
+
+
+# -- Step 1 --
+# Epilog for each task: gather the data
+echo "-- Step 1: gathering data ..."
+echo ""
+srun ${REPO_DIR}/slurm/gather_data.sh $sync_mode --task-epilog echo -n
+# NOTE This should not be an --epilog, as that would only gather code from a single node
+echo ""
+echo "-- Step 1 finished."
+echo ""
+echo ""
+
+
+# -- Finishing up --
+echo "-- Finishing up ..."
+echo ""
+
+# Now have the run directory available. Where exactly?
+#run_dir_name="$UTOPIA_OUTPUT/$model_name/"*job"$SLURM_JOB_ID"*  # TODO use this
+run_dir_name=$(ls -1a $UTOPIA_OUTPUT/$model_name/ | grep job${SLURM_JOB_ID})
+run_dir=$UTOPIA_OUTPUT/$model_name/$run_dir_name
+
+# In archive sync mode, want to extract the copied archives
+if [[ "$sync_mode" == "archive" && "$unpack_archives" == true ]]; then
+    echo "Unpacking output archives in $run_dir ..."
+    start_unpack=$(date +%s)
+    for file in $run_dir/output_from_*.tar; do
+        echo "  Unpacking  $(basename $file) ..." 
+        tar -x --keep-old-files -f $file -C $run_dir && rm -rf $file
+    done
+    end_unpack=$(date +%s)
+    echo "Unpacked all archives in $(( $end_unpack - $start_unpack )) seconds."
+    echo "(Successfully unpacked archives were deleted.)"
+    echo ""
+
+elif [[ "$sync_mode" == "archive" ]]; then
+    # not unpacking ... at least give some hints on what to do
+    echo "NOT unpacking output archives ..."
+    echo "The run directory is:"
+    echo "  $run_dir"
+    echo ""
+    echo "To unpack manually at a later point, navigate to the run directory and"
+    echo "call the following command:"
+    echo ""
+    echo '  for file in output_*.tar; do tar -x --keep-old-files -f $file -C ./ ; done'
+    echo ""
+    echo "Alternatively, call the following function (defined in .bash_profile):"
+    echo ""
+    echo '  unpack_here output_*.tar'
+    echo ""
+    echo ""
+fi
+
+echo -e "Output is now available at:\n  $UTOPIA_OUTPUT/$model_name/$run_dir_name"
+echo ""
+
+
+
+# -- Done! --
+# Provide some information.
+echo ""
+echo "================================================================================"
+echo ""
+echo "Finished."
+echo "  Start:  $start_time"
+echo "  End:    $(date)"
+echo ""
+sacct --format JobID,State,ExitCode,Elapsed,NNodes,TotalCPU,MaxRSS,ConsumedEnergy -j ${SLURM_JOB_ID}.0 -j ${SLURM_JOB_ID}.1  || true
+echo ""
+echo "--"
+echo "End of log."
+echo ""
+echo ""
+
+# As the last act, copy the log file to utopia_output and again into the actual output directory
+echo "Copying (this) slurm log to '$model_name' output directory and run directory ..."
+mkdir -p $UTOPIA_OUTPUT/$model_name/_slurm_logs
+cp -v $(pwd)/slurm-$SLURM_JOB_ID.out $UTOPIA_OUTPUT/$model_name/_slurm_logs/$SLURM_JOB_ID.log || true
+cp -v $(pwd)/slurm-$SLURM_JOB_ID.out $UTOPIA_OUTPUT/$model_name/$run_dir_name/_slurm.log || true
+echo "Done."
+
+echo ""
+echo ""
+echo "... if you have been tailing this file, you can stop now. :)"

@@ -22,16 +22,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip' # caching pip dependencies
       - name: Set up Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -62,7 +62,7 @@ jobs:
 
       # Create a coverage badge
       - name: Create coverage badge
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
         uses: jaywcjlove/coverage-badges-cli@main
         with:
           style: classic
@@ -71,7 +71,8 @@ jobs:
           jsonPath: totals.percent_covered_display
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
+        if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
+        uses: actions/upload-pages-artifact@v3
         with:
           path: './coverage'
 
@@ -93,6 +94,6 @@ jobs:
           onlyRemoveDeployments: true
 
       - name: Deploy coverage report
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
         id: deployment
 

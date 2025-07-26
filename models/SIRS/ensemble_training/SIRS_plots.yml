@@ -1,0 +1,35 @@
+# Plot the evolution of the training loss
+loss:
+  based_on: loss
+
+# Evolution of the parameter estimates
+parameters:
+  based_on: predictions_uni
+  col: dset_id
+  col_wrap: 3
+
+# True and predicted data
+data:
+  based_on:
+    - .creator.universe
+    - .plot.facet_grid.line_and_scatter
+  select:
+    Y:
+      path: Y
+      transform: [.data]
+    Y_pred:
+      path: Y_pred
+      transform: [ .data ]
+  transform:
+    - xr.Dataset:
+        - Y: !dag_tag Y
+          Y_pred: !dag_tag Y_pred
+      tag: data
+  y: Y_pred
+  scatter: Y
+  x: Time
+  col: dset_id
+  col_wrap: 3
+  hue: Compartment
+  scatter_kwargs:
+    s: 0.1

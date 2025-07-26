@@ -1,6 +1,7 @@
 import h5py as h5
 import networkx as nx
 import numpy as np
+from typing import Literal
 
 """ Network generation function """
 
@@ -9,7 +10,7 @@ def generate_graph(
     *,
     N: int,
     mean_degree: int = None,
-    type: str,
+    type: Literal["random", "BarabasiAlbert", "BollobasRiordan", "WattsStrogatz", "Star", "Regular"],
     seed: int = None,
     graph_props: dict = None,
 ) -> nx.Graph:
@@ -22,6 +23,7 @@ def generate_graph(
     :param seed: the random seed to use for the graph generation (ensuring the graphs are always the same)
     :param graph_props: dictionary containing the type-specific parameters
     :return: the networkx graph object. All graphs are fully connected
+    TODO: graph can have isolated components!
     """
 
     def _connect_isolates(G: nx.Graph) -> nx.Graph:

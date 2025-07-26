@@ -82,7 +82,7 @@ def distance(
         else:
             L_x, L_y = abs(np.diff(space[0])), abs(np.diff(space[1]))
 
-        dist = math.sqrt(
+        dist = np.sqrt(
             pow(min(abs(d.x), L_x - abs(d.x)), 2)
             + pow(min(abs(d.y), L_y - abs(d.y)), 2)
         )

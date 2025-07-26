@@ -20,7 +20,7 @@ paths:
   py_tests_dir: tests
 
 metadata:
-  long_description: Neural agent-based modelling project
+  long_description: Hybrid neural network modelling
   authors:
     - Thomas Gaskin
   license: LGPLv3+
