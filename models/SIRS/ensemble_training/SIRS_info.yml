@@ -1,0 +1,36 @@
+# Manifest file used to register the model in the utopya model registry
+#
+# NOTE Updating the information in this file does NOT automatically update the
+#      corresponding entries in the model registry! Call
+#
+#           utopya models register from-manifest [MANIFEST_FILE]...
+#
+#      for updating information in the model registry.
+---
+# -- General information and options
+model_name: SIRS
+project_name: NeuralABM
+
+# -- Path information, interpreted relative to this file
+paths:
+  executable: run.py
+  source_dir: ./
+  default_cfg: SIRS_cfg.yml
+  default_plots: SIRS_plots.yml
+  base_plots: SIRS_base_plots.yml
+  py_plots_dir: ../../model_plots/SIRS
+
+# -- Metadata
+metadata:
+  description: Neural parameter calibration for SIRS model
+  version: "0.1"
+  author: Thomas Gaskin
+  license: LGPLv3+
+  language: python3
+  requirements:
+    - ruamel.yaml
+    - numpy
+    - h5py
+    - torch
+    - xarray
+  utopya_compatibility: ">=1.0.0a1"

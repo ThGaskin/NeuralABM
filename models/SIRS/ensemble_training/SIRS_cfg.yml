@@ -1,0 +1,62 @@
+# Settings for data loading or generation
+Data:
+
+  # Load synthetic data from a location. The file must be a torch tensor of shape (L, 3) with L the number of steps
+  load_from: ~
+
+  # Alternatively, generate synthetic data for each ensemble member
+  synthetic_data:
+
+    # Initial condition: must be given as a vector of normalised densities
+    y0: [0.9, 0.1, 0]
+
+    # Parameters
+    k_S: 0.0
+    k_I: 0.4
+    k_R: 0.2
+    noise: 0.03 # Multiplicative noise variance
+
+    # Time range; together with dt this determines the number of time steps
+    t_span: [0, 100]
+
+    # Time differential
+    dt: 0.1
+
+# Here you can select which parameters to learn; if not all parameters are to be learned, you must supply the values
+# to use for the others during training in the `fixed_parameters` entry
+Learning:
+  parameters_to_learn: [k_I, k_R]
+  fixed_parameters:
+    k_S: 0
+    noise: 0
+    dt: 0.1
+
+# Settings for the feed-forward network
+# TODO: allow controlling the architecture from the config
+NeuralNet:
+
+  # Number of layers
+  num_layers: 1
+
+  # Nodes per layer
+  nodes_per_layer:
+    default: 6
+
+  # Initialisation range for the biases (can be None, in which case no bias is used)
+  biases:
+    default: [-1, 1]
+
+  # Default activation function to use. Can specify a different activation for each layer using the 'layer_specific'
+  # argument
+  activation_funcs:
+    default: softplus
+
+# Training settings
+Training:
+  num_epochs: 1000
+
+  # Loss function to use
+  loss_function:
+    name: MSELoss
+    kwargs:
+      reduction: sum

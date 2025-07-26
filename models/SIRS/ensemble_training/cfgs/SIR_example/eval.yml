@@ -1,0 +1,88 @@
+# Plot the parameter trajectories
+parameter_trajectories:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.scatter
+  select_and_combine:
+    fields:
+      parameters: parameters
+      loss: loss
+  transform:
+    - .sel: [!dag_tag parameters, {parameter: k_I}]
+      kwargs:
+        drop: True
+      tag: k_I
+    - .sel: [!dag_tag parameters, {parameter: k_R}]
+      kwargs:
+        drop: True
+      tag: k_R
+    - xr.Dataset:
+        - loss: !dag_tag loss
+          k_I: !dag_tag k_I
+          k_R: !dag_tag k_R
+    - flatten_dims: [!dag_prev ]
+      kwargs:
+        dims: {idx: [epoch, seed]}
+      tag: data
+  x: k_I
+  y: k_R
+  hue: loss
+  lw: 0
+  cmap: Blues
+  norm: LogNorm
+  helpers:
+    set_limits:
+      x: [0, 1]
+      y: [0.01, 0.3]
+
+time_series:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+  select_and_combine:
+    fields:
+      Y_pred: Y_pred
+      Y: Y
+  transform:
+    - .mean: [!dag_tag Y_pred, 'seed']
+    - .std: [!dag_tag Y_pred, 'seed']
+    - xr.Dataset:
+        - mean: !dag_node -2
+          std: !dag_node -1
+      tag: data
+    - .coords: [!dag_tag Y, 'Time']
+      tag: t
+    - .sel: [!dag_tag Y, {seed: 0, Compartment: S}]
+      tag: true_S
+    - .sel: [ !dag_tag Y, { seed: 0, Compartment: I}]
+      tag: true_I
+    - .sel: [ !dag_tag Y, { seed: 0, Compartment: R}]
+      tag: true_R
+  x: Time
+  y: mean
+  yerr: std
+  hue: Compartment
+  helpers:
+    call:
+      functions:
+        - function: [ matplotlib.pyplot, scatter ]
+          args: [ !dag_result t, !dag_result true_S ]
+          marker: 'o'
+          c: !dag_result c_lightgreen
+          lw: 0
+          s: 3
+          zorder: 10
+        - function: [ matplotlib.pyplot, scatter ]
+          args: [ !dag_result t, !dag_result true_I ]
+          marker: 'o'
+          c: !dag_result c_red
+          lw: 0
+          s: 3
+          zorder: 10
+        - function: [ matplotlib.pyplot, scatter ]
+          args: [ !dag_result t, !dag_result true_R ]
+          marker: 'o'
+          c: !dag_result c_darkblue
+          lw: 0
+          s: 3
+          zorder: 10

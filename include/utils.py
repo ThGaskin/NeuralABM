@@ -1,12 +1,40 @@
-from typing import Union
-
 import torch
+
+import ruamel.yaml as yaml
+yamlc = yaml.YAML(typ="safe")
 
 """ General utility functions """
 
+def load_config(path) -> tuple[dict, dict]:
+    """ Loads the configuration and returns it together with the model-specific configuration
+
+    :param path:
+    :return:
+    """
+
+    with open(path) as cfg_file:
+        cfg = yamlc.load(cfg_file)
+    model_name = cfg.get("root_model_name", "SIR")
+    model_cfg = cfg[model_name]
+
+    return cfg, model_cfg
+
+def set_default_device(cfg) -> torch.device:
+    """ Sets the default pytorch training device and number of threads.
+    By default, the cpu is used, since pytorch may not have been installed with Cuda (or Metal) enabled.
+
+    :param cfg: config file
+    :return: device
+    """
+    device = cfg.get("device", 'cpu')
+    torch.set_default_device(device)
+    num_threads = cfg.get("num_threads", None)
+    if num_threads is not None:
+        torch.set_num_threads(num_threads)
+    return torch.device(device)
 
 def random_tensor(
-    cfg: Union[dict, list], *, size: tuple = None, device: str = "cpu", **__
+    cfg: dict | list, *, size: tuple = None, device: str = "cpu", **__
 ) -> torch.Tensor:
     """Generates a multi-dimensional random tensor. Each entry can be initialised separately, or a common
     initialisation configuration is used for each entry. For instance, the configuration

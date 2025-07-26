@@ -24,7 +24,7 @@ degree_distribution:
   linestyle: [solid, dotted]
   smooth_kwargs:
     enabled: True
-    sigma: 0.5
+    smoothing: 0.5
   helpers:
     set_limits:
       x: [5, 40]

@@ -195,7 +195,7 @@ degree_distribution:
   linestyle: [solid, dotted]
   smooth_kwargs:
     enabled: True
-    sigma: 1
+    smoothing: 1
   figsize: [ !dag_result full_width, !dag_result full_width ]
 
 loss:

@@ -53,6 +53,20 @@ ACTIVATION_FUNCS = {
     "threshold": [torch.nn.Threshold, True],
 }
 
+OPTIMIZERS = {
+    "Adagrad": torch.optim.Adagrad,
+    "Adam": torch.optim.Adam,
+    "AdamW": torch.optim.AdamW,
+    "SparseAdam": torch.optim.SparseAdam,
+    "Adamax": torch.optim.Adamax,
+    "ASGD": torch.optim.ASGD,
+    "LBFGS": torch.optim.LBFGS,
+    "NAdam": torch.optim.NAdam,
+    "RAdam": torch.optim.RAdam,
+    "RMSprop": torch.optim.RMSprop,
+    "Rprop": torch.optim.Rprop,
+    "SGD": torch.optim.SGD,
+}
 
 def get_architecture(
     input_size: int, output_size: int, n_layers: int, cfg: dict
@@ -149,23 +163,7 @@ def get_bias(n_layers: int, cfg: dict) -> List[Any]:
 # -----------------------------------------------------------------------------
 # -- Neural net class ---------------------------------------------------------
 # -----------------------------------------------------------------------------
-
-
-class NeuralNet(nn.Module):
-    OPTIMIZERS = {
-        "Adagrad": torch.optim.Adagrad,
-        "Adam": torch.optim.Adam,
-        "AdamW": torch.optim.AdamW,
-        "SparseAdam": torch.optim.SparseAdam,
-        "Adamax": torch.optim.Adamax,
-        "ASGD": torch.optim.ASGD,
-        "LBFGS": torch.optim.LBFGS,
-        "NAdam": torch.optim.NAdam,
-        "RAdam": torch.optim.RAdam,
-        "RMSprop": torch.optim.RMSprop,
-        "Rprop": torch.optim.Rprop,
-        "SGD": torch.optim.SGD,
-    }
+class BaseNN(nn.Module):
 
     def __init__(
         self,
@@ -176,15 +174,12 @@ class NeuralNet(nn.Module):
         nodes_per_layer: dict,
         activation_funcs: dict,
         biases: dict,
-        prior: Union[list, dict] = None,
-        prior_max_iter: int = 500,
-        prior_tol: float = 1e-5,
         optimizer: str = "Adam",
         learning_rate: float = 0.002,
         optimizer_kwargs: dict = {},
         **__,
     ):
-        """
+        """ Base neural network architecture class.
 
         :param input_size: the number of input values
         :param output_size: the number of output values
@@ -236,9 +231,55 @@ class NeuralNet(nn.Module):
             self.layers.append(layer)
 
         # Get the optimizer
-        self.optimizer = self.OPTIMIZERS[optimizer](
+        self.optimizer = OPTIMIZERS[optimizer](
             self.parameters(), lr=learning_rate, **optimizer_kwargs
         )
+
+class FeedForwardNN(BaseNN):
+
+    def __init__(
+        self,
+        *,
+        input_size: int,
+        output_size: int,
+        num_layers: int,
+        nodes_per_layer: dict,
+        activation_funcs: dict,
+        biases: dict,
+        prior: Union[list, dict] = None,
+        prior_max_iter: int = 500,
+        prior_tol: float = 1e-5,
+        optimizer: str = "Adam",
+        learning_rate: float = 0.002,
+        optimizer_kwargs: dict = {},
+        **__,
+    ):
+        """ Standard feed-forward architecture neural network class.
+
+        :param input_size: the number of input values
+        :param output_size: the number of output values
+        :param num_layers: the number of hidden layers
+        :param nodes_per_layer: a dictionary specifying the number of nodes per layer
+        :param activation_funcs: a dictionary specifying the activation functions to use
+        :param biases: a dictionary containing the initialisation parameters for the bias
+        :param prior (optional): initial prior distribution of the parameters. If given, the neural net will
+            initially output a random value within that distribution.
+        :param prior_tol (optional): the tolerance with which the prior distribution should be met
+        :param prior_max_iter (optional): maximum number of training iterations to hit the prior target
+        :param optimizer: the name of the optimizer to use. Default is the torch.optim.Adam optimizer.
+        :param learning_rate: the learning rate of the optimizer. Default is 1e-3.
+        :param __: Additional model parameters (ignored)
+        """
+
+        super().__init__(input_size=input_size,
+                         output_size=output_size,
+                         num_layers=num_layers,
+                         nodes_per_layer=nodes_per_layer,
+                         activation_funcs=activation_funcs,
+                         biases=biases,
+                         optimizer=optimizer,
+                         learning_rate=learning_rate,
+                         optimizer_kwargs=optimizer_kwargs)
 
         # Get the initial distribution and initialise
         self.prior_distribution = prior
@@ -285,3 +326,63 @@ class NeuralNet(nn.Module):
             else:
                 x = self.activation_funcs[i](self.layers[i](x))
         return x
+
+class RNN(BaseNN):
+
+    def __init__(
+        self,
+        *,
+        input_size: int,
+        output_size: int,
+        latent_dim: int,
+        num_layers: int,
+        nodes_per_layer: dict,
+        activation_funcs: dict,
+        biases: dict,
+        initial_latent_state: torch.Tensor = None,
+        optimizer: str = "Adam",
+        learning_rate: float = 0.002,
+        optimizer_kwargs: dict = {},
+        **__,
+    ):
+        """ Recurrent neural network with an z-dimensional latent dimension
+
+        :param input_size: the number of input values
+        :param output_size: the number of output values
+        :param latent_dim: latent dimension
+        :param num_layers: the number of hidden layers
+        :param nodes_per_layer: a dictionary specifying the number of nodes per layer
+        :param activation_funcs: a dictionary specifying the activation functions to use
+        :param biases: a dictionary containing the initialisation parameters for the bias
+        :param optimizer: the name of the optimizer to use. Default is the torch.optim.Adam optimizer.
+        :param learning_rate: the learning rate of the optimizer. Default is 1e-3.
+        :param __: Additional model parameters (ignored)
+        """
+
+        super().__init__(input_size=input_size + latent_dim,
+                         output_size=output_size + latent_dim,
+                         num_layers=num_layers,
+                         nodes_per_layer=nodes_per_layer,
+                         activation_funcs=activation_funcs,
+                         biases=biases,
+                         optimizer=optimizer,
+                         learning_rate=learning_rate,
+                         optimizer_kwargs=optimizer_kwargs)
+        self.latent_dim = latent_dim
+        self.z = initial_latent_state if initial_latent_state is not None else torch.zeros(latent_dim)
+
+
+    # ... Evaluation functions .........................................................................................
+
+    # The model forward pass
+    def forward(self, x, z = None):
+
+        if z is None:
+            x = torch.cat([x, self.z])
+        for i in range(len(self.layers)):
+            if self.activation_funcs[i] is None:
+                x = self.layers[i](x)
+            else:
+                x = self.activation_funcs[i](self.layers[i](x))
+        self.z = x[self.latent_dim:]
+        return x[:self.latent_dim]
