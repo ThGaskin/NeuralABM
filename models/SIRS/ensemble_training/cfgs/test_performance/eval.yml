@@ -1,0 +1,50 @@
+loss:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.errorbands
+  select_and_combine:
+    fields:
+      loss:
+        path: loss
+        transform:
+          - .isel_with_drop: [!dag_prev , {epoch: -1}]
+  transform:
+    - .mean: [!dag_tag loss, 'seed']
+    - .std: [!dag_tag loss, 'seed']
+    - xr.Dataset:
+        - mean: !dag_node -2
+          std: !dag_prev
+      tag: data
+  x: n_train
+  y: mean
+  yerr: std
+  hue: kind
+
+# True and predicted data
+data:
+  based_on:
+    - .creator.multiverse
+    - .plot.facet_grid.line_and_scatter
+  select_and_combine:
+    fields:
+      Y:
+        path: Y
+        transform: [.data]
+      Y_pred:
+        path: Y_pred
+        transform: [ .data ]
+    subspace:
+      seed: 0
+  transform:
+    - xr.Dataset:
+        - Y: !dag_tag Y
+          Y_pred: !dag_tag Y_pred
+      tag: data
+  y: Y_pred
+  scatter: Y
+  x: Time
+  col: dset_id
+  row: n_train
+  hue: Compartment
+  scatter_kwargs:
+    s: 0.1
