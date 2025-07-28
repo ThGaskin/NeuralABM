@@ -7,20 +7,35 @@ Data:
   # Alternatively, generate synthetic data for each ensemble member
   synthetic_data:
 
+    # Number of training sets
+    n_train: 4
+
+    # Number of test sets
+    n_test: 2
+
     # Initial condition: must be given as a vector of normalised densities
     y0: [0.9, 0.1, 0]
 
-    # Parameters
+    # Parameters: can be a single value, a list of parameters - one for each training and test set -- or a dictionary
+    # specifying how to generate random values
     k_S: 0.0
-    k_I: 0.4
-    k_R: 0.2
+    k_I:
+      distribution: uniform
+      parameters:
+        lower: 0.
+        upper: 2
+    k_R:
+      distribution: uniform
+      parameters:
+        lower: 0.0
+        upper: 0.3
     noise: 0.03 # Multiplicative noise variance
 
     # Time range; together with dt this determines the number of time steps
-    t_span: [0, 100]
+    t_span: [0, 50]
 
     # Time differential
-    dt: 0.1
+    dt: 0.5
 
 # Here you can select which parameters to learn; if not all parameters are to be learned, you must supply the values
 # to use for the others during training in the `fixed_parameters` entry
@@ -53,7 +68,6 @@ NeuralNet:
 
 # Training settings
 Training:
-  num_epochs: 1000
 
   # Loss function to use
   loss_function:

@@ -35,54 +35,30 @@ parameter_trajectories:
       x: [0, 1]
       y: [0.01, 0.3]
 
-time_series:
+Y:
   based_on:
     - .creator.multiverse
-    - .plot.facet_grid.errorbands
+    - .plot.facet_grid.errorbands_and_scatter
   select_and_combine:
     fields:
       Y_pred: Y_pred
       Y: Y
   transform:
+    - .sel_with_drop: [!dag_tag Y, {seed: 0}]
+      tag: Y_data
     - .mean: [!dag_tag Y_pred, 'seed']
     - .std: [!dag_tag Y_pred, 'seed']
     - xr.Dataset:
         - mean: !dag_node -2
           std: !dag_node -1
+          true_data: !dag_tag Y_data
       tag: data
-    - .coords: [!dag_tag Y, 'Time']
-      tag: t
-    - .sel: [!dag_tag Y, {seed: 0, Compartment: S}]
-      tag: true_S
-    - .sel: [ !dag_tag Y, { seed: 0, Compartment: I}]
-      tag: true_I
-    - .sel: [ !dag_tag Y, { seed: 0, Compartment: R}]
-      tag: true_R
   x: Time
   y: mean
   yerr: std
+  scatter: true_data
   hue: Compartment
-  helpers:
-    call:
-      functions:
-        - function: [ matplotlib.pyplot, scatter ]
-          args: [ !dag_result t, !dag_result true_S ]
-          marker: 'o'
-          c: !dag_result c_lightgreen
-          lw: 0
-          s: 3
-          zorder: 10
-        - function: [ matplotlib.pyplot, scatter ]
-          args: [ !dag_result t, !dag_result true_I ]
-          marker: 'o'
-          c: !dag_result c_red
-          lw: 0
-          s: 3
-          zorder: 10
-        - function: [ matplotlib.pyplot, scatter ]
-          args: [ !dag_result t, !dag_result true_R ]
-          marker: 'o'
-          c: !dag_result c_darkblue
-          lw: 0
-          s: 3
-          zorder: 10
+  #col: dset_id
+  col_wrap: 3
+  scatter_kwargs:
+    s: 0.1

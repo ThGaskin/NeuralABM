@@ -11,6 +11,7 @@ executable_control:
 
 parameter_space:
   num_epochs: 100
+  batch_size: 1
   write_start: 1
   write_every: 1
 

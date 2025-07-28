@@ -160,7 +160,7 @@ loss:
     - .plot.facet_grid.line
   select:
     data: loss
-  color: black
+  hue: kind
   helpers:
     set_labels:
       x: Batch
@@ -178,7 +178,7 @@ predictions_uni:
       path: parameters
       transform:
         - .data: [ !dag_prev ]
-  col: parameter
+  hue: parameter
   sharey: False
   style:
     figure.figsize: [ !dag_result half_width, !dag_result half_width ]
@@ -206,6 +206,7 @@ time_series:
   based_on:
     - .creator.universe
     - .plot.facet_grid.line
+    - .plot.facet_grid.with_auto_encoding
   select:
     data:
       path: Y_pred
@@ -239,3 +240,11 @@ initial_values:
     set_labels:
       x: ''
       y: ''
+
+.plot.facet_grid.line_and_scatter:
+  based_on: .plot.facet_grid
+  kind: line_and_scatter
+
+.plot.facet_grid.errorbands_and_scatter:
+  based_on: .plot.facet_grid
+  kind: errorbands_and_scatter

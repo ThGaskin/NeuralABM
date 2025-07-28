@@ -1,7 +1,8 @@
 Neural parameter inference for the SIRS model of infection
 ---
-This model is a simple toy model of the spread of infection: the Susceptible-Infected-Recovered-Susceptible compartmental
-model. Three comparments of susceptible, infected, and recovered agents interact via
+The Susceptible-Infected-Recovered-Susceptible compartmental
+model is a simple toy model of the spread of infection. Three comparments of susceptible, infected, and recovered agents 
+interact via the following reaction scheme:
 
 $$S \overset{k_I}{\longrightarrow} I \overset{k_R}{\longrightarrow} R \overset{k_S}{\longrightarrow} S.$$
 

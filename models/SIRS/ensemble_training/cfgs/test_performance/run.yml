@@ -1,0 +1,26 @@
+perform_sweep: True
+paths:
+  model_note: test_performance
+parameter_space:
+  seed: !sweep
+    default: 1
+    range: [10]
+  num_epochs: 1000
+  write_start: 999
+  write_every: 1
+  SIRS:
+    Data:
+      synthetic_data:
+        k_S:
+          distribution: uniform
+          parameters:
+            lower: 0
+            upper: 0.5
+        n_train: !sweep
+          default: 4
+          values: [2, 4, 6, 8, 10, 12, 14]
+
+        # Number of test sets
+        n_test: 20
+    Learning:
+      parameters_to_learn: [ k_S, k_I, k_R ]

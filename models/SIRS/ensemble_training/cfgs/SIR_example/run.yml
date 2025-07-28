@@ -10,4 +10,4 @@ parameter_space:
   write_every: 1
   SIRS:
     Data:
-      load_from: data/SIR_data.nc
+      load_from: models/SIRS/data/SIR_data.nc

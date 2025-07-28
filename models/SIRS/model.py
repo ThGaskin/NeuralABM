@@ -8,7 +8,7 @@ import torch
 # Import the solver module (located in `include`)
 import sys
 from os.path import dirname as up
-from dantro._import_tools import imt_module_from_path
+from dantro._import_tools import import_module_from_path
 sys.path.append(up(up(__file__)))
 include = import_module_from_path(mod_path=up(up(__file__)), mod_str="include")
 from include.solvers import torchdiffeq_solver

@@ -53,4 +53,4 @@ register_operation(name=".step", func=lambda d: d.step)
 from .bar import bar, hist
 from .data_ops import *
 from .nw_ops import *
-from .prob_density import *
+from .plots import *

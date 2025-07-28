@@ -1,13 +1,10 @@
-import copy
-from typing import Sequence, Union
-
-import scipy.ndimage
 import xarray as xr
-from dantro.plot.funcs._utils import plot_errorbar
 from dantro.plot.funcs.generic import make_facet_grid_plot
-
+import copy
+from typing import Union, Sequence
 from utopya.eval import PlotHelper, is_plot_func
-
+import scipy
+from dantro.plot.funcs._utils import plot_errorbar
 
 @make_facet_grid_plot(
     map_as="dataset",
@@ -142,3 +139,138 @@ def plot_prob_density(
             linestyle=linestyle,
             **plot_kwargs,
         )
+
+
+@make_facet_grid_plot(
+    map_as="dataset",
+    encodings=("x", "y", "hue", "col", "row"),
+    supported_hue_styles=("discrete",),
+    hue_style="discrete",
+    add_guide=False,
+    register_as_kind="line_and_scatter"
+)
+def line_and_scatter(
+    ds: xr.Dataset,
+    hlpr: PlotHelper,
+    *,
+    _is_facetgrid: bool,
+    x: str = None,
+    y: str = None,
+    scatter: str,
+    hue: str,
+    add_legend: bool = True,
+    line_kwargs: dict = {},
+    scatter_kwargs: dict = {}
+):
+    """ Combined line and scatter plot.
+
+    :param ds:
+    :param hlpr:
+    :param _is_facetgrid:
+    :param x:
+    :param y:
+    :param scatter:
+    :param hue:
+    :param add_legend:
+    :param line_kwargs:
+    :param scatter_kwargs:
+    :return:
+    """
+    handles = []
+    labels = []
+    for i, coord in enumerate(ds.coords[hue].values):
+        _handle = hlpr.ax.plot(ds.coords[x].data, ds[y].sel({hue: coord}), **line_kwargs, label=coord)
+        _handle_2 = hlpr.ax.scatter(ds.coords[x].data, ds[scatter].sel({hue: coord}), **scatter_kwargs, label=None)
+        handles.append(_handle[0])
+        labels.append(f"{coord}")
+
+    # Create a dummy handle for the legend
+    from matplotlib.lines import Line2D
+
+    true_data_handle = Line2D(
+        [], [],
+        marker=_handle_2.get_paths()[0],  # Optional: match marker style
+        markersize=_handle_2.get_sizes()[0]**0.5,
+        linestyle='None',
+        color='grey',
+        label='True data',
+        markerfacecolor='grey',
+        markeredgecolor='grey'
+    )
+
+    handles.append(true_data_handle)
+    labels.append('True data')
+
+    # Add legend
+    if not _is_facetgrid:
+        if add_legend:
+            hlpr.ax.legend(handles, labels, title=hue)
+    else:
+        hlpr.track_handles_labels(handles, labels)
+        if add_legend:
+            hlpr.provide_defaults("set_figlegend", title=hue)
+
+@make_facet_grid_plot(
+    map_as="dataset",
+    encodings=("x", "y", "hue", "col", "row"),
+    supported_hue_styles=("discrete",),
+    hue_style="discrete",
+    add_guide=False,
+    register_as_kind="errorbands_and_scatter"
+)
+def errorbands_and_scatter(
+        ds: xr.Dataset,
+        hlpr: PlotHelper,
+        *,
+        _is_facetgrid: bool,
+        x: str = None,
+        y: str,
+        yerr: str,
+        scatter: str,
+        hue: str,
+        add_legend: bool = True,
+        line_kwargs: dict = {},
+        scatter_kwargs: dict = {}
+):
+    handles = []
+    labels = []
+    for i, coord in enumerate(ds.coords[hue].values):
+        _handle = plot_errorbar(
+            ax=hlpr.ax,
+            x=ds.coords[x].data,
+            y=ds.sel({hue: coord})[y],
+            yerr=ds.sel({hue:coord})[yerr],
+            label=f'{coord}',
+            fill_between=True,
+            **line_kwargs
+        )
+        _handle_2 = hlpr.ax.scatter(ds.coords[x].data, ds[scatter].sel({hue: coord}), **scatter_kwargs,
+                                    label=None)
+        handles.append(_handle)
+        labels.append(f"{coord}")
+
+    # Create a dummy handle for the legend
+    from matplotlib.lines import Line2D
+
+    true_data_handle = Line2D(
+        [], [],
+        marker=_handle_2.get_paths()[0],  # Optional: match marker style
+        markersize=_handle_2.get_sizes()[0]**0.5,
+        linestyle='None',
+        color='grey',
+        label='True data',
+        markerfacecolor='grey',
+        markeredgecolor='grey'
+    )
+
+    handles.append(true_data_handle)
+    labels.append('True data')
+
+    # Add legend
+    if not _is_facetgrid:
+        if add_legend:
+            hlpr.ax.legend(handles, labels, title=hue)
+    else:
+        hlpr.track_handles_labels(handles, labels)
+        if add_legend:
+            hlpr.provide_defaults("set_figlegend", title=hue)
