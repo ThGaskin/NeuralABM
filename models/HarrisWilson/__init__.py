@@ -1,2 +1,1 @@
-from .ABM import HarrisWilsonABM
-from .DataGeneration import get_HW_data
+from .ensemble_training import HarrisWilsonABM, get_HW_data

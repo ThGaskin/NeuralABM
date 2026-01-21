@@ -71,7 +71,7 @@ def apply_along_dim(func):
                 )
 
             # Merge the datasets into one and return
-            return xr.merge(dsets)
+            return xr.merge(dsets, join='outer', compat='no_conflicts')
 
         else:
             return func(*args, **kwargs)

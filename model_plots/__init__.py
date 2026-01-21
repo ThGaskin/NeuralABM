@@ -15,7 +15,6 @@ matplotlib.use("Agg")
 import numpy as np
 import pandas as pd
 import xarray as xr
-
 from utopya.eval import register_operation
 
 register_operation(name="pd.Index", func=pd.Index)
@@ -50,7 +49,12 @@ register_operation(name="np.ones", func=np.ones)
 register_operation(name=".start", func=lambda d: d.start)
 register_operation(name=".stop", func=lambda d: d.stop)
 register_operation(name=".step", func=lambda d: d.step)
+
 from .bar import bar, hist
 from .data_ops import *
 from .nw_ops import *
-from .prob_density import *
+from .plots import *
+
+# Model operations
+from .Covid import *
+from .SIR import *

@@ -1,5 +1,4 @@
 import logging
-
 import numpy as np
 import torch
 import xarray as xr
@@ -10,7 +9,6 @@ from models.SIR import generate_smooth_data
 from utopya.eval import is_operation
 
 log = logging.getLogger(__name__)
-
 
 def _adjust_for_time_dependency(
     param_cfg: dict, cfg: dict, true_counts: xr.Dataset

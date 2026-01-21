@@ -12,7 +12,7 @@ sys.path.insert(0, up(up(up(__file__))))
 SIR = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="models.SIR")
 vec = import_module_from_path(mod_path=up(up(up(__file__))), mod_str="include.vector")
 
-Agent = SIR.ABM.Agent
+Agent = SIR.Agent
 Vector = vec.Vector
 
 # Load the test config
@@ -85,7 +85,7 @@ def test_ABM():
 
     for entry in test_cfg:
         ABM_cfg = test_cfg[entry]
-        ABM = SIR.SIR_ABM(**ABM_cfg)
+        ABM = SIR.ABM(**ABM_cfg)
 
         assert ABM
         assert ABM.N == ABM_cfg["N"]
@@ -115,7 +115,7 @@ def test_ABM():
 def test_dynamics():
     """Test basic dynamics work"""
     cfg = test_cfg["dynamics"]
-    ABM = SIR.SIR_ABM(**cfg)
+    ABM = SIR.ABM(**cfg)
     for n in range(cfg["num_steps"]):
         ABM.run_single()
         assert torch.sum(ABM.current_counts) == ABM.N
@@ -135,7 +135,7 @@ def test_no_dynamics():
     """Test nothing happens when p_infect is 0 and t_infectious > num_steps"""
 
     cfg = test_cfg["no_dynamics"]
-    ABM = SIR.SIR_ABM(**cfg)
+    ABM = SIR.ABM(**cfg)
     for n in range(cfg["num_steps"]):
         ABM.run_single()
         assert torch.sum(ABM.current_counts) == ABM.N
@@ -152,7 +152,7 @@ def test_full_recovery():
     """Test all agents make a full recovery"""
 
     cfg = test_cfg["full_recovery"]
-    ABM = SIR.SIR_ABM(**cfg)
+    ABM = SIR.ABM(**cfg)
     for n in range(cfg["num_steps"]):
         ABM.run_single()
 

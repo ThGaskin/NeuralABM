@@ -14,7 +14,6 @@ log = logging.getLogger(__name__)
 
 from ..SIR.trajectories_from_densities import _adjust_for_time_dependency
 
-
 def _combine_compartments(
     da: Union[xr.DataArray, xr.Dataset],
     combine: dict,

@@ -1,4 +1,2 @@
-from .ABM import SIR_ABM
-from .DataGeneration import generate_smooth_data, get_SIR_data
-from .Langevin import SIR_Langevin_sampler as Langevin_sampler
-from .NN import SIR_NN as NN
+from .ensemble_training.ABM import SIR_ABM as ABM, Agent
+from .ensemble_training import NN as SIR_NN, get_SIR_data, generate_smooth_data

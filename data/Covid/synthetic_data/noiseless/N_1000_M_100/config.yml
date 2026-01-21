@@ -1,0 +1,11 @@
+N_destination: 100
+N_origin: 1000
+alpha: 1.2
+beta: 4
+dt: 0.01
+epsilon: 10
+init_weights: {mean: 1.2, std: 1.2}
+kappa: 2
+num_steps: 5000
+sigma: 0
+training_data_size: 1

@@ -53,6 +53,20 @@ ACTIVATION_FUNCS = {
     "threshold": [torch.nn.Threshold, True],
 }
 
+OPTIMIZERS = {
+    "Adagrad": torch.optim.Adagrad,
+    "Adam": torch.optim.Adam,
+    "AdamW": torch.optim.AdamW,
+    "SparseAdam": torch.optim.SparseAdam,
+    "Adamax": torch.optim.Adamax,
+    "ASGD": torch.optim.ASGD,
+    "LBFGS": torch.optim.LBFGS,
+    "NAdam": torch.optim.NAdam,
+    "RAdam": torch.optim.RAdam,
+    "RMSprop": torch.optim.RMSprop,
+    "Rprop": torch.optim.Rprop,
+    "SGD": torch.optim.SGD,
+}
 
 def get_architecture(
     input_size: int, output_size: int, n_layers: int, cfg: dict
@@ -67,6 +81,31 @@ def get_architecture(
 
     return [input_size] + _nodes + [output_size]
 
+def get_single_layer_func(layer_cfg: Union[str, dict]) -> callable:
+
+    """Return the activation function from an entry for a single layer"""
+
+    # Entry is a single string
+    if isinstance(layer_cfg, str):
+        _f = ACTIVATION_FUNCS[layer_cfg.lower()]
+        if _f[1]:
+            return _f[0]()
+        else:
+            return _f[0]
+
+    # Entry is a dictionary containing args and kwargs
+    elif isinstance(layer_cfg, dict):
+        _f = ACTIVATION_FUNCS[layer_cfg.get("name").lower()]
+        if _f[1]:
+            return _f[0](*layer_cfg.get("args", ()), **layer_cfg.get("kwargs", {}))
+        else:
+            return _f[0]
+
+    elif layer_cfg is None:
+        _f = ACTIVATION_FUNCS["linear"][0]
+
+    else:
+        raise ValueError(f"Unrecognized activation function {layer_cfg}!")
 
 def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
     """Extracts the activation functions from the config. The config is a dictionary containing the
@@ -86,38 +125,13 @@ def get_activation_funcs(n_layers: int, cfg: dict) -> List[callable]:
                 - +2  # max_value
     """
 
-    def _single_layer_func(layer_cfg: Union[str, dict]) -> callable:
-        """Return the activation function from an entry for a single layer"""
-
-        # Entry is a single string
-        if isinstance(layer_cfg, str):
-            _f = ACTIVATION_FUNCS[layer_cfg.lower()]
-            if _f[1]:
-                return _f[0]()
-            else:
-                return _f[0]
-
-        # Entry is a dictionary containing args and kwargs
-        elif isinstance(layer_cfg, dict):
-            _f = ACTIVATION_FUNCS[layer_cfg.get("name").lower()]
-            if _f[1]:
-                return _f[0](*layer_cfg.get("args", ()), **layer_cfg.get("kwargs", {}))
-            else:
-                return _f[0]
-
-        elif layer_cfg is None:
-            _f = ACTIVATION_FUNCS["linear"][0]
-
-        else:
-            raise ValueError(f"Unrecognized activation function {cfg}!")
-
     # Use default activation function on all layers
-    _funcs = [_single_layer_func(cfg.get("default"))] * (n_layers + 1)
+    _funcs = [get_single_layer_func(cfg.get("default"))] * (n_layers + 1)
 
     # Change activation functions on specified layers
     _layer_specific = cfg.get("layer_specific", {})
     for layer_id, layer_cfg in _layer_specific.items():
-        _funcs[layer_id] = _single_layer_func(layer_cfg)
+        _funcs[layer_id] = get_single_layer_func(layer_cfg)
 
     return _funcs
 
@@ -149,23 +163,7 @@ def get_bias(n_layers: int, cfg: dict) -> List[Any]:
 # -----------------------------------------------------------------------------
 # -- Neural net class ---------------------------------------------------------
 # -----------------------------------------------------------------------------
-
-
-class NeuralNet(nn.Module):
-    OPTIMIZERS = {
-        "Adagrad": torch.optim.Adagrad,
-        "Adam": torch.optim.Adam,
-        "AdamW": torch.optim.AdamW,
-        "SparseAdam": torch.optim.SparseAdam,
-        "Adamax": torch.optim.Adamax,
-        "ASGD": torch.optim.ASGD,
-        "LBFGS": torch.optim.LBFGS,
-        "NAdam": torch.optim.NAdam,
-        "RAdam": torch.optim.RAdam,
-        "RMSprop": torch.optim.RMSprop,
-        "Rprop": torch.optim.Rprop,
-        "SGD": torch.optim.SGD,
-    }
+class BaseNN(nn.Module):
 
     def __init__(
         self,
@@ -176,15 +174,12 @@ class NeuralNet(nn.Module):
         nodes_per_layer: dict,
         activation_funcs: dict,
         biases: dict,
-        prior: Union[list, dict] = None,
-        prior_max_iter: int = 500,
-        prior_tol: float = 1e-5,
         optimizer: str = "Adam",
         learning_rate: float = 0.002,
         optimizer_kwargs: dict = {},
         **__,
     ):
-        """
+        """ Base neural network architecture class.
 
         :param input_size: the number of input values
         :param output_size: the number of output values
@@ -236,9 +231,55 @@ class NeuralNet(nn.Module):
             self.layers.append(layer)
 
         # Get the optimizer
-        self.optimizer = self.OPTIMIZERS[optimizer](
+        self.optimizer = OPTIMIZERS[optimizer](
             self.parameters(), lr=learning_rate, **optimizer_kwargs
         )
+
+class FeedForwardNN(BaseNN):
+
+    def __init__(
+        self,
+        *,
+        input_size: int,
+        output_size: int,
+        num_layers: int,
+        nodes_per_layer: dict,
+        activation_funcs: dict,
+        biases: dict,
+        prior: Union[list, dict] = None,
+        prior_max_iter: int = 500,
+        prior_tol: float = 1e-5,
+        optimizer: str = "Adam",
+        learning_rate: float = 0.002,
+        optimizer_kwargs: dict = {},
+        **__,
+    ):
+        """ Standard feed-forward architecture neural network class.
+
+        :param input_size: the number of input values
+        :param output_size: the number of output values
+        :param num_layers: the number of hidden layers
+        :param nodes_per_layer: a dictionary specifying the number of nodes per layer
+        :param activation_funcs: a dictionary specifying the activation functions to use
+        :param biases: a dictionary containing the initialisation parameters for the bias
+        :param prior (optional): initial prior distribution of the parameters. If given, the neural net will
+            initially output a random value within that distribution.
+        :param prior_tol (optional): the tolerance with which the prior distribution should be met
+        :param prior_max_iter (optional): maximum number of training iterations to hit the prior target
+        :param optimizer: the name of the optimizer to use. Default is the torch.optim.Adam optimizer.
+        :param learning_rate: the learning rate of the optimizer. Default is 1e-3.
+        :param __: Additional model parameters (ignored)
+        """
+
+        super().__init__(input_size=input_size,
+                         output_size=output_size,
+                         num_layers=num_layers,
+                         nodes_per_layer=nodes_per_layer,
+                         activation_funcs=activation_funcs,
+                         biases=biases,
+                         optimizer=optimizer,
+                         learning_rate=learning_rate,
+                         optimizer_kwargs=optimizer_kwargs)
 
         # Get the initial distribution and initialise
         self.prior_distribution = prior
@@ -285,3 +326,87 @@ class NeuralNet(nn.Module):
             else:
                 x = self.activation_funcs[i](self.layers[i](x))
         return x
+
+class RNN(BaseNN):
+
+    def __init__(
+        self,
+        *,
+        input_size: int,
+        output_size: int,
+        latent_dim: int,
+        num_layers: int,
+        nodes_per_layer: dict,
+        activation_funcs: dict,
+        latent_activation_func: Union[str, dict] = 'tanh',
+        biases: dict,
+        initial_latent_state: torch.Tensor = None,
+        optimizer: str = "Adam",
+        learning_rate: float = 0.002,
+        optimizer_kwargs: dict = {},
+        **__,
+    ):
+        """ Vanilla recurrent neural network with a z-dimensional latent dimension.
+
+        :param input_size: the number of input values
+        :param output_size: the number of output values
+        :param latent_dim: latent dimension
+        :param num_layers: the number of hidden layers
+        :param nodes_per_layer: a dictionary specifying the number of nodes per layer
+        :param activation_funcs: a dictionary specifying the activation functions to use
+        :param latent_activation_func: a dictionary specifying the activation function to use on the latent state.
+            Default is hyperbolic tangent.
+        :param biases: a dictionary containing the initialisation parameters for the bias
+        :param optimizer: the name of the optimizer to use. Default is the torch.optim.Adam optimizer.
+        :param learning_rate: the learning rate of the optimizer. Default is 1e-3.
+        :param __: Additional model parameters (ignored)
+        """
+
+        super().__init__(input_size=input_size + latent_dim,
+                         output_size=output_size + latent_dim,
+                         num_layers=num_layers,
+                         nodes_per_layer=nodes_per_layer,
+                         activation_funcs=activation_funcs,
+                         biases=biases,
+                         optimizer=optimizer,
+                         learning_rate=learning_rate,
+                         optimizer_kwargs=optimizer_kwargs)
+        self.latent_dim = latent_dim
+        self.z = initial_latent_state if initial_latent_state is not None else torch.zeros(latent_dim)
+        self.z0 = self.z.clone()
+
+        # Activation function to use on the hidden state
+        self.latent_activation_func = get_single_layer_func(latent_activation_func)
+        if self.latent_activation_func is not None:
+            f = self.activation_funcs[-1]
+            self.activation_funcs[-1] = lambda x: torch.cat((f(x[:-self.latent_dim]), self.latent_activation_func(x[-self.latent_dim:])))
+
+    # ... Evaluation functions .........................................................................................
+    # The model forward pass
+    def forward(self, x, z = None):
+
+        # 2D case: recursively apply 1D case
+        if x.dim() == 2:
+            return torch.stack([self.forward(x[i]) for i in range(len(x))])
+
+        # 1D case
+        if z is None:
+            x = torch.cat([x, self.z])
+        else:
+            x = torch.cat([x, z])
+        for i in range(len(self.layers)):
+            if self.activation_funcs[i] is None:
+                x = self.layers[i](x)
+            else:
+                x = self.activation_funcs[i](self.layers[i](x))
+        self.z = x[-self.latent_dim:]
+        return x[:-self.latent_dim]
+
+    def reset_hidden_state(self, z = None):
+        self.z = self.z0.clone() if z is None else z.clone()
+
+class GRU:
+    pass
+
+class LSTM:
+    pass
