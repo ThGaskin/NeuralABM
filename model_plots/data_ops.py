@@ -26,7 +26,7 @@ def concat(objs: Sequence, name: str, dims: Sequence, *args, **kwargs):
     :param kwargs: passed to ``xr.concat``
     :return: objects concatenated along the new dimension
     """
-    return xr.concat(objs, pd.Index(dims, name=name), *args, **kwargs)
+    return xr.concat(objs, pd.Index(dims, name=name, dtype=object), *args, **kwargs)
 
 
 @is_operation("flatten_dims")
