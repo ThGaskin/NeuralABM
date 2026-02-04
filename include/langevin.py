@@ -285,12 +285,12 @@ class MetropolisAdjustedLangevin:
                 - self.lr_fn(self.time) * self.grad[idx ^ 1] / self.P[1]
             )
             * self.P[1]
-            @ (
-                self.x[idx]
-                - self.x[idx ^ 1]
-                - self.lr_fn(self.time) * self.grad[idx ^ 1] / self.P[1]
+            * (
+                    self.x[idx]
+                    - self.x[idx ^ 1]
+                    - self.lr_fn(self.time) * self.grad[idx ^ 1] / self.P[1]
             )
-        )
+        ).sum()
 
     def sample_prob(self) -> torch.Tensor:
         """

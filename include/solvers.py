@@ -26,6 +26,7 @@ def torchdiffeq_solver(method: str = "dopri5",
                        adjoint: bool = False,
                        rtol: float = 1e-6,
                        atol: float = 1e-9,
+                       adjoint_params: Optional[Tuple] = None,
                        options: Optional[Dict] = None):
     """
     Turns an RHS f(t, y, *args, **kwargs) into a solver that calls torchdiffeq.
@@ -57,8 +58,13 @@ def torchdiffeq_solver(method: str = "dopri5",
             def fun(ti, yi):
                 return rhs(ti, yi, *args, **kwargs)
 
-            y = integrator(fun, y0, t, rtol=rtol, atol=atol, method=method, options=options)
-            # y shape: (len(t), *y0.shape)
+            # Call integrator with adjoint_params if using adjoint method
+            if adjoint:
+                y = integrator(fun, y0, t, rtol=rtol, atol=atol, method=method,
+                             options=options, adjoint_params=adjoint_params)
+            else:
+                y = integrator(fun, y0, t, rtol=rtol, atol=atol, method=method,
+                             options=options)
             return t, y
         return solve
     return decorator

@@ -223,10 +223,12 @@ class BaseNN(nn.Module):
             if self.bias[i] is not None:
                 # Use the pytorch default if indicated
                 if self.bias[i] == "default":
-                    torch.nn.init.uniform_(layer.bias)
+                    pass
+
                 # Initialise the bias on explicitly provided intervals
                 else:
-                    torch.nn.init.uniform_(layer.bias, self.bias[i][0], self.bias[i][1])
+                    with torch.no_grad():
+                        torch.nn.init.uniform_(layer.bias, a=self.bias[i][0], b=self.bias[i][1])
 
             self.layers.append(layer)
 
@@ -379,7 +381,14 @@ class RNN(BaseNN):
         self.latent_activation_func = get_single_layer_func(latent_activation_func)
         if self.latent_activation_func is not None:
             f = self.activation_funcs[-1]
-            self.activation_funcs[-1] = lambda x: torch.cat((f(x[:-self.latent_dim]), self.latent_activation_func(x[-self.latent_dim:])))
+            if f is None:
+                # If the output activation is linear (None), only apply activation to latent part
+                self.activation_funcs[-1] = lambda x: torch.cat(
+                    (x[:-self.latent_dim], self.latent_activation_func(x[-self.latent_dim:])))
+            else:
+                # Apply respective activations to output and latent parts
+                self.activation_funcs[-1] = lambda x: torch.cat(
+                    (f(x[:-self.latent_dim]), self.latent_activation_func(x[-self.latent_dim:])))
 
     # ... Evaluation functions .........................................................................................
     # The model forward pass
