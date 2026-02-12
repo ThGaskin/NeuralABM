@@ -1,6 +1,6 @@
 from .loss_functions import get_loss_function, LOSS_FUNCTIONS
 from .graph import generate_graph, save_nw
-from .langevin import MetropolisAdjustedLangevin
+from .langevin import MetropolisAdjustedLangevin, pSGLD
 from .utils import *
 from .vector import *
 from .solvers import *
