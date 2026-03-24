@@ -77,11 +77,13 @@ self-generated estimated solution to the ODE (`recursive').
 
 Here, we infer two constant parameters, $k_R$ and $k_S$, as well as the time-varying component $k_I S$. The equations
 thus become
+
 $$\begin{align}
 \mathrm{d}S & = \lambda_2 R - \lambda_1(t) I \\
 \mathrm{d}I & = \lambda_1(t) I - \lambda_3 I \\
 \mathrm{d} R &= \lambda_3 I - \lambda_2 R
 \end{align}$$
+
 with $\lambda_1$ the output of a neural network $u_{\theta_1}(\mathbf{x}(t))$, and the constant parameters the
 output of a different network $u_{\theta_2}(\mathbf{Y})$. The first takes a single, time-dependent state (observed
 or self-predicted) as input, the second takes an entire time series as input.
@@ -89,17 +91,21 @@ or self-predicted) as input, the second takes an entire time series as input.
 **Unidentifiable formulation/Hybrid-2**
 
 Here we identify three time-dependent components:
+
 $$\begin{align}
 \mathrm{d}S & = -\lambda_1 + \lambda_3 \\
 \mathrm{d}I & = \lambda_1 - \lambda_2 \\
 \mathrm{d} R &= \lambda_2 - \lambda_3
 \end{align}$$
+
 This formulation is not identifiable. A single neural network is used to map the current state $\mathbf{x}(t)$ to
 the missing component vector $\mathbf{\lambda}(t) = (\lambda_1, \lambda_2, \lambda_3)$.
 
 **Neural ODE**
 Here, the entire right-hand side of the equation is replaced by a neural network:
+
 $$\begin{equation}
 \begin{pmatrix}\mathrm{d}S \\ \mathrm{d}I \\ \mathrm{d}R \end{pmatrix} = u_\theta
 \end{equation}$$
+
 Here again, the input to the neural network can either be the observed or self-generated data.
