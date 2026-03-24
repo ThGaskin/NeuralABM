@@ -578,8 +578,7 @@ always reconstruct which parameters you used to run a model. A couple of useful 
 > [!TIP]
 > Almost every aspect of running, evaluation, and configuring models is controllable from the configuration file. Take a
 > look at
->
-the [documentation entry](https://docs.utopia-project.org/html/ref/mv_base_cfg.html?highlight=worker%20manager#utopya-multiverse-base-configuration)
+> the [documentation entry](https://docs.utopia-project.org/html/ref/mv_base_cfg.html?highlight=worker%20manager#utopya-multiverse-base-configuration)
 > for a full overview of the keys and controls at your disposal.
 
 ## Evaluation and plotting
